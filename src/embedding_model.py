@@ -2,7 +2,6 @@
 """
 
 import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -61,15 +60,11 @@ class EmbModel(nn.Module):
         self.emb_layer_norm_before = getattr(self.args, "emb_layer_norm_before", False)
         if self.args.arch == "roberta_large":
             self.model_version = "ESM-1b"
-            # self._init_submodules_esm1b()
         else:
             self.model_version = "ESM-1"
-            # self._init_submodules_esm1()
 
     def _init_submodules_common(self):
-        # self.embed_tokens = nn.Embedding(
-        #     self.alphabet_size, self.args.embed_dim, padding_idx=self.padding_idx
-        # )
+
         self.layers = nn.ModuleList(
             [
                 TransformerLayer(
@@ -156,3 +151,13 @@ class EmbModel(nn.Module):
     @property
     def num_layers(self):
         return self.args.layers
+
+
+# class SaliencyWrapper(nn.Module):
+    
+#     def __init__(self, model):
+#         super(SaliencyWrapper, self).__init__()
+#         self.model = model
+        
+#     def forward(self, embeddings):        
+#         return self.model(embeddings)['logits']
