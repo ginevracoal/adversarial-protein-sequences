@@ -1,13 +1,18 @@
+import os
+import torch
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
-def plot_tokens_attention(scores_mat, sequence):
+def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filename=None):
+
+    layer_attention_scores = attentions[:,layer_idx-1,:,:,:].squeeze().detach().cpu().numpy()
+
     fig = plt.figure(figsize=(20, 20))
 
-    for idx, scores in enumerate(scores_mat):
+    for idx, scores in enumerate(layer_attention_scores):
         scores_np = np.array(scores)
         ax = fig.add_subplot(5, 4, idx+1)
         im = ax.imshow(scores, cmap='viridis')
@@ -25,10 +30,16 @@ def plot_tokens_attention(scores_mat, sequence):
     plt.tight_layout()
     plt.show()
 
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
     return fig
 
 
-def plot_representations_norms(norms_mat, sequence, chosen_idx):
+def plot_representations_norms(norms_mat, sequence, target_token_idx, filepath=None, filename=None):
+
     n_layers = norms_mat.shape[0]
 
     fig, ax = plt.subplots(figsize=(10,7))
@@ -41,7 +52,7 @@ def plot_representations_norms(norms_mat, sequence, chosen_idx):
     ax.set_xticklabels(sequence, fontdict=fontdict)
     ax.set_yticklabels(list(range(n_layers)), fontdict=fontdict, rotation=90)
 
-    x, y, w, h = chosen_idx, 0, 1, n_layers
+    x, y, w, h = target_token_idx, 0, 1, n_layers
     ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor='black', lw=2, clip_on=False))
     ax.tick_params(length=0)
 
@@ -51,12 +62,29 @@ def plot_representations_norms(norms_mat, sequence, chosen_idx):
     plt.tight_layout()
     plt.show()  
 
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
     return fig
 
-def plot_contact_maps(original_contacts, adversarial_contacts):
+def plot_contact_maps(original_contacts, adversarial_contacts, filepath=None, filename=None):
 
-    fig, ax = plt.subplots(figsize=(10, 6), ncols=2)
+    fig, ax = plt.subplots(figsize=(10, 4), ncols=3)
     ax[0].imshow(original_contacts, cmap="Blues")
     ax[1].imshow(adversarial_contacts, cmap="Blues")
+    ax[2].imshow(original_contacts-adversarial_contacts, cmap="Blues")
+
+    ax[0].set_xlabel('original')
+    ax[1].set_xlabel('adversarial')
+    ax[2].set_xlabel('orig-adv')
+
     plt.show()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
     return fig

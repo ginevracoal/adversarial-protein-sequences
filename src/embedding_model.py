@@ -103,7 +103,7 @@ class EmbModel(nn.Module):
         x = x.transpose(0, 1)
 
         # if not padding_mask.any():
-        padding_mask = None # todo: check this
+        padding_mask = None # todo: check this on multiple inputs with different lengths
 
         for layer_idx, layer in enumerate(self.bert.layers):
             x, attn = layer(
@@ -152,6 +152,13 @@ class EmbModel(nn.Module):
     def num_layers(self):
         return self.args.layers
 
+    def check_correctness(self, original_model, batch_tokens):
+        """ check output logits are equal """
+        
+        with torch.no_grad():
+            results = original_model(batch_tokens, repr_layers=[0])
+            first_embedding = results["representations"][0]
+            assert torch.all(torch.eq(self(first_embedding)['logits'], results['logits']))
 
 # class SaliencyWrapper(nn.Module):
     
