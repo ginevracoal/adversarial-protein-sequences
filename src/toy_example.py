@@ -51,17 +51,20 @@ plot_representations_norms(norms_mat=repr_norms_matrix.cpu().detach().numpy(), s
 
 # attack
 
+embedding_distance = 'cosine'
+
 signed_gradient = atk.perturb_embedding(first_embedding=first_embedding)
 
 adversarial_sequence = atk.attack_sequence(original_sequence=original_sequence, target_token_idx=target_token_idx, 
-    first_embedding=first_embedding, signed_gradient=signed_gradient, embedding_distance='cosine')
+    first_embedding=first_embedding, signed_gradient=signed_gradient, embedding_distance=embedding_distance)
 
 # contact maps
 
 original_contacts, adversarial_contacts = atk.compute_contact_maps(original_sequence, adversarial_sequence)
 
 fig = plot_contact_maps(original_contacts=original_contacts.detach().numpy(), 
-    adversarial_contacts=adversarial_contacts.detach().numpy(), filepath=plots_path, filename="contact_maps")
+    adversarial_contacts=adversarial_contacts.detach().numpy(), filepath=plots_path, 
+    filename="contact_maps_"+embedding_distance)
 
 
 

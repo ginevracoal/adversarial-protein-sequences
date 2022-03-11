@@ -85,6 +85,9 @@ class SequenceAttack():
         elif embedding_distance=='euclidean':
             # minimize euclidean distance
 
+            epsilon = 0.1
+            perturbed_embedding = first_embedding+epsilon*signed_gradient
+
             distances = torch.stack([torch.norm(perturbed_embedding-z_c) for z_c in token_representations])
             char_idx = torch.argmin(distances)
 
