@@ -25,11 +25,10 @@ class SequenceAttack():
 
         # divide rows by max values (i.e. in each layer)
         repr_norms_matrix = torch.nn.functional.normalize(repr_norms, p=2, dim=1)
-
+        
         # choose token idx that maximizes the sum of normalized scores in all layers
         target_token_idx = repr_norms_matrix.sum(dim=0).argmax().item()
 
-        print("\ntarget_token_idx =", target_token_idx)
         return target_token_idx, repr_norms_matrix
 
     def perturb_embedding(self, first_embedding):
@@ -50,10 +49,12 @@ class SequenceAttack():
         return signed_gradient
 
     def attack_sequence(self, original_sequence, target_token_idx, first_embedding, signed_gradient, 
-        embedding_distance='cosine'):
+        embedding_distance='cosine', verbose=False):
 
         current_token = str(list(original_sequence)[target_token_idx])
-        print(f"\ncurrent_token at position {target_token_idx} =", current_token)
+
+        if verbose:
+            print(f"\ncurrent_token at position {target_token_idx} =", current_token)
 
         tokens_list = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
         # print("\nother tokens:", tokens_list)
@@ -94,11 +95,12 @@ class SequenceAttack():
         else:
             raise NotImplementedError
 
-        print(f"\nnew token at position {target_token_idx} =", tokens_list[char_idx])
-        print("\nadversarial sequence =", perturbed_data[char_idx])
-        print(f"\n{embedding_distance} distance between embeddings =", distances[char_idx].item())
+        distance_bw_embeddings = distances[char_idx].item()
+        
+        if verbose:
+            print(f"\nnew token at position {target_token_idx} =", tokens_list[char_idx])
 
-        return perturbed_data[char_idx][1]
+        return perturbed_data[char_idx][1], distance_bw_embeddings
 
     def compute_contact_maps(self, original_sequence, adversarial_sequence):
 
@@ -109,8 +111,5 @@ class SequenceAttack():
 
         batch_labels, batch_strs, batch_tokens = batch_converter([('adv', adversarial_sequence)])
         adversarial_contacts = self.original_model.predict_contacts(batch_tokens)[0]
-
-        distance = torch.norm((original_contacts-adversarial_contacts).flatten()).item()
-        print("\nl2 distance bw contact maps =", distance)
 
         return original_contacts, adversarial_contacts

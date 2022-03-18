@@ -45,6 +45,7 @@ plot_tokens_attention(sequence=original_sequence, attentions=results['attentions
 # target token idx
 
 target_token_idx, repr_norms_matrix = atk.choose_target_token_idx(batch_tokens=batch_tokens)
+print("\ntarget_token_idx =", target_token_idx)
 
 plot_representations_norms(norms_mat=repr_norms_matrix.cpu().detach().numpy(), sequence=original_sequence, 
     target_token_idx=target_token_idx, filepath=plots_path, filename="representations_norms")
@@ -55,12 +56,19 @@ embedding_distance = 'cosine'
 
 signed_gradient = atk.perturb_embedding(first_embedding=first_embedding)
 
-adversarial_sequence = atk.attack_sequence(original_sequence=original_sequence, target_token_idx=target_token_idx, 
+adversarial_sequence, distance_bw_embeddings = atk.attack_sequence(original_sequence=original_sequence, 
+    target_token_idx=target_token_idx, verbose=True
     first_embedding=first_embedding, signed_gradient=signed_gradient, embedding_distance=embedding_distance)
+
+print("\nadversarial sequence =", adversarial_sequence)
+print(f"\n{embedding_distance} distance between embeddings =", distance_bw_embeddings)
 
 # contact maps
 
 original_contacts, adversarial_contacts = atk.compute_contact_maps(original_sequence, adversarial_sequence)
+
+distance = torch.norm((original_contacts-adversarial_contacts).flatten()).item()
+print("\nl2 distance bw contact maps =", distance)
 
 fig = plot_contact_maps(original_contacts=original_contacts.detach().numpy(), 
     adversarial_contacts=adversarial_contacts.detach().numpy(), filepath=plots_path, 

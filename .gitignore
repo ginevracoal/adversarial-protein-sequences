@@ -1,4 +1,5 @@
 *__pycache__
 src/plots/
 venv/
-
+src/data/
+*screenlog.0
