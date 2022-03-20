@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from paths import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_cmap_distances, plot_tokens_heatmap
+from plot_utils import plot_cmap_distances, plot_embeddings_distances, plot_tokens_heatmap
 from data_utils import filter_pfam, save_to_pickle, load_from_pickle
 
 
@@ -107,4 +107,5 @@ else:
     df.to_csv(os.path.join(out_data_path, filename+".csv"))
 
 plot_tokens_heatmap(df, filepath=plots_path, filename=filename+"_tokens_heatmap")
+plot_embeddings_distances(df, filepath=plots_path, filename=filename+"_embeddings_distances")
 plot_cmap_distances(cmap_distances, filepath=plots_path, filename=filename+"_cmap_distances")

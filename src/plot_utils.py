@@ -7,14 +7,27 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
+def plot_embeddings_distances(df, filepath=None, filename=None):
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+
+    sns.scatterplot(x=df['loss'], y=df['embeddings_distance'])
+
+    plt.tight_layout()
+    plt.show()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
+    return fig
+
 def plot_tokens_heatmap(df, filepath=None, filename=None):
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 4))
 
     sns.histplot(data=df, x="target_token_idx", hue="new_token", multiple="stack", discrete=True)
-
-    print(df['target_token_idx'])
-    print(df['new_token'])
 
     plt.tight_layout()
     plt.show()
