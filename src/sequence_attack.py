@@ -46,7 +46,7 @@ class SequenceAttack():
         # print(perturbed_embedding.shape)
         # print("\ndistance from the original embedding =", torch.norm(perturbed_embedding-first_embedding).item())
 
-        return signed_gradient
+        return signed_gradient, loss
 
     def attack_sequence(self, original_sequence, target_token_idx, first_embedding, signed_gradient, 
         embedding_distance='cosine', verbose=False):
@@ -95,12 +95,14 @@ class SequenceAttack():
         else:
             raise NotImplementedError
 
+        new_token = tokens_list[char_idx]
+        adversarial_sequence = perturbed_data[char_idx][1]
         distance_bw_embeddings = distances[char_idx].item()
-        
-        if verbose:
-            print(f"\nnew token at position {target_token_idx} =", tokens_list[char_idx])
 
-        return perturbed_data[char_idx][1], distance_bw_embeddings
+        if verbose:
+            print(f"\nnew token at position {target_token_idx} = {new_token}")
+            
+        return new_token, adversarial_sequence, distance_bw_embeddings
 
     def compute_contact_maps(self, original_sequence, adversarial_sequence):
 

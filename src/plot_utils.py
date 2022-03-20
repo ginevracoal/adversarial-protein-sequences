@@ -1,10 +1,50 @@
 import os
 import torch
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+
+def plot_tokens_heatmap(df, filepath=None, filename=None):
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    sns.histplot(data=df, x="target_token_idx", hue="new_token", multiple="stack", discrete=True)
+
+    print(df['target_token_idx'])
+    print(df['new_token'])
+
+    plt.tight_layout()
+    plt.show()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
+    return fig
+
+
+def plot_cmap_distances(cmap_distances, filepath=None, filename=None):
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    diagonal_idxs = np.repeat([range(1,cmap_distances.shape[1]+1)], repeats=cmap_distances.shape[0], axis=0)
+
+    sns.lineplot(x=diagonal_idxs.flatten(), y=cmap_distances.flatten())
+    ax.set(xlabel='k = len(sequence)-diag_idx', ylabel='l2 distance', 
+        title='dist. bw original and adversarial contact maps')
+
+    plt.tight_layout()
+    plt.show()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
+    return fig
 
 def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filename=None):
 

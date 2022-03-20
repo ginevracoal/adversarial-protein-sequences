@@ -54,9 +54,9 @@ plot_representations_norms(norms_mat=repr_norms_matrix.cpu().detach().numpy(), s
 
 embedding_distance = 'cosine'
 
-signed_gradient = atk.perturb_embedding(first_embedding=first_embedding)
+signed_gradient, loss = atk.perturb_embedding(first_embedding=first_embedding)
 
-adversarial_sequence, distance_bw_embeddings = atk.attack_sequence(original_sequence=original_sequence, 
+new_token, adversarial_sequence, distance_bw_embeddings = atk.attack_sequence(original_sequence=original_sequence, 
     target_token_idx=target_token_idx, verbose=True
     first_embedding=first_embedding, signed_gradient=signed_gradient, embedding_distance=embedding_distance)
 
