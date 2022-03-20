@@ -40,12 +40,13 @@ def plot_tokens_heatmap(df, filepath=None, filename=None):
     return fig
 
 
-def plot_cmap_distances(cmap_distances, filepath=None, filename=None):
+def plot_cmap_distances(df, filepath=None, filename=None):
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    diagonal_idxs = np.repeat([range(1,cmap_distances.shape[1]+1)], repeats=cmap_distances.shape[0], axis=0)
+    # diagonal_idxs = np.repeat([range(1,cmap_distances.shape[1]+1)], repeats=cmap_distances.shape[0], axis=0)
+    # sns.lineplot(x=diagonal_idxs.flatten(), y=cmap_distances.flatten())
 
-    sns.lineplot(x=diagonal_idxs.flatten(), y=cmap_distances.flatten())
+    sns.lineplot(x=df['k'], y=df['cmap_distance'])
     ax.set(xlabel='k = len(sequence)-diag_idx', ylabel='l2 distance', 
         title='dist. bw original and adversarial contact maps')
 

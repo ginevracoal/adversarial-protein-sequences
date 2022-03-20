@@ -31,10 +31,11 @@ filename = args.dataset
 if args.load:
 
     df = pd.read_csv(os.path.join(out_data_path, args.dataset+".csv"))
+    cmap_df = pd.read_csv(os.path.join(out_data_path, args.dataset+"_cmap_distances.csv"))
     print(df.describe())
 
-    cmap_distances = load_from_pickle(filepath=out_data_path, 
-        filename=filename+f"_cmap_dist_{args.cmap_dist_lbound}_{args.cmap_dist_ubound}")
+    # cmap_distances = load_from_pickle(filepath=out_data_path, 
+    #     filename=filename+f"_cmap_dist_{args.cmap_dist_lbound}_{args.cmap_dist_ubound}")
 
 else:
     data = filter_pfam(filepath=pfam_path, filename=filename)
@@ -47,8 +48,9 @@ else:
     n_layers = esm1_model.args.layers
 
     df = pd.DataFrame()
+    cmap_df = pd.DataFrame()
 
-    cmap_distances = []
+    # cmap_distances = []
 
     for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
 
@@ -83,10 +85,10 @@ else:
         # contact maps
         original_contacts, adversarial_contacts = atk.compute_contact_maps(original_sequence, adversarial_sequence)
         
-        topk_cmap_distances=[]
+        # topk_cmap_distances=[]
 
-        for k in torch.arange(len(original_sequence)-args.cmap_dist_lbound, 
-            len(original_sequence)-args.cmap_dist_ubound, 1):
+        for k_idx, k in enumerate(torch.arange(len(original_sequence)-args.cmap_dist_lbound, 
+            len(original_sequence)-args.cmap_dist_ubound, 1)):
 
             topk_original_contacts = torch.triu(original_contacts, diagonal=k)
             topk_adversarial_contacts = torch.triu(adversarial_contacts, diagonal=k)
@@ -94,18 +96,22 @@ else:
             cmap_distance = torch.norm((topk_original_contacts-topk_adversarial_contacts).flatten()).item()
             print(f"l2 distance bw contact maps diag {k} = {cmap_distance}")
 
-            topk_cmap_distances.append(cmap_distance)
+            cmap_df = cmap_df.append({'k':k_idx, 'cmap_distance':cmap_distance}, ignore_index=True)
 
-        cmap_distances.append(topk_cmap_distances)
+            # topk_cmap_distances.append(cmap_distance)
 
-    cmap_distances = np.array(cmap_distances)
-    save_to_pickle(cmap_distances, filepath=out_data_path, 
-        filename=filename+f"_cmap_dist_{args.cmap_dist_lbound}_{args.cmap_dist_ubound}")
+        # cmap_distances.append(topk_cmap_distances)
+
+    # cmap_distances = np.array(cmap_distances)
+    # save_to_pickle(cmap_distances, filepath=out_data_path, 
+    #     filename=filename+f"_cmap_dist_{args.cmap_dist_lbound}_{args.cmap_dist_ubound}")
 
     print(df)
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
     df.to_csv(os.path.join(out_data_path, filename+".csv"))
+    cmap_df.to_csv(os.path.join(out_data_path, filename+"_cmap_distances.csv"))
+
 
 plot_tokens_heatmap(df, filepath=plots_path, filename=filename+"_tokens_heatmap")
 plot_embeddings_distances(df, filepath=plots_path, filename=filename+"_embeddings_distances")
-plot_cmap_distances(cmap_distances, filepath=plots_path, filename=filename+"_cmap_distances")
+plot_cmap_distances(cmap_df, filepath=plots_path, filename=filename+"_cmap_distances")
