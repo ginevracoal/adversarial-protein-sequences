@@ -15,7 +15,7 @@ from data_utils import filter_pfam, save_to_pickle, load_from_pickle
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Variational strategy")
+parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--embedding_distance", default='cosine', type=str, help="Distance measure between representations \
     in the first embedding space")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
