@@ -70,7 +70,7 @@ class SequenceAttack():
         batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_data)
 
         with torch.no_grad():
-            results = self.original_model(batch_tokens, repr_layers=[0], return_contacts=False)
+            results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
             token_representations = results["representations"][0]
 
         if embedding_distance=='cosine':
@@ -81,7 +81,8 @@ class SequenceAttack():
                 z_c_diff = first_embedding-z_c
                 distances.append(nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten()))
             distances = torch.stack(distances)
-            char_idx = torch.argmax(distances)
+            adv_char_idx = torch.argmax(distances)
+            baseline_char_idx = torch.argmin(distances)
 
         elif embedding_distance=='euclidean':
             # minimize euclidean distance
@@ -90,28 +91,36 @@ class SequenceAttack():
             perturbed_embedding = first_embedding+epsilon*signed_gradient
 
             distances = torch.stack([torch.norm(perturbed_embedding-z_c) for z_c in token_representations])
-            char_idx = torch.argmin(distances)
+            adv_char_idx = torch.argmin(distances)
+            baseline_char_idx = torch.argmax(distances)
 
         else:
             raise NotImplementedError
 
-        new_token = tokens_list[char_idx]
-        adversarial_sequence = perturbed_data[char_idx][1]
-        distance_bw_embeddings = distances[char_idx].item()
+        new_token = tokens_list[adv_char_idx]
+        adversarial_sequence = perturbed_data[adv_char_idx][1]
+        baseline_sequence = perturbed_data[baseline_char_idx][1]
+        distance_bw_embeddings = distances[adv_char_idx].item()
 
         if verbose:
             print(f"\nnew token at position {target_token_idx} = {new_token}")
             
-        return new_token, adversarial_sequence, distance_bw_embeddings
+        return new_token, adversarial_sequence, baseline_sequence, distance_bw_embeddings
 
-    def compute_contact_maps(self, original_sequence, adversarial_sequence):
+    def compute_contact_maps(self, original_sequence, adversarial_sequence, baseline_sequence):
 
+        device = next(self.original_model.parameters()).device
+
+        self.original_model = self.original_model.to(device)
         batch_converter = self.alphabet.get_batch_converter()
 
         batch_labels, batch_strs, batch_tokens = batch_converter([('orig',original_sequence)])
-        original_contacts = self.original_model.predict_contacts(batch_tokens)[0]
+        original_contacts = self.original_model.predict_contacts(batch_tokens.to(device))[0]
 
         batch_labels, batch_strs, batch_tokens = batch_converter([('adv', adversarial_sequence)])
-        adversarial_contacts = self.original_model.predict_contacts(batch_tokens)[0]
+        adversarial_contacts = self.original_model.predict_contacts(batch_tokens.to(device))[0]
 
-        return original_contacts, adversarial_contacts
+        batch_labels, batch_strs, batch_tokens = batch_converter([('base', baseline_sequence)])
+        baseline_contacts = self.original_model.predict_contacts(batch_tokens.to(device))[0]
+
+        return original_contacts, adversarial_contacts, baseline_contacts

@@ -8,10 +8,30 @@ from matplotlib.patches import Rectangle
 
 
 def plot_embeddings_distances(df, filepath=None, filename=None):
+    sns.set_style("darkgrid")
+    fig = plt.figure(figsize=(8, 5))
 
-    fig, ax = plt.subplots(figsize=(10, 4))
+    tokens_list = sorted(df['new_token'].unique())
+    sns.stripplot(data=df, x='new_token', y='embeddings_distance')
+    plt.tight_layout()
+    plt.show()
 
-    sns.scatterplot(x=df['loss'], y=df['embeddings_distance'])
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+    
+    plt.close()
+    return fig
+
+def plot_tokens_hist(df, filepath=None, filename=None):
+    sns.set_style("darkgrid")
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['sequence']), axis=1)
+
+    sns.histplot(data=df, x="perc_token_idx", legend=None)#, multiple="stack", hue="new_token")
+    plt.yscale('log')
 
     plt.tight_layout()
     plt.show()
@@ -21,32 +41,30 @@ def plot_embeddings_distances(df, filepath=None, filename=None):
         fig.savefig(os.path.join(filepath, filename+".png"))
         plt.close()
 
-    return fig
-
-def plot_tokens_heatmap(df, filepath=None, filename=None):
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-
-    sns.histplot(data=df, x="target_token_idx", hue="new_token", multiple="stack", discrete=True)
+    tokens_list = sorted(df['new_token'].unique())
+    fig, ax = plt.subplots(figsize=(8, 5))
+    df = df.sort_values('new_token')
+    sns.stripplot(data=df, y="perc_token_idx", x="new_token")
+    plt.yscale('log')
 
     plt.tight_layout()
     plt.show()
 
     if filepath is not None and filename is not None:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+".png"))
+        fig.savefig(os.path.join(filepath, filename+"_split.png"))
         plt.close()
 
     return fig
 
 
 def plot_cmap_distances(df, filepath=None, filename=None):
+    sns.set_style("darkgrid")
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    # diagonal_idxs = np.repeat([range(1,cmap_distances.shape[1]+1)], repeats=cmap_distances.shape[0], axis=0)
-    # sns.lineplot(x=diagonal_idxs.flatten(), y=cmap_distances.flatten())
+    fig, ax = plt.subplots(figsize=(8, 5))
 
-    sns.lineplot(x=df['k'], y=df['cmap_distance'])
+    sns.lineplot(x=df['k'], y=df['adv_cmap_distance'], label='adversarial')
+    sns.lineplot(x=df['k'], y=df['baseline_cmap_distance'], label='baseline')
     ax.set(xlabel='k = len(sequence)-diag_idx', ylabel='l2 distance', 
         title='dist. bw original and adversarial contact maps')
 
