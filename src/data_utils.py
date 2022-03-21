@@ -2,7 +2,7 @@ import os
 import pickle as pkl
 
 
-def filter_pfam(filepath, filename):
+def filter_pfam(max_tokens, filepath, filename):
 
     path = os.path.join(filepath, filename)
     file = open(path, 'r')
@@ -14,7 +14,9 @@ def filter_pfam(filepath, filename):
         if row!='':
             name, sequence = row.split('\n')[0:-1]
             name = name.split('.1')[0]
+            sequence = sequence[:max_tokens]
             data.append((name, sequence))
+            assert len(sequence)<=max_tokens
 
     return data
 
