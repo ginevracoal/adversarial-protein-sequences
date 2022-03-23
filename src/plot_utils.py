@@ -7,11 +7,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
-def plot_cosine_distances(df, x, keys, filepath=None, filename=None):
+def plot_cosine_similarity(df, x, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
-    fig, ax = plt.subplots(figsize=(10, 4), ncols=2)
+    fig, ax = plt.subplots(figsize=(10, 4), ncols=2, sharey=True)
 
-    tokens_list = sorted(df[x].unique())
+    # tokens_list = sorted(df[x].unique())
+    df = df.sort_values(x) 
     sns.stripplot(data=df, x=x, y=f'{keys[0]}_cosine_similarity', dodge=True, ax=ax[0])
     sns.stripplot(data=df, x=x, y=f'{keys[1]}_cosine_similarity', dodge=True, ax=ax[1])
 
@@ -44,12 +45,16 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
     plt.close()
 
     assert len(keys)==4
-    fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharex=True, sharey=True)
+    fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharey=True)
     jitter = 0.1
-    # df = df.sort_values(f'adv_token') 
+
+    df = df.sort_values(f'{keys[0]}_token') 
     sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[0]}_token", dodge=True, ax=ax[0,0], jitter=jitter)
+    df = df.sort_values(f'{keys[1]}_token') 
     sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[1]}_token", dodge=True, ax=ax[1,0], jitter=jitter)
+    df = df.sort_values(f'{keys[2]}_token') 
     sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[2]}_token", dodge=True, ax=ax[0,1], jitter=jitter)
+    df = df.sort_values(f'{keys[3]}_token') 
     sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[3]}_token", dodge=True, ax=ax[1,1], jitter=jitter)
 
     plt.tight_layout()
