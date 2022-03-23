@@ -84,11 +84,15 @@ class SequenceAttack():
         if verbose:
             print("\ntokens_substitutions_dict:\n", tokens_substitutions_dict)
             print("\nn. perturbed_sequences =", len(perturbed_sequences_dict))
-            print("\nperturbed_sequences_dict first item:\n", list(perturbed_sequences_dict.items())[0])
+            # print("\nperturbed_sequences_dict first item:\n", list(perturbed_sequences_dict.items())[0])
 
         ### compute sequence attacks
 
-        safe_cosine_similarity, adv_cosine_similarity,  = 1, -1
+        # min_eps, max_eps = 0.01, 0.1
+        # epsilon_values = torch.arange(min_eps, max_eps, step=(max_eps - min_eps) / 10)
+        # perturbed_embeddings = torch.stack([first_embedding+epsilon*signed_gradient for epsilon in epsilon_values])
+
+        safe_cosine_similarity, adv_cosine_similarity = 1, -1
         min_euclidean_dist, max_euclidean_dist = 10e10, 0
 
         with torch.no_grad():
@@ -106,7 +110,8 @@ class SequenceAttack():
                 z_c_diff = first_embedding-z_c
                 cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
                 euclidean_distance = torch.norm(z_c_diff, p=2)
-
+                # euclidean_distance = torch.mean(torch.stack([torch.norm(pert_emb-z_c,p=2) for pert_emb in perturbed_embeddings]))
+                
                 ### adv substitutions maximize cosine similarity w.r.t. gradient direction
 
                 if cosine_similarity > adv_cosine_similarity:
