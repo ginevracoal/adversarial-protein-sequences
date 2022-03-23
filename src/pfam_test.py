@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from paths import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_cmap_distances, plot_embeddings_distances, plot_tokens_hist
+from plot_utils import plot_cmap_distances, plot_cosine_distances, plot_tokens_hist
 from data_utils import filter_pfam
 
 random.seed(0)
@@ -22,17 +22,22 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00004', type=str, help="Dataset name")
 parser.add_argument("--n_sequences", default=None, type=int, help="Number of sequences from the chosen dataset")
+parser.add_argument("--n_token_substitutions", default=2, type=int, help="Number of token substitutions in the original \
+    sequence")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
     range contacts')
 parser.add_argument("--cmap_dist_ubound", default=20, type=int, help='Upper bound for upper triangular matrix of long \
     range contacts')
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
+parser.add_argument("--verbose", default=False, type=eval)
 args = parser.parse_args()
 
 filename = args.dataset
 df_filename = filename+".csv" if args.n_sequences is None else filename+f"_{args.n_sequences}seq.csv"
 cmap_df_filename = filename+"_cmap.csv" if args.n_sequences is None else filename+f"_cmap_{args.n_sequences}seq.csv"
+
+perturbations_keys = ['adv','safe','min_dist','max_dist']
 
 if args.load:
 
@@ -72,13 +77,13 @@ else:
 
         atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=alphabet)
 
-        target_token_idx, repr_norms_matrix = atk.choose_target_token_idx(batch_tokens=batch_tokens)
-        print("\ntarget_token_idx =", target_token_idx)
+        target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
+            n_token_substitutions=args.n_token_substitutions, verbose=args.verbose)
 
         signed_gradient, loss = atk.perturb_embedding(first_embedding=first_embedding)
 
-        atk_dict = atk.attack_sequence(original_sequence=original_sequence, 
-            target_token_idx=target_token_idx, first_embedding=first_embedding, signed_gradient=signed_gradient)
+        atk_dict = atk.attack_sequence(original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
+            first_embedding=first_embedding, signed_gradient=signed_gradient, verbose=args.verbose)
 
         df = df.append({
             'name':name, 'sequence':original_sequence, 
@@ -103,7 +108,7 @@ else:
         min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
         for k_idx, k in enumerate(torch.arange(min_k_idx, max_k_idx, 1)):
 
-            for key in ['adv','safe','min_dist','max_dist']:
+            for key in perturbations_keys:
 
                 topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
                 new_contact_map = atk.compute_contact_maps(sequence=atk_dict[f'{key}_sequence'])
@@ -118,7 +123,6 @@ else:
     df.to_csv(os.path.join(out_data_path, df_filename))
     cmap_df.to_csv(os.path.join(out_data_path, cmap_df_filename))
 
-plot_tokens_hist(df, filepath=plots_path, filename=filename+"_tokens_hist")
-plot_embeddings_distances(df, x='adv_token', y='adv_cosine_distance', filepath=plots_path, filename=filename+"_embeddings_distances")
-plot_embeddings_distances(df, x='adv_token', y='safe_cosine_distance', filepath=plots_path, filename=filename+"_safe_embeddings_distances")
-plot_cmap_distances(cmap_df, filepath=plots_path, filename=filename+"_cmap_distances")
+plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
+plot_cosine_distances(df, x='adv_token', keys=['adv','safe'], filepath=plots_path, filename=filename+"_cosine_distances")
+plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_cmap_distances")
