@@ -1,8 +1,8 @@
 import torch
 import itertools
+import pandas as pd
 import torch.nn as nn
 from embedding_model import EmbModel
-
 
 
 class SequenceAttack():
@@ -55,22 +55,23 @@ class SequenceAttack():
 
     def attack_sequence(self, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False):
 
+        ### build dictionary of allowed tokens substitutions for each target token idx
+
         tokens_substitutions_dict = {}
         for target_token_idx in target_token_idxs:
             current_token = str(list(original_sequence)[target_token_idx])
             allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
-            tokens_substitutions_dict[str(target_token_idx)] = {'current_token':current_token, 
+            tokens_substitutions_dict[f'token_{str(target_token_idx)}'] = {'current_token':current_token, 
                 'allowed_token_substitutions':allowed_token_substitutions}
 
-        if verbose:
-            print("\ntokens_substitutions_dict:\n", tokens_substitutions_dict)
-
-        allowed_token_substitutions_list = [tokens_substitutions_dict[str(target_token_idx)]['allowed_token_substitutions'] \
+        allowed_token_substitutions_list = [tokens_substitutions_dict[f'token_{str(target_token_idx)}']['allowed_token_substitutions'] \
             for target_token_idx in target_token_idxs]
         allowed_seq_substitutions = list(itertools.product(*allowed_token_substitutions_list))
 
-        perturbed_sequences = []
+        ### build dict of all possible perturbed sequences
+
+        perturbed_sequences_dict = {}
         for i, sequence_substitution in enumerate(allowed_seq_substitutions):
             original_sequence_list = list(original_sequence)
 
@@ -78,60 +79,87 @@ class SequenceAttack():
                 original_sequence_list[target_token_idx] = new_token
 
             new_sequence = "".join(original_sequence_list)
-            perturbed_sequences.append((f"{i}th-substitution", new_sequence))
-
-        batch_converter = self.alphabet.get_batch_converter()
-        batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_sequences)
-
-        with torch.no_grad():
-            results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
-            token_representations = results["representations"][0]
-
-            euclidean_distances = []
-            cosine_distances = []
-            for z_c in token_representations:
-                z_c_diff = first_embedding-z_c
-                euclidean_distances.append(torch.norm(z_c_diff, p=2))
-                cosine_distances.append(nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten()))
-
-            euclidean_distances = torch.stack(euclidean_distances)
-            cosine_distances = torch.stack(cosine_distances)
-
-            ### adv substitutions maximize cosine similarity w.r.t. gradient direction
-            adv_char_idx = torch.argmax(cosine_distances)
-
-            ### "safe" substitutions minimize cosine similarity w.r.t. gradient direction
-            min_cos_similarity_char_idx = torch.argmin(cosine_distances)
-
-            ### substitutions that minimize/maximize euclidean distance from classical fgsm attacks
-            epsilon=torch.min(euclidean_distances).item()
-            perturbed_embedding = first_embedding+epsilon*signed_gradient 
-            euclidean_distances_from_attacks = [torch.norm(perturbed_embedding-z_c,p=2) for z_c in token_representations]
-            euclidean_distances_from_attacks = torch.stack(euclidean_distances_from_attacks)
-            min_euclidean_dist = torch.min(euclidean_distances_from_attacks)
-            min_euclidean_dist_char_idx = torch.argmin(euclidean_distances_from_attacks)
-            max_euclidean_dist = torch.max(euclidean_distances_from_attacks)
-            max_euclidean_dist_char_idx = torch.argmax(euclidean_distances_from_attacks)
-
-        atk_dict = {
-            'adv_token':tokens_list[adv_char_idx], 
-            'adv_sequence':perturbed_data[adv_char_idx][1], 
-            'adv_cosine_distance':cosine_distances[adv_char_idx].item(), 
-            'safe_token':tokens_list[min_cos_similarity_char_idx], 
-            'safe_sequence':perturbed_data[min_cos_similarity_char_idx][1], 
-            'safe_cosine_distance':cosine_distances[min_cos_similarity_char_idx].item(),
-            'min_dist_token':tokens_list[min_euclidean_dist_char_idx], 
-            'min_dist_sequence':perturbed_data[min_euclidean_dist_char_idx][1],
-            'min_euclidean_dist':min_euclidean_dist.item(), 
-            'max_dist_token':tokens_list[max_euclidean_dist_char_idx], 
-            'max_dist_sequence':perturbed_data[max_euclidean_dist_char_idx][1],
-            'max_euclidean_dist':max_euclidean_dist.item(), 
-            }
+            perturbed_sequences_dict[f'seq_{str(i)}'] = {'new_tokens':sequence_substitution,'perturbed_sequence':new_sequence}
 
         if verbose:
-            print(f"\nnew token at position {target_token_idx} = {adv_token}")
-            
-        return atk_dict
+            print("\ntokens_substitutions_dict:\n", tokens_substitutions_dict)
+            print("\nn. perturbed_sequences =", len(perturbed_sequences_dict))
+            print("\nperturbed_sequences_dict first item:\n", list(perturbed_sequences_dict.items())[0])
+
+        ### compute sequence attacks
+
+        adv_cosine_distance, safe_cosine_distance = 1, -1
+        min_euclidean_dist, max_euclidean_dist = 10e10, 0
+
+        with torch.no_grad():
+            for sequence_substitution in perturbed_sequences_dict.values():
+
+                new_tokens = sequence_substitution['new_tokens']
+                perturbed_sequence = sequence_substitution['perturbed_sequence']
+
+                batch_converter = self.alphabet.get_batch_converter()
+                batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
+
+                results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
+                z_c = results["representations"][0]
+
+                z_c_diff = first_embedding-z_c
+                cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
+                euclidean_distance = torch.norm(z_c_diff, p=2)
+
+                ### adv substitutions maximize cosine similarity w.r.t. gradient direction
+
+                if cosine_similarity <= adv_cosine_distance:
+                    adv_cosine_similarity = cosine_similarity
+                    adv_tokens = new_tokens
+                    adv_sequence = perturbed_sequence
+
+                ### "safe" substitutions minimize cosine similarity w.r.t. gradient direction
+
+                if cosine_similarity >= safe_cosine_distance:
+                    safe_cosine_similarity = cosine_similarity
+                    safe_tokens = new_tokens
+                    safe_sequence = perturbed_sequence
+
+                ### substitutions that minimize/maximize euclidean distance from classical fgsm attacks
+
+                if euclidean_distance < min_euclidean_dist:
+                    min_euclidean_dist = euclidean_distance
+                    min_dist_tokens = new_tokens
+                    min_dist_sequence = perturbed_sequence
+
+                if euclidean_distance >= max_euclidean_dist:
+                    max_euclidean_dist = euclidean_distance
+                    max_dist_tokens = new_tokens
+                    max_dist_sequence = new_sequence
+
+        if verbose:
+            print("\nadv cosine_similarity", cosine_similarity.item())
+            print("safe cosine_similarity", cosine_similarity.item())
+            print("min euclidean_distance", euclidean_distance.item())
+            print("max euclidean_distance", euclidean_distance.item())
+
+        atk_df = pd.DataFrame()
+
+        for i, token_idx in enumerate(target_token_idxs):
+
+            atk_df = atk_df.append({
+                'target_token_idx':token_idx,
+                'adv_token':adv_tokens[i], 
+                'adv_sequence':adv_sequence, 
+                'adv_cosine_similarity':adv_cosine_similarity.item(), 
+                'safe_token':safe_tokens[i],
+                'safe_sequence':safe_sequence, 
+                'safe_cosine_similarity':safe_cosine_similarity.item(),
+                'min_dist_tokens':min_dist_tokens[i],
+                'min_dist_sequence':min_dist_sequence,
+                'min_euclidean_dist':min_euclidean_dist.item(), 
+                'max_dist_token':max_dist_tokens[i], 
+                'max_dist_sequence':max_dist_sequence,
+                'max_euclidean_dist':max_euclidean_dist.item()
+                }, ignore_index=True)
+
+        return atk_df
 
     def compute_contact_maps(self, sequence):
 

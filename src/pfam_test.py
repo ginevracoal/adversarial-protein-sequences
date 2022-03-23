@@ -82,42 +82,28 @@ else:
 
         signed_gradient, loss = atk.perturb_embedding(first_embedding=first_embedding)
 
-        atk_dict = atk.attack_sequence(original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
+        atk_df = atk.attack_sequence(original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
             first_embedding=first_embedding, signed_gradient=signed_gradient, verbose=args.verbose)
 
-        df = df.append({
-            'name':name, 'sequence':original_sequence, 
-            'target_token_idx':target_token_idx, 'loss':loss.item(),
-            'adv_token':atk_dict['adv_token'], 
-            'adv_sequence':atk_dict['adv_sequence'], 
-            'adv_cosine_distance':atk_dict['adv_cosine_distance'], 
-            'safe_token':atk_dict['safe_token'], 
-            'safe_sequence':atk_dict['safe_sequence'], 
-            'safe_cosine_distance':atk_dict['safe_cosine_distance'],
-            'min_dist_token':atk_dict['min_dist_token'], 
-            'min_dist_sequence':atk_dict['min_dist_sequence'],
-            'min_euclidean_dist':atk_dict['min_euclidean_dist'], 
-            'max_dist_token':atk_dict['max_dist_token'], 
-            'max_dist_sequence':atk_dict['max_dist_sequence'],
-            'max_euclidean_dist':atk_dict['max_euclidean_dist']
-            }, ignore_index=True)
+        df = pd.concat([df, atk_df], ignore_index=True)
+        print(df, len(df))
 
-        atk.original_model.to(args.device)
-        original_contact_map = atk.compute_contact_maps(sequence=original_sequence)
+        # atk.original_model.to(args.device)
+        # original_contact_map = atk.compute_contact_maps(sequence=original_sequence)
 
-        min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
-        for k_idx, k in enumerate(torch.arange(min_k_idx, max_k_idx, 1)):
+        # min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
+        # for k_idx, k in enumerate(torch.arange(min_k_idx, max_k_idx, 1)):
 
-            for key in perturbations_keys:
+        #     for key in perturbations_keys:
 
-                topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
-                new_contact_map = atk.compute_contact_maps(sequence=atk_dict[f'{key}_sequence'])
-                topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
+        #         topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
+        #         new_contact_map = atk.compute_contact_maps(sequence=atk_dict[f'{key}_sequence'])
+        #         topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
 
-                cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
-                cmap_df = cmap_df.append({'name':name, 'k':k_idx, f'{key}_cmap_dist':cmap_distance}, ignore_index=True)
+        #         cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
+        #         cmap_df = cmap_df.append({'name':name, 'k':k_idx, f'{key}_cmap_dist':cmap_distance}, ignore_index=True)
                 
-                # print(f"l2 distance bw contact maps diag {k} = {cmap_distance}")
+        #         # print(f"l2 distance bw contact maps diag {k} = {cmap_distance}")
 
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
     df.to_csv(os.path.join(out_data_path, df_filename))
