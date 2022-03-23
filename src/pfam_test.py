@@ -34,8 +34,10 @@ parser.add_argument("--verbose", default=False, type=eval)
 args = parser.parse_args()
 
 filename = args.dataset
-df_filename = filename+".csv" if args.n_sequences is None else filename+f"_{args.n_sequences}seq.csv"
-cmap_df_filename = filename+"_cmap.csv" if args.n_sequences is None else filename+f"_cmap_{args.n_sequences}seq.csv"
+df_filename = filename+f"_{args.n_token_substitutions}tokens.csv" if args.n_sequences is None \
+    else filename+f"_{args.n_token_substitutions}tokens_{args.n_sequences}seq.csv"
+cmap_df_filename = filename+f"_{args.n_token_substitutions}tokens_cmap.csv" if args.n_sequences is None \
+    else filename+f"_{args.n_token_substitutions}tokens_{args.n_sequences}seq_cmap.csv"
 
 perturbations_keys = ['adv','safe','min_dist','max_dist']
 

@@ -88,7 +88,7 @@ class SequenceAttack():
 
         ### compute sequence attacks
 
-        adv_cosine_distance, safe_cosine_distance = 1, -1
+        safe_cosine_similarity, adv_cosine_similarity,  = 1, -1
         min_euclidean_dist, max_euclidean_dist = 10e10, 0
 
         with torch.no_grad():
@@ -109,17 +109,19 @@ class SequenceAttack():
 
                 ### adv substitutions maximize cosine similarity w.r.t. gradient direction
 
-                if cosine_similarity <= adv_cosine_distance:
+                if cosine_similarity > adv_cosine_similarity:
                     adv_cosine_similarity = cosine_similarity
                     adv_tokens = new_tokens
                     adv_sequence = perturbed_sequence
+                    # print("adv", new_tokens)
 
                 ### "safe" substitutions minimize cosine similarity w.r.t. gradient direction
 
-                if cosine_similarity >= safe_cosine_distance:
+                if cosine_similarity < safe_cosine_similarity:
                     safe_cosine_similarity = cosine_similarity
                     safe_tokens = new_tokens
                     safe_sequence = perturbed_sequence
+                    # print("safe", new_tokens)
 
                 ### substitutions that minimize/maximize euclidean distance from classical fgsm attacks
 
@@ -127,17 +129,19 @@ class SequenceAttack():
                     min_euclidean_dist = euclidean_distance
                     min_dist_tokens = new_tokens
                     min_dist_sequence = perturbed_sequence
+                    # print("min", new_tokens)
 
-                if euclidean_distance >= max_euclidean_dist:
+                if euclidean_distance > max_euclidean_dist:
                     max_euclidean_dist = euclidean_distance
                     max_dist_tokens = new_tokens
                     max_dist_sequence = new_sequence
+                    # print("max", new_tokens)
 
         if verbose:
-            print("\nadv cosine_similarity", cosine_similarity.item())
-            print("safe cosine_similarity", cosine_similarity.item())
-            print("min euclidean_distance", euclidean_distance.item())
-            print("max euclidean_distance", euclidean_distance.item())
+            print("\nadv cosine_similarity =", adv_cosine_similarity, "\tadv_tokens =", adv_tokens)
+            print("safe cosine_similarity =", safe_cosine_similarity, "\tsafe_tokens =", safe_tokens)
+            print("min euclidean_distance =", min_euclidean_dist, "\tmin_dist_tokens =", min_dist_tokens)
+            print("max euclidean_distance =", max_euclidean_dist, "\tmax_dist_tokens =", max_dist_tokens)
 
         atk_df = pd.DataFrame()
 
