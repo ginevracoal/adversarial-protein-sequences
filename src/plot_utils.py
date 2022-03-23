@@ -12,8 +12,8 @@ def plot_cosine_distances(df, x, keys, filepath=None, filename=None):
     fig, ax = plt.subplots(figsize=(10, 4), ncols=2)
 
     tokens_list = sorted(df[x].unique())
-    sns.stripplot(data=df, x=x, y=f'{keys[0]}_cosine_distance', dodge=True, ax=ax[0])
-    sns.stripplot(data=df, x=x, y=f'{keys[1]}_cosine_distance', dodge=True, ax=ax[1])
+    sns.stripplot(data=df, x=x, y=f'{keys[0]}_cosine_similarity', dodge=True, ax=ax[0])
+    sns.stripplot(data=df, x=x, y=f'{keys[1]}_cosine_similarity', dodge=True, ax=ax[1])
 
     plt.tight_layout()
     plt.show()
@@ -30,7 +30,7 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['sequence']), axis=1)
+    df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['original_sequence']), axis=1)
     sns.histplot(data=df, x="perc_token_idx", legend=None)#, multiple="stack", hue="adv_token")
     plt.yscale('log')
 
@@ -115,7 +115,7 @@ def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filena
     return fig
 
 
-def plot_representations_norms(norms_mat, sequence, target_token_idx, filepath=None, filename=None):
+def plot_representations_norms(norms_mat, sequence, target_token_idxs, filepath=None, filename=None):
 
     n_layers = norms_mat.shape[0]
 
@@ -129,9 +129,10 @@ def plot_representations_norms(norms_mat, sequence, target_token_idx, filepath=N
     ax.set_xticklabels(sequence, fontdict=fontdict)
     ax.set_yticklabels(list(range(n_layers)), fontdict=fontdict, rotation=90)
 
-    x, y, w, h = target_token_idx, 0, 1, n_layers
-    ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor='black', lw=2, clip_on=False))
-    ax.tick_params(length=0)
+    for target_token_idx in target_token_idxs:
+        x, y, w, h = target_token_idx, 0, 1, n_layers
+        ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor='black', lw=2, clip_on=False))
+        ax.tick_params(length=0)
 
     plt.xlabel('Tokens')
     plt.ylabel('Layers')

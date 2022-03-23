@@ -144,6 +144,7 @@ class SequenceAttack():
         for i, token_idx in enumerate(target_token_idxs):
 
             atk_df = atk_df.append({
+                'original_sequence':original_sequence,
                 'target_token_idx':token_idx,
                 'adv_token':adv_tokens[i], 
                 'adv_sequence':adv_sequence, 
@@ -151,7 +152,7 @@ class SequenceAttack():
                 'safe_token':safe_tokens[i],
                 'safe_sequence':safe_sequence, 
                 'safe_cosine_similarity':safe_cosine_similarity.item(),
-                'min_dist_tokens':min_dist_tokens[i],
+                'min_dist_token':min_dist_tokens[i],
                 'min_dist_sequence':min_dist_sequence,
                 'min_euclidean_dist':min_euclidean_dist.item(), 
                 'max_dist_token':max_dist_tokens[i], 

@@ -86,28 +86,33 @@ else:
             first_embedding=first_embedding, signed_gradient=signed_gradient, verbose=args.verbose)
 
         df = pd.concat([df, atk_df], ignore_index=True)
-        print(df, len(df))
 
-        # atk.original_model.to(args.device)
-        # original_contact_map = atk.compute_contact_maps(sequence=original_sequence)
+        atk.original_model.to(args.device)
+        original_contact_map = atk.compute_contact_maps(sequence=original_sequence)
 
-        # min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
-        # for k_idx, k in enumerate(torch.arange(min_k_idx, max_k_idx, 1)):
+        min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
+        for k_idx, k in enumerate(torch.arange(min_k_idx, max_k_idx, 1)):
 
-        #     for key in perturbations_keys:
+            row_list = [['name', name],['k',k_idx]]
+            for key in perturbations_keys:
 
-        #         topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
-        #         new_contact_map = atk.compute_contact_maps(sequence=atk_dict[f'{key}_sequence'])
-        #         topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
+                topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
+                new_contact_map = atk.compute_contact_maps(sequence=atk_df[f'{key}_sequence'].unique()[0])
+                topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
 
-        #         cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
-        #         cmap_df = cmap_df.append({'name':name, 'k':k_idx, f'{key}_cmap_dist':cmap_distance}, ignore_index=True)
+                cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
+                row_list.append([f'{key}_cmap_dist',cmap_distance])
+
+            cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
                 
-        #         # print(f"l2 distance bw contact maps diag {k} = {cmap_distance}")
-
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
     df.to_csv(os.path.join(out_data_path, df_filename))
     cmap_df.to_csv(os.path.join(out_data_path, cmap_df_filename))
+
+
+print(df)
+print(df.columns)
+print(cmap_df)
 
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
 plot_cosine_distances(df, x='adv_token', keys=['adv','safe'], filepath=plots_path, filename=filename+"_cosine_distances")

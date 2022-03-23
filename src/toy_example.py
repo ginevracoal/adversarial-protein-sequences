@@ -44,35 +44,34 @@ plot_tokens_attention(sequence=original_sequence, attentions=results['attentions
 
 # target token idx
 
-target_token_idx, repr_norms_matrix = atk.choose_target_token_idx(batch_tokens=batch_tokens)
-print("\ntarget_token_idx =", target_token_idx)
+target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, n_token_substitutions=3)
+print("\ntarget_token_idxs =", target_token_idxs)
 
 plot_representations_norms(norms_mat=repr_norms_matrix.cpu().detach().numpy(), sequence=original_sequence, 
-    target_token_idx=target_token_idx, filepath=plots_path, filename="representations_norms")
+    target_token_idxs=target_token_idxs, filepath=plots_path, filename="representations_norms")
 
 # attack
 
-embedding_distance = 'cosine'
-
 signed_gradient, loss = atk.perturb_embedding(first_embedding=first_embedding)
 
-new_token, adversarial_sequence, distance_bw_embeddings = atk.attack_sequence(original_sequence=original_sequence, 
-    target_token_idx=target_token_idx, verbose=True
-    first_embedding=first_embedding, signed_gradient=signed_gradient, embedding_distance=embedding_distance)
+# new_token, adversarial_sequence, distance_bw_embeddings
+atk_df = atk.attack_sequence(original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
+    first_embedding=first_embedding, signed_gradient=signed_gradient,  verbose=True)
 
+adversarial_sequence = atk_df['original_sequence'].unique()[0]
 print("\nadversarial sequence =", adversarial_sequence)
-print(f"\n{embedding_distance} distance between embeddings =", distance_bw_embeddings)
 
 # contact maps
 
-original_contacts, adversarial_contacts = atk.compute_contact_maps(original_sequence, adversarial_sequence)
+original_contacts = atk.compute_contact_maps(original_sequence)
+adversarial_contacts = atk.compute_contact_maps(adversarial_sequence)
 
 distance = torch.norm((original_contacts-adversarial_contacts).flatten()).item()
 print("\nl2 distance bw contact maps =", distance)
 
 fig = plot_contact_maps(original_contacts=original_contacts.detach().numpy(), 
-    adversarial_contacts=adversarial_contacts.detach().numpy(), filepath=plots_path, 
-    filename="contact_maps_"+embedding_distance)
+    adversarial_contacts=adversarial_contacts.detach().numpy(), 
+    filepath=plots_path, filename="contact_maps")
 
 
 
