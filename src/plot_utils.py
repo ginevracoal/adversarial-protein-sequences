@@ -7,12 +7,14 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
-def plot_embeddings_distances(df, x, y, filepath=None, filename=None):
+def plot_cosine_distances(df, x, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
-    fig = plt.figure(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(10, 4), ncols=2)
 
     tokens_list = sorted(df[x].unique())
-    sns.stripplot(data=df, x=x, y=y, dodge=True)
+    sns.stripplot(data=df, x=x, y=f'{keys[0]}_cosine_distance', dodge=True, ax=ax[0])
+    sns.stripplot(data=df, x=x, y=f'{keys[1]}_cosine_distance', dodge=True, ax=ax[1])
+
     plt.tight_layout()
     plt.show()
 
@@ -23,7 +25,7 @@ def plot_embeddings_distances(df, x, y, filepath=None, filename=None):
     plt.close()
     return fig
 
-def plot_tokens_hist(df, filepath=None, filename=None):
+def plot_tokens_hist(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -41,32 +43,35 @@ def plot_tokens_hist(df, filepath=None, filename=None):
     
     plt.close()
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    df = df.sort_values('adv_token')
-    sns.stripplot(data=df, y="perc_token_idx", x="adv_token", dodge=True)
+    assert len(keys)==4
+    fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharex=True, sharey=True)
+    jitter = 0.1
+    # df = df.sort_values(f'adv_token') 
+    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[0]}_token", dodge=True, ax=ax[0,0], jitter=jitter)
+    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[1]}_token", dodge=True, ax=ax[1,0], jitter=jitter)
+    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[2]}_token", dodge=True, ax=ax[0,1], jitter=jitter)
+    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[3]}_token", dodge=True, ax=ax[1,1], jitter=jitter)
 
     plt.tight_layout()
     plt.show()
 
     if filepath is not None and filename is not None:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+"_split.png"))
+        fig.savefig(os.path.join(filepath, filename+f"_token_split.png"))
         plt.close()
 
     return fig
 
 
-def plot_cmap_distances(df, filepath=None, filename=None):
+def plot_cmap_distances(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
-
-    sns.lineplot(x=df['k'], y=df['adv_cmap_dist'], label='adversarial')
-    sns.lineplot(x=df['k'], y=df['safe_cmap_dist'], label='safe')
-    sns.lineplot(x=df['k'], y=df['min_dist_cmap_dist'], label='min_dist')
-    sns.lineplot(x=df['k'], y=df['max_dist_cmap_dist'], label='max_dist')
     ax.set(xlabel='k = len(sequence)-diag_idx', ylabel='l2 distance', 
         title='dist. bw original and perturbed contact maps')
+
+    for key in keys:
+        sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key)
 
     plt.tight_layout()
     plt.show()
