@@ -48,8 +48,7 @@ class SequenceAttack():
 
         return signed_gradient, loss
 
-    def attack_sequence(self, original_sequence, target_token_idx, first_embedding, signed_gradient, 
-        embedding_distance='cosine', verbose=False):
+    def attack_sequence(self, original_sequence, target_token_idx, first_embedding, signed_gradient, verbose=False):
 
         current_token = str(list(original_sequence)[target_token_idx])
 
@@ -73,54 +72,79 @@ class SequenceAttack():
             results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
             token_representations = results["representations"][0]
 
-        if embedding_distance=='cosine':
-            # maximize cosine similarity
-
-            distances = []
+            euclidean_distances = []
+            cosine_distances = []
             for z_c in token_representations:
                 z_c_diff = first_embedding-z_c
-                distances.append(nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten()))
-            distances = torch.stack(distances)
-            adv_char_idx = torch.argmax(distances)
-            baseline_char_idx = torch.argmin(distances)
+                euclidean_distances.append(torch.norm(z_c_diff, p=2))
+                cosine_distances.append(nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten()))
 
-        elif embedding_distance=='euclidean':
-            # minimize euclidean distance
+            euclidean_distances = torch.stack(euclidean_distances)
+            cosine_distances = torch.stack(cosine_distances)
 
-            epsilon = 0.1
-            perturbed_embedding = first_embedding+epsilon*signed_gradient
+            ### adv attacks maximize cosine similarity
+            adv_char_idx = torch.argmax(cosine_distances)
 
-            distances = torch.stack([torch.norm(perturbed_embedding-z_c) for z_c in token_representations])
-            adv_char_idx = torch.argmin(distances)
-            baseline_char_idx = torch.argmax(distances)
+            ### "safe" substitutions minimize cosine similarity
+            min_cos_similarity_char_idx = torch.argmin(cosine_distances)
 
-        else:
-            raise NotImplementedError
+            ### substitutions s.t. the accociated fgsm attacks minimize euclidean distance from fgsm attacks with varying epsilon
 
-        new_token = tokens_list[adv_char_idx]
-        adversarial_sequence = perturbed_data[adv_char_idx][1]
-        baseline_sequence = perturbed_data[baseline_char_idx][1]
-        distance_bw_embeddings = distances[adv_char_idx].item()
+            # min_eps, max_eps = torch.min(euclidean_distances).item(), torch.max(euclidean_distances).item()
+            # epsilon_values = torch.range(min_eps, max_eps, step=(max_eps - min_eps) / 10)
+            # print(epsilon_values)
+            # min_euclidean_dist_char_idx = []
+            # max_euclidean_dist_char_idx = []
+            # for epsilon in epsilon_values:
+
+            #     perturbed_embedding = first_embedding+epsilon*signed_gradient 
+            #     euclidean_distances_from_attacks = [torch.norm(perturbed_embedding-z_c,p=2) for z_c in token_representations]
+            #     euclidean_distances_from_attacks = torch.stack(euclidean_distances_from_attacks)
+            #     min_euclidean_dist_char_idxs.append(torch.argmin(euclidean_distances_from_attacks))
+            #     max_euclidean_dist_char_idxs.append(torch.argmax(euclidean_distances_from_attacks))
+
+            # min_euclidean_dist_char_idx = torch.mode(torch.stack(min_euclidean_dist_char_idxs))[0]
+            # max_euclidean_dist_char_idx = torch.mode(torch.stack(max_euclidean_dist_char_idxs))[0]
+
+            epsilon=torch.min(euclidean_distances).item()
+            perturbed_embedding = first_embedding+epsilon*signed_gradient 
+            euclidean_distances_from_attacks = [torch.norm(perturbed_embedding-z_c,p=2) for z_c in token_representations]
+            euclidean_distances_from_attacks = torch.stack(euclidean_distances_from_attacks)
+            min_euclidean_dist = torch.min(euclidean_distances_from_attacks)
+            min_euclidean_dist_char_idx = torch.argmin(euclidean_distances_from_attacks)
+            max_euclidean_dist = torch.max(euclidean_distances_from_attacks)
+            max_euclidean_dist_char_idx = torch.argmax(euclidean_distances_from_attacks)
+
+        atk_dict = {
+            'adv_token':tokens_list[adv_char_idx], 
+            'adv_sequence':perturbed_data[adv_char_idx][1], 
+            'adv_cosine_distance':cosine_distances[adv_char_idx].item(), 
+            'safe_token':tokens_list[min_cos_similarity_char_idx], 
+            'safe_sequence':perturbed_data[min_cos_similarity_char_idx][1], 
+            'safe_cosine_distance':cosine_distances[min_cos_similarity_char_idx].item(),
+            'min_dist_token':tokens_list[min_euclidean_dist_char_idx], 
+            'min_dist_sequence':perturbed_data[min_euclidean_dist_char_idx][1],
+            'min_euclidean_dist':min_euclidean_dist.item(), 
+            'max_dist_token':tokens_list[max_euclidean_dist_char_idx], 
+            'max_dist_sequence':perturbed_data[max_euclidean_dist_char_idx][1],
+            'max_euclidean_dist':max_euclidean_dist.item(), 
+            }
+
+        print(atk_dict)
 
         if verbose:
-            print(f"\nnew token at position {target_token_idx} = {new_token}")
+            print(f"\nnew token at position {target_token_idx} = {adv_token}")
             
-        return new_token, adversarial_sequence, baseline_sequence, distance_bw_embeddings
+        return atk_dict
 
-    def compute_contact_maps(self, original_sequence, adversarial_sequence, baseline_sequence):
+    def compute_contact_maps(self, sequence):
 
         device = next(self.original_model.parameters()).device
 
-        self.original_model = self.original_model.to(device)
+        # self.embedding_model.to('cpu')
+        # self.original_model.to(device)
         batch_converter = self.alphabet.get_batch_converter()
+        batch_labels, batch_strs, batch_tokens = batch_converter([('seq',sequence)])
+        contact_map = self.original_model.predict_contacts(batch_tokens.to(device))[0]
 
-        batch_labels, batch_strs, batch_tokens = batch_converter([('orig',original_sequence)])
-        original_contacts = self.original_model.predict_contacts(batch_tokens.to(device))[0]
-
-        batch_labels, batch_strs, batch_tokens = batch_converter([('adv', adversarial_sequence)])
-        adversarial_contacts = self.original_model.predict_contacts(batch_tokens.to(device))[0]
-
-        batch_labels, batch_strs, batch_tokens = batch_converter([('base', baseline_sequence)])
-        baseline_contacts = self.original_model.predict_contacts(batch_tokens.to(device))[0]
-
-        return original_contacts, adversarial_contacts, baseline_contacts
+        return contact_map

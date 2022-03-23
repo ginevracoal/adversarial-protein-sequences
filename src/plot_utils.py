@@ -7,12 +7,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
-def plot_embeddings_distances(df, filepath=None, filename=None):
+def plot_embeddings_distances(df, x, y, filepath=None, filename=None):
     sns.set_style("darkgrid")
     fig = plt.figure(figsize=(8, 5))
 
-    tokens_list = sorted(df['new_token'].unique())
-    sns.stripplot(data=df, x='new_token', y='embeddings_distance')
+    tokens_list = sorted(df[x].unique())
+    sns.stripplot(data=df, x=x, y=y, dodge=True)
     plt.tight_layout()
     plt.show()
 
@@ -29,8 +29,7 @@ def plot_tokens_hist(df, filepath=None, filename=None):
     fig, ax = plt.subplots(figsize=(8, 5))
 
     df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['sequence']), axis=1)
-
-    sns.histplot(data=df, x="perc_token_idx", legend=None)#, multiple="stack", hue="new_token")
+    sns.histplot(data=df, x="perc_token_idx", legend=None)#, multiple="stack", hue="adv_token")
     plt.yscale('log')
 
     plt.tight_layout()
@@ -39,13 +38,12 @@ def plot_tokens_hist(df, filepath=None, filename=None):
     if filepath is not None and filename is not None:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         fig.savefig(os.path.join(filepath, filename+".png"))
-        plt.close()
+    
+    plt.close()
 
-    tokens_list = sorted(df['new_token'].unique())
     fig, ax = plt.subplots(figsize=(8, 5))
-    df = df.sort_values('new_token')
-    sns.stripplot(data=df, y="perc_token_idx", x="new_token")
-    plt.yscale('log')
+    df = df.sort_values('adv_token')
+    sns.stripplot(data=df, y="perc_token_idx", x="adv_token", dodge=True)
 
     plt.tight_layout()
     plt.show()
@@ -63,10 +61,12 @@ def plot_cmap_distances(df, filepath=None, filename=None):
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    sns.lineplot(x=df['k'], y=df['adv_cmap_distance'], label='adversarial')
-    sns.lineplot(x=df['k'], y=df['baseline_cmap_distance'], label='baseline')
+    sns.lineplot(x=df['k'], y=df['adv_cmap_dist'], label='adversarial')
+    sns.lineplot(x=df['k'], y=df['safe_cmap_dist'], label='safe')
+    sns.lineplot(x=df['k'], y=df['min_dist_cmap_dist'], label='min_dist')
+    sns.lineplot(x=df['k'], y=df['max_dist_cmap_dist'], label='max_dist')
     ax.set(xlabel='k = len(sequence)-diag_idx', ylabel='l2 distance', 
-        title='dist. bw original and adversarial contact maps')
+        title='dist. bw original and perturbed contact maps')
 
     plt.tight_layout()
     plt.show()
