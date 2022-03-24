@@ -9,6 +9,8 @@ def filter_pfam(max_tokens, filepath, filename):
 
     file_contents = file.read().split('>')[0:-1]
 
+    avg_seq_lenght = 0
+
     data = []
     for row in file_contents:
         if row!='':
@@ -16,9 +18,11 @@ def filter_pfam(max_tokens, filepath, filename):
             name = name.split('.1')[0]
             sequence = sequence[:max_tokens]
             data.append((name, sequence))
+            avg_seq_lenght += len(sequence)
             assert len(sequence)<=max_tokens
 
-    return data
+    avg_seq_lenght = int(avg_seq_lenght/len(data))
+    return data, avg_seq_lenght
 
 
 ############
