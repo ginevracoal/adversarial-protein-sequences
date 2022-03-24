@@ -7,14 +7,13 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
-def plot_cosine_similarity(df, x, keys, filepath=None, filename=None):
+def plot_cosine_similarity(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
-    fig, ax = plt.subplots(figsize=(10, 4), ncols=2, sharey=True)
+    fig, ax = plt.subplots(figsize=(5*len(keys), 4), ncols=len(keys), sharey=True)
 
-    # tokens_list = sorted(df[x].unique())
-    df = df.sort_values(x) 
-    sns.stripplot(data=df, x=x, y=f'{keys[0]}_cosine_similarity', dodge=True, ax=ax[0])
-    sns.stripplot(data=df, x=x, y=f'{keys[1]}_cosine_similarity', dodge=True, ax=ax[1])
+    for i in range(len(keys)):
+        df = df.sort_values(f'{keys[i]}_token') 
+        sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}_cosine_similarity', dodge=True, ax=ax[i])
 
     plt.tight_layout()
     plt.show()
