@@ -36,12 +36,12 @@ class SequenceAttack():
 
         return target_token_idxs, repr_norms_matrix
 
-    def perturb_embedding(self, first_embedding, verbose=False):
+    def compute_embedding_gradient(self, first_embedding, verbose=False):
 
         first_embedding.requires_grad=True
         output = self.embedding_model(first_embedding)
 
-        loss = torch.max(output['logits'])
+        loss = torch.max(torch.abs(output['logits']))
         self.embedding_model.zero_grad()
         loss.backward()
 
@@ -171,7 +171,7 @@ class SequenceAttack():
 
         return atk_df
 
-    def compute_contact_maps(self, sequence):
+    def compute_contact_map(self, sequence):
 
         device = next(self.original_model.parameters()).device
         batch_converter = self.alphabet.get_batch_converter()
