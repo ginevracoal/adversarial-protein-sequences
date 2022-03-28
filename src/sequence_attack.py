@@ -2,7 +2,6 @@ import torch
 import itertools
 import pandas as pd
 import torch.nn as nn
-from embedding_model import EmbModel
 
 
 class SequenceAttack():
@@ -41,7 +40,8 @@ class SequenceAttack():
         first_embedding.requires_grad=True
         output = self.embedding_model(first_embedding)
 
-        loss = torch.max(torch.abs(output['logits']))
+        # loss = torch.max(torch.abs(output['logits']))
+        loss = torch.max(torch.abs(output['logits']))-torch.min(torch.abs(output['logits']))
         self.embedding_model.zero_grad()
         loss.backward()
 
@@ -53,94 +53,158 @@ class SequenceAttack():
 
         return signed_gradient, loss
 
-    def attack_sequence(self, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False):
+    def attack_sequence(self, original_sequence, target_token_idxs, first_embedding, signed_gradient, incremental=True, 
+        verbose=False):
+        """ If incremental is True substitutes one token at a time, otherwise loops through all the possible combinations.
+        """
 
-        ### build dictionary of allowed tokens substitutions for each target token idx
+        if incremental:
 
-        tokens_substitutions_dict = {}
-        for target_token_idx in target_token_idxs:
-            current_token = str(list(original_sequence)[target_token_idx])
-            allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
+            safe_cosine_similarity, adv_cosine_similarity = 1, -1
+            min_euclidean_dist, max_euclidean_dist = 10e10, 0
 
-            tokens_substitutions_dict[f'token_{str(target_token_idx)}'] = {'current_token':current_token, 
-                'allowed_token_substitutions':allowed_token_substitutions}
+            new_tokens = torch.empty(len(target_token_idxs))
 
-        allowed_token_substitutions_list = [tokens_substitutions_dict[f'token_{str(target_token_idx)}']['allowed_token_substitutions'] \
-            for target_token_idx in target_token_idxs]
-        allowed_seq_substitutions = list(itertools.product(*allowed_token_substitutions_list))
+            adv_tokens, safe_tokens, min_dist_tokens, max_dist_tokens = [], [], [], []
 
-        ### build dict of all possible perturbed sequences
+            for target_token_idx in target_token_idxs:
+                current_token = str(list(original_sequence)[target_token_idx])
+                allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
-        perturbed_sequences_dict = {}
-        for i, sequence_substitution in enumerate(allowed_seq_substitutions):
-            original_sequence_list = list(original_sequence)
+                for i, new_token in enumerate(allowed_token_substitutions):
+                    original_sequence_list = list(original_sequence)
+                    original_sequence_list[target_token_idx] = new_token
+                    perturbed_sequence = "".join(original_sequence_list)
 
-            for target_token_idx, new_token in zip(target_token_idxs, sequence_substitution):
-                original_sequence_list[target_token_idx] = new_token
+                    with torch.no_grad():
+                        batch_converter = self.alphabet.get_batch_converter()
+                        batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
 
-            new_sequence = "".join(original_sequence_list)
-            perturbed_sequences_dict[f'seq_{str(i)}'] = {'new_tokens':sequence_substitution,'perturbed_sequence':new_sequence}
+                        results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
+                        z_c = results["representations"][0]
 
-        if verbose:
-            print("\ntokens_substitutions_dict:\n", tokens_substitutions_dict)
-            print("\nn. perturbed_sequences =", len(perturbed_sequences_dict))
-            # print("\nperturbed_sequences_dict first item:\n", list(perturbed_sequences_dict.items())[0])
+                        z_c_diff = first_embedding-z_c
+                        cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
+                        euclidean_distance = torch.norm(z_c_diff, p=2)
 
-        ### compute sequence attacks
+                        ### adv substitutions maximize cosine similarity w.r.t. gradient direction
 
-        # min_eps, max_eps = 0.01, 0.1
-        # epsilon_values = torch.arange(min_eps, max_eps, step=(max_eps - min_eps) / 10)
-        # perturbed_embeddings = torch.stack([first_embedding+epsilon*signed_gradient for epsilon in epsilon_values])
+                        if cosine_similarity > adv_cosine_similarity:
+                            adv_cosine_similarity = cosine_similarity
+                            adv_token = new_token
+                            adv_sequence = perturbed_sequence
+                            # print("adv", new_tokens)
 
-        safe_cosine_similarity, adv_cosine_similarity = 1, -1
-        min_euclidean_dist, max_euclidean_dist = 10e10, 0
+                        ### "safe" substitutions minimize cosine similarity w.r.t. gradient direction
 
-        with torch.no_grad():
-            for sequence_substitution in perturbed_sequences_dict.values():
+                        if cosine_similarity < safe_cosine_similarity:
+                            safe_cosine_similarity = cosine_similarity
+                            safe_token = new_token
+                            safe_sequence = perturbed_sequence
+                            # print("safe", new_tokens)
 
-                new_tokens = sequence_substitution['new_tokens']
-                perturbed_sequence = sequence_substitution['perturbed_sequence']
+                        ### substitutions that minimize/maximize euclidean distance from classical fgsm attacks
 
-                batch_converter = self.alphabet.get_batch_converter()
-                batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
+                        if euclidean_distance < min_euclidean_dist:
+                            min_euclidean_dist = euclidean_distance
+                            min_dist_token = new_token
+                            min_dist_sequence = perturbed_sequence
+                            # print("min", new_tokens)
 
-                results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
-                z_c = results["representations"][0]
+                        if euclidean_distance > max_euclidean_dist:
+                            max_euclidean_dist = euclidean_distance
+                            max_dist_token = new_token
+                            max_dist_sequence = perturbed_sequence
+                            # print("max", new_tokens)
 
-                z_c_diff = first_embedding-z_c
-                cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
-                euclidean_distance = torch.norm(z_c_diff, p=2)
-                # euclidean_distance = torch.mean(torch.stack([torch.norm(pert_emb-z_c,p=2) for pert_emb in perturbed_embeddings]))
-                
-                ### adv substitutions maximize cosine similarity w.r.t. gradient direction
+                adv_tokens.append(adv_token)
+                safe_tokens.append(safe_token)
+                min_dist_tokens.append(min_dist_token)
+                max_dist_tokens.append(max_dist_token)
 
-                if cosine_similarity > adv_cosine_similarity:
-                    adv_cosine_similarity = cosine_similarity
-                    adv_tokens = new_tokens
-                    adv_sequence = perturbed_sequence
-                    # print("adv", new_tokens)
+        else:
 
-                ### "safe" substitutions minimize cosine similarity w.r.t. gradient direction
+            ### build dictionary of allowed tokens substitutions for each target token idx
 
-                if cosine_similarity < safe_cosine_similarity:
-                    safe_cosine_similarity = cosine_similarity
-                    safe_tokens = new_tokens
-                    safe_sequence = perturbed_sequence
-                    # print("safe", new_tokens)
+            tokens_substitutions_dict = {}
+            for target_token_idx in target_token_idxs:
+                current_token = str(list(original_sequence)[target_token_idx])
+                allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
-                ### substitutions that minimize/maximize euclidean distance from classical fgsm attacks
+                tokens_substitutions_dict[f'token_{str(target_token_idx)}'] = {'current_token':current_token, 
+                    'allowed_token_substitutions':allowed_token_substitutions}
 
-                if euclidean_distance < min_euclidean_dist:
-                    min_euclidean_dist = euclidean_distance
-                    min_dist_tokens = new_tokens
-                    min_dist_sequence = perturbed_sequence
-                    # print("min", new_tokens)
+            allowed_token_substitutions_list = [tokens_substitutions_dict[f'token_{str(target_token_idx)}']['allowed_token_substitutions'] \
+                for target_token_idx in target_token_idxs]
+            allowed_seq_substitutions = list(itertools.product(*allowed_token_substitutions_list))
 
-                if euclidean_distance > max_euclidean_dist:
-                    max_euclidean_dist = euclidean_distance
-                    max_dist_tokens = new_tokens
-                    max_dist_sequence = new_sequence
-                    # print("max", new_tokens)
+            ### build dict of all possible perturbed sequences
+
+            perturbed_sequences_dict = {}
+            for i, sequence_substitution in enumerate(allowed_seq_substitutions):
+                original_sequence_list = list(original_sequence)
+
+                for target_token_idx, new_token in zip(target_token_idxs, sequence_substitution):
+                    original_sequence_list[target_token_idx] = new_token
+
+                new_sequence = "".join(original_sequence_list)
+                perturbed_sequences_dict[f'seq_{str(i)}'] = {'new_tokens':sequence_substitution,'perturbed_sequence':new_sequence}
+
+            if verbose:
+                print("\ntokens_substitutions_dict:\n", tokens_substitutions_dict)
+                print("\nn. perturbed_sequences =", len(perturbed_sequences_dict))
+                # print("\nperturbed_sequences_dict first item:\n", list(perturbed_sequences_dict.items())[0])
+
+            ### compute sequence attacks
+
+            safe_cosine_similarity, adv_cosine_similarity = 1, -1
+            min_euclidean_dist, max_euclidean_dist = 10e10, 0
+
+            with torch.no_grad():
+                for sequence_substitution in perturbed_sequences_dict.values():
+
+                    new_tokens = sequence_substitution['new_tokens']
+                    perturbed_sequence = sequence_substitution['perturbed_sequence']
+
+                    batch_converter = self.alphabet.get_batch_converter()
+                    batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
+
+                    results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0], return_contacts=False)
+                    z_c = results["representations"][0]
+
+                    z_c_diff = first_embedding-z_c
+                    cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
+                    euclidean_distance = torch.norm(z_c_diff, p=2)
+                    
+                    ### adv substitutions maximize cosine similarity w.r.t. gradient direction
+
+                    if cosine_similarity > adv_cosine_similarity:
+                        adv_cosine_similarity = cosine_similarity
+                        adv_tokens = new_tokens
+                        adv_sequence = perturbed_sequence
+                        # print("adv", new_tokens)
+
+                    ### "safe" substitutions minimize cosine similarity w.r.t. gradient direction
+
+                    if cosine_similarity < safe_cosine_similarity:
+                        safe_cosine_similarity = cosine_similarity
+                        safe_tokens = new_tokens
+                        safe_sequence = perturbed_sequence
+                        # print("safe", new_tokens)
+
+                    ### substitutions that minimize/maximize euclidean distance from classical fgsm attacks
+
+                    if euclidean_distance < min_euclidean_dist:
+                        min_euclidean_dist = euclidean_distance
+                        min_dist_tokens = new_tokens
+                        min_dist_sequence = perturbed_sequence
+                        # print("min", new_tokens)
+
+                    if euclidean_distance > max_euclidean_dist:
+                        max_euclidean_dist = euclidean_distance
+                        max_dist_tokens = new_tokens
+                        max_dist_sequence = perturbed_sequence
+                        # print("max", new_tokens)
 
         if verbose:
             print("\nadv cosine_similarity =", adv_cosine_similarity, "\tadv_tokens =", adv_tokens)

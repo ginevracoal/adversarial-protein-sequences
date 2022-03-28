@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--max_tokens", default=None, type=int, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=None, type=int, help="Number of sequences from the chosen dataset")
-parser.add_argument("--n_token_substitutions", default=1, type=int, help="Number of token substitutions in the original \
+parser.add_argument("--n_token_substitutions", default=3, type=int, help="Number of token substitutions in the original \
     sequence")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
     range contacts')
