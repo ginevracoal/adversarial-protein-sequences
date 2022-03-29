@@ -54,8 +54,6 @@ class SequenceAttack():
         return signed_gradient, loss
 
     def attack_sequence(self, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False):
-        """ If incremental is True substitutes one token at a time, otherwise loops through all the possible combinations.
-        """
 
         batch_converter = self.alphabet.get_batch_converter()
         _, _, original_batch_tokens = batch_converter([("original", original_sequence)])
