@@ -21,10 +21,9 @@ torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
-parser.add_argument("--max_tokens", default=None, type=int, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=120, type=int, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=None, type=int, help="Number of sequences from the chosen dataset")
-parser.add_argument("--n_token_substitutions", default=3, type=int, help="Number of token substitutions in the original \
-    sequence")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
     range contacts')
 parser.add_argument("--cmap_dist_ubound", default=20, type=int, help='Upper bound for upper triangular matrix of long \
@@ -35,12 +34,12 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 
 filename = args.dataset
-df_filename = filename+f"_{args.n_token_substitutions}tokens.csv" if args.n_sequences is None \
-    else filename+f"_{args.n_token_substitutions}tokens_{args.n_sequences}seq.csv"
-cmap_df_filename = filename+f"_{args.n_token_substitutions}tokens_cmap.csv" if args.n_sequences is None \
-    else filename+f"_{args.n_token_substitutions}tokens_{args.n_sequences}seq_cmap.csv"
+df_filename = filename+f"_{args.n_substitutions}tokens.csv" if args.n_sequences is None \
+    else filename+f"_{args.n_substitutions}tokens_{args.n_sequences}seq.csv"
+cmap_df_filename = filename+f"_{args.n_substitutions}tokens_cmap.csv" if args.n_sequences is None \
+    else filename+f"_{args.n_substitutions}tokens_{args.n_sequences}seq_cmap.csv"
 
-perturbations_keys = ['adv','safe','min_dist','max_dist']
+perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
 
 if args.load:
 
@@ -86,7 +85,7 @@ else:
         atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=alphabet)
 
         target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
-            n_token_substitutions=args.n_token_substitutions, verbose=args.verbose)
+            n_token_substitutions=args.n_substitutions, verbose=args.verbose)
 
         signed_gradient, loss = atk.compute_embedding_gradient(first_embedding=first_embedding)
 
@@ -125,5 +124,5 @@ print(df.columns)
 print(cmap_df)
 
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
-plot_cosine_similarity(df, keys=['adv','safe'], filepath=plots_path, filename=filename+"_cosine_distances")
+plot_cosine_similarity(df, keys=['max_cos'], filepath=plots_path, filename=filename+"_cosine_distances")
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_cmap_distances")

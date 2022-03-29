@@ -26,7 +26,7 @@ with torch.no_grad():
 print("\nresults.keys() =", results.keys())
 print("\nattentions.shape = (batch x layers x heads x seq_len x seq_len) =", results['attentions'].shape)
 print("\nrepresentations.shape = (batch, seq_len, hidden_size) =", results['representations'][0].shape)
-print("\nlogits.shape = (batch, seq_len, n_layers) =", results['logits'].shape)
+print("\nlogits.shape = (batch, seq_len, n_tokens) =", results['logits'].shape)
 
 first_embedding = results["representations"][0]
 

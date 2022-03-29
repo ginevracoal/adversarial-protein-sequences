@@ -12,8 +12,9 @@ def plot_cosine_similarity(df, keys, filepath=None, filename=None):
     fig, ax = plt.subplots(figsize=(5*len(keys), 4), ncols=len(keys), sharey=True)
 
     for i in range(len(keys)):
+        axis = ax if len(keys)==1 else ax[i]
         df = df.sort_values(f'{keys[i]}_token') 
-        sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}_cosine_similarity', dodge=True, ax=ax[i])
+        sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}_similarity', dodge=True, ax=axis)
 
     plt.tight_layout()
     plt.show()
