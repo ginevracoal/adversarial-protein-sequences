@@ -35,13 +35,20 @@ class SequenceAttack():
 
         return target_token_idxs, repr_norms_matrix
 
-    def compute_embedding_gradient(self, first_embedding, verbose=False):
+    def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, verbose=False):
 
         first_embedding.requires_grad=True
-        output = self.embedding_model(first_embedding)
+        output = self.embedding_model(first_embedding, repr_layers=[self.original_model.args.layers])
 
-        loss = torch.max(torch.abs(output['logits']))
-        # loss = torch.max(torch.abs(output['logits']))-torch.min(torch.abs(output['logits']))
+        if loss=='maxLogits':
+            loss = torch.max(torch.abs(output['logits']))
+
+        elif loss=='maxTokensRepr':
+            start, end = 4, 29
+            output_representations = output['representations'][self.original_model.args.layers]
+            output_representations = output_representations[0, 1:len(original_sequence)+1, start:end]
+            loss = torch.max(torch.abs(output_representations[target_token_idxs,:]))
+
         self.embedding_model.zero_grad()
         loss.backward()
 
@@ -64,6 +71,8 @@ class SequenceAttack():
         max_cos_similarity = -1
         min_euclidean_dist = 10e10
         max_euclidean_dist = 0
+
+        pred_confidence, max_cos_confidence, min_dist_confidence, max_dist_confidence = 0, 0, 0, 0
 
         orig_tokens, pred_tokens, max_cos_tokens, min_dist_tokens, max_dist_tokens = [], [], [], [], []
         batch_tokens_masked = original_batch_tokens.clone()
@@ -125,23 +134,48 @@ class SequenceAttack():
         masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
         predicted_sequence_list = list(original_sequence)
 
-        for target_token_idx in target_token_idxs:
+        for i, target_token_idx in enumerate(target_token_idxs):
             logits = results["logits"][0, 1:len(original_sequence)+1, start:end]
             probs = torch.softmax(logits, dim=-1)
             predicted_token_idx = probs[target_token_idx,:].argmax()
             predicted_token = self.alphabet.all_toks[start+predicted_token_idx]
-
             predicted_sequence_list[target_token_idx] = predicted_token
             pred_tokens.append(predicted_token)
 
+            ### compute confidence scores
+
+            logits = results["logits"][0, 1:len(original_sequence)+1, :]
+            all_probs = torch.softmax(logits, dim=-1)
+            pred_confidence += all_probs[target_token_idx, self.alphabet.get_idx(predicted_token)]
+            max_cos_confidence += all_probs[target_token_idx, self.alphabet.get_idx(max_cos_tokens[i])]
+            min_dist_confidence += all_probs[target_token_idx, self.alphabet.get_idx(min_dist_tokens[i])]
+            max_dist_confidence += all_probs[target_token_idx, self.alphabet.get_idx(max_dist_tokens[i])]
+
         predicted_sequence = "".join(predicted_sequence_list)
+
+        pred_confidence /= len(target_token_idxs)
+        max_cos_confidence /= len(target_token_idxs)
+        min_dist_confidence /= len(target_token_idxs)
+        max_dist_confidence /= len(target_token_idxs)
+
+        assert pred_confidence<=1
+        assert max_cos_confidence<=1
+        assert min_dist_confidence<=1
+        assert max_dist_confidence<=1
 
         if verbose:
             print("\norig_tokens =", orig_tokens)
-            print("pred_tokens =", pred_tokens)
-            print("max_cos_tokens =", max_cos_tokens, "\tmax cosine similarity =", max_cos_similarity.item())
-            print("min_dist_tokens =", min_dist_tokens, "\tmin euclidean distance =", min_euclidean_dist.item())
-            print("max_dist_tokens =", max_dist_tokens, "\tmax euclidean distance =", max_euclidean_dist.item(), )
+            print("pred_tokens =", pred_tokens, 
+                "\tpred_confidence", pred_confidence.item())
+            print("max_cos_tokens =", max_cos_tokens, 
+                "\tmax_cos_confidence", max_cos_confidence.item(),
+                "\tmax cosine similarity =", max_cos_similarity.item())
+            print("min_dist_tokens =", min_dist_tokens, 
+                "\tmin_dist_confidence", min_dist_confidence.item(), 
+                "\tmin euclidean distance =", min_euclidean_dist.item())
+            print("max_dist_tokens =", max_dist_tokens, 
+                "\tmax_dist_confidence", max_dist_confidence.item(),
+                "\tmax euclidean distance =", max_euclidean_dist.item(), )
 
         atk_df = pd.DataFrame()
 
@@ -152,15 +186,19 @@ class SequenceAttack():
                 'target_token_idx':token_idx,
                 'pred_token':pred_tokens[i],
                 'pred_sequence':predicted_sequence,
+                'pred_confidence':pred_confidence.item(),
                 'max_cos_token':max_cos_tokens[i], 
                 'max_cos_sequence':max_cos_sequence, 
                 'max_cos_similarity':max_cos_similarity.item(), 
+                'max_cos_confidence':max_cos_confidence.item(),
                 'min_dist_token':min_dist_tokens[i],
                 'min_dist_sequence':min_dist_sequence,
                 'min_euclidean_dist':min_euclidean_dist.item(), 
+                'min_dist_confidence':min_dist_confidence.item(),
                 'max_dist_token':max_dist_tokens[i], 
                 'max_dist_sequence':max_dist_sequence,
-                'max_euclidean_dist':max_euclidean_dist.item()
+                'max_euclidean_dist':max_euclidean_dist.item(),
+                'max_dist_confidence':max_dist_confidence.item(),
                 }, ignore_index=True)
 
         return atk_df
