@@ -24,7 +24,7 @@ parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Dataset name")
 parser.add_argument("--max_tokens", default=120, type=int, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=None, type=int, help="Number of sequences from the chosen dataset")
-parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
     range contacts')
 parser.add_argument("--cmap_dist_ubound", default=20, type=int, help='Upper bound for upper triangular matrix of long \
@@ -89,8 +89,7 @@ else:
         signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
             target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss)
 
-        # todo: add name to this df
-        atk_df = atk.attack_sequence(original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
+        atk_df = atk.attack_sequence(name=name, original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
             first_embedding=first_embedding, signed_gradient=signed_gradient, verbose=args.verbose)
 
         df = pd.concat([df, atk_df], ignore_index=True)

@@ -2,7 +2,7 @@
 
 MAX_TOKENS=120
 N_SEQUENCES=500
-N_SUBSTITUTIONS=3
+N_SUBSTITUTIONS=20
 DEVICE="cuda"
 
 source ../venv/bin/activate

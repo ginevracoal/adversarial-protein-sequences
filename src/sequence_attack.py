@@ -2,6 +2,7 @@ import torch
 import itertools
 import pandas as pd
 import torch.nn as nn
+from Bio.SubsMat import MatrixInfo
 
 
 class SequenceAttack():
@@ -47,20 +48,16 @@ class SequenceAttack():
             start, end = 4, 29
             output_representations = output['representations'][self.original_model.args.layers]
             output_representations = output_representations[0, 1:len(original_sequence)+1, start:end]
-            loss = torch.max(torch.abs(output_representations[target_token_idxs,:]))
+            loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
         self.embedding_model.zero_grad()
         loss.backward()
 
         signed_gradient = first_embedding.grad.data.sign()
         first_embedding.requires_grad=False
-
-        if verbose:
-            print("\ndistance from the original embedding =", torch.norm(perturbed_embedding-first_embedding).item())
-
         return signed_gradient, loss
 
-    def attack_sequence(self, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False):
+    def attack_sequence(self, name, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False):
 
         batch_converter = self.alphabet.get_batch_converter()
         _, _, original_batch_tokens = batch_converter([("original", original_sequence)])
@@ -123,7 +120,8 @@ class SequenceAttack():
                         max_dist_token = new_token
                         max_dist_sequence = perturbed_sequence
 
-            # original_sequence = perturbed_sequence
+            # updating one token at a time
+            original_sequence = perturbed_sequence
 
             max_cos_tokens.append(max_cos_token)
             min_dist_tokens.append(min_dist_token)
@@ -163,43 +161,54 @@ class SequenceAttack():
         assert min_dist_confidence<=1
         assert max_dist_confidence<=1
 
+        ### blosum distances
+
+        pred_blosum = self.compute_blosum_distance(original_sequence, predicted_sequence)
+        max_cos_blosum = self.compute_blosum_distance(original_sequence, max_cos_sequence)
+        min_dist_blosum = self.compute_blosum_distance(original_sequence, min_dist_sequence)
+        max_dist_blosum = self.compute_blosum_distance(original_sequence, max_dist_sequence)
+
         if verbose:
-            print("\norig_tokens =", orig_tokens)
-            print("pred_tokens =", pred_tokens, 
-                "\tpred_confidence", pred_confidence.item())
-            print("max_cos_tokens =", max_cos_tokens, 
-                "\tmax_cos_confidence", max_cos_confidence.item(),
-                "\tmax cosine similarity =", max_cos_similarity.item())
-            print("min_dist_tokens =", min_dist_tokens, 
-                "\tmin_dist_confidence", min_dist_confidence.item(), 
-                "\tmin euclidean distance =", min_euclidean_dist.item())
-            print("max_dist_tokens =", max_dist_tokens, 
-                "\tmax_dist_confidence", max_dist_confidence.item(),
-                "\tmax euclidean distance =", max_euclidean_dist.item(), )
+            print(f"\norig_tokens = {orig_tokens}")
+            print(f"pred_tokens = {pred_tokens}\t\tlikelihood = {pred_confidence}\t\tblosum_dist = {pred_blosum}")
+            print(f"max_cos_tokens = {max_cos_tokens}\tlikelihood = {max_cos_confidence}\tblosum_dist = {max_cos_blosum}")
+            print(f"min_dist_tokens = {min_dist_tokens}\tlikelihood = {min_dist_confidence}\tblosum_dist = {min_dist_blosum}")
+            print(f"max_dist_tokens = {max_dist_tokens}\tlikelihood = {max_dist_confidence}\tblosum_dist = {max_dist_blosum}")
 
         atk_df = pd.DataFrame()
 
         for i, token_idx in enumerate(target_token_idxs):
 
-            atk_df = atk_df.append({
+            row = {
+                'name':name,
                 'original_sequence':original_sequence,
                 'target_token_idx':token_idx,
                 'pred_token':pred_tokens[i],
                 'pred_sequence':predicted_sequence,
                 'pred_confidence':pred_confidence.item(),
+                'pred_blosum':pred_blosum,
                 'max_cos_token':max_cos_tokens[i], 
                 'max_cos_sequence':max_cos_sequence, 
                 'max_cos_similarity':max_cos_similarity.item(), 
                 'max_cos_confidence':max_cos_confidence.item(),
+                'max_cos_blosum':max_cos_blosum,
                 'min_dist_token':min_dist_tokens[i],
                 'min_dist_sequence':min_dist_sequence,
                 'min_euclidean_dist':min_euclidean_dist.item(), 
                 'min_dist_confidence':min_dist_confidence.item(),
+                'min_dist_blosum':min_dist_blosum,
                 'max_dist_token':max_dist_tokens[i], 
                 'max_dist_sequence':max_dist_sequence,
                 'max_euclidean_dist':max_euclidean_dist.item(),
                 'max_dist_confidence':max_dist_confidence.item(),
-                }, ignore_index=True)
+                'max_dist_blosum':max_dist_blosum,
+                }
+
+            # if verbose:
+            #     print("\n")
+            #     [print(key, value) for key, value in row.items()]
+
+            atk_df = atk_df.append(row, ignore_index=True)
 
         return atk_df
 
@@ -210,3 +219,17 @@ class SequenceAttack():
         batch_labels, batch_strs, batch_tokens = batch_converter([('seq',sequence)])
         contact_map = self.original_model.predict_contacts(batch_tokens.to(device))[0]
         return contact_map
+
+    def compute_blosum_distance(self, seq1, seq2):
+
+        def get_score(token1, token2):
+            try:
+                return blosum[(token1,token2)]
+            except:
+                return -100 # very unlikely substitution 
+
+        blosum = MatrixInfo.blosum62
+        assert len(seq1)==len(seq2)
+        blosum_distance = sum([get_score(seq1[i],seq1[i])-get_score(seq1[i],seq2[i]) for i in range(len(seq1))])
+
+        return blosum_distance
