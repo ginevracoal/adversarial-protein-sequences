@@ -1,6 +1,7 @@
 absl-py==1.0.0
 astunparse==1.6.3
 backcall==0.2.0
+biopython==1.79
 cached-property==1.5.2
 cachetools==5.0.0
 captum==0.5.0
