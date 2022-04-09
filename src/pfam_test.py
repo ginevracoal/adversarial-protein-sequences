@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from paths import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_cmap_distances, plot_cosine_similarity, plot_tokens_hist, plot_confidence
+from plot_utils import plot_cmap_distances, plot_cosine_similarity, plot_tokens_hist, plot_blosum_distances
 from data_utils import filter_pfam
 
 random.seed(0)
@@ -125,5 +125,5 @@ print(cmap_df)
 
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
 plot_cosine_similarity(df, keys=['max_cos'], filepath=plots_path, filename=filename+"_cosine_distances")
+plot_blosum_distances(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_blosum_distances")
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_cmap_distances")
-# plot_confidence(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_confidence")

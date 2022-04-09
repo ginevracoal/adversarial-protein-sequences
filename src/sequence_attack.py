@@ -74,20 +74,22 @@ class SequenceAttack():
         orig_tokens, pred_tokens, max_cos_tokens, min_dist_tokens, max_dist_tokens = [], [], [], [], []
         batch_tokens_masked = original_batch_tokens.clone()
 
+        temp_perturbed_sequence = original_sequence
+
         for target_token_idx in target_token_idxs:
 
             ### mask original sequence at target_token_idx
 
-            orig_tokens.append(original_sequence[target_token_idx])
+            orig_tokens.append(temp_perturbed_sequence[target_token_idx])
             batch_tokens_masked[0, target_token_idx] = self.alphabet.mask_idx
 
             ### allowed substitutions at target_token_idx 
 
-            current_token = original_sequence[target_token_idx]
+            current_token = temp_perturbed_sequence[target_token_idx]
             allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
             for i, new_token in enumerate(allowed_token_substitutions):
-                original_sequence_list = list(original_sequence)
+                original_sequence_list = list(temp_perturbed_sequence)
                 original_sequence_list[target_token_idx] = new_token
                 perturbed_sequence = "".join(original_sequence_list)
 
@@ -121,7 +123,7 @@ class SequenceAttack():
                         max_dist_sequence = perturbed_sequence
 
             # updating one token at a time
-            original_sequence = perturbed_sequence
+            temp_perturbed_sequence = perturbed_sequence
 
             max_cos_tokens.append(max_cos_token)
             min_dist_tokens.append(min_dist_token)
@@ -163,10 +165,10 @@ class SequenceAttack():
 
         ### blosum distances
 
-        pred_blosum = self.compute_blosum_distance(original_sequence, predicted_sequence)
-        max_cos_blosum = self.compute_blosum_distance(original_sequence, max_cos_sequence)
-        min_dist_blosum = self.compute_blosum_distance(original_sequence, min_dist_sequence)
-        max_dist_blosum = self.compute_blosum_distance(original_sequence, max_dist_sequence)
+        pred_blosum = self.compute_blosum_distance(original_sequence, predicted_sequence, target_token_idxs)
+        max_cos_blosum = self.compute_blosum_distance(original_sequence, max_cos_sequence, target_token_idxs)
+        min_dist_blosum = self.compute_blosum_distance(original_sequence, min_dist_sequence, target_token_idxs)
+        max_dist_blosum = self.compute_blosum_distance(original_sequence, max_dist_sequence, target_token_idxs)
 
         if verbose:
             print(f"\norig_tokens = {orig_tokens}")
@@ -220,16 +222,16 @@ class SequenceAttack():
         contact_map = self.original_model.predict_contacts(batch_tokens.to(device))[0]
         return contact_map
 
-    def compute_blosum_distance(self, seq1, seq2):
+    def compute_blosum_distance(self, seq1, seq2, target_token_idxs, penalty=2):
 
         def get_score(token1, token2):
             try:
                 return blosum[(token1,token2)]
             except:
-                return -100 # very unlikely substitution 
+                return penalty*min(blosum.values()) # very unlikely substitution 
 
         blosum = MatrixInfo.blosum62
         assert len(seq1)==len(seq2)
-        blosum_distance = sum([get_score(seq1[i],seq1[i])-get_score(seq1[i],seq2[i]) for i in range(len(seq1))])
+        blosum_distance = sum([get_score(seq1[i],seq1[i])-get_score(seq1[i],seq2[i]) for i in target_token_idxs])
 
         return blosum_distance

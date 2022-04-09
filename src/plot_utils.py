@@ -88,6 +88,25 @@ def plot_cmap_distances(df, keys, filepath=None, filename=None):
 
     return fig
 
+def plot_blosum_distances(df, keys, filepath=None, filename=None):
+    sns.set_style("darkgrid")
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    df = df[['original_sequence']+[f"{key}_blosum" for key in keys]]
+    df = df.melt(id_vars=['original_sequence'], var_name="key", value_name="blosum")
+
+    ax = sns.histplot(x=df["blosum"], hue=df["key"], kde=False, multiple="stack")
+    plt.tight_layout()
+    plt.show()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+".png"))
+        plt.close()
+
+    return fig
+
 def plot_confidence(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
 
