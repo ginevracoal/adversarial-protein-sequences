@@ -7,14 +7,14 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
-def plot_cosine_similarity(df, keys, filepath=None, filename=None):
+def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
     sns.set_style("darkgrid")
     fig, ax = plt.subplots(figsize=(5*len(keys), 4), ncols=len(keys), sharey=True)
 
     for i in range(len(keys)):
         axis = ax if len(keys)==1 else ax[i]
         df = df.sort_values(f'{keys[i]}_token') 
-        sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}_similarity', dodge=True, ax=axis)
+        sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}', dodge=True, ax=axis)
 
     plt.tight_layout()
     plt.show()
@@ -32,7 +32,7 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
     fig, ax = plt.subplots(figsize=(8, 5))
 
     df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['original_sequence']), axis=1)
-    sns.histplot(data=df, x="perc_token_idx", legend=None)#, multiple="stack", hue="adv_token")
+    sns.histplot(data=df, x="perc_token_idx", legend=None)
     plt.yscale('log')
 
     plt.tight_layout()
@@ -97,34 +97,6 @@ def plot_blosum_distances(df, keys, filepath=None, filename=None):
     df = df.melt(id_vars=['original_sequence'], var_name="key", value_name="blosum")
 
     ax = sns.histplot(x=df["blosum"], hue=df["key"], kde=False, multiple="stack")
-    plt.tight_layout()
-    plt.show()
-
-    if filepath is not None and filename is not None:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+".png"))
-        plt.close()
-
-    return fig
-
-def plot_confidence(df, keys, filepath=None, filename=None):
-    sns.set_style("darkgrid")
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    plt.yscale('log')
-
-    for key in keys:
-        print(df[f"{key}_confidence"].describe())
-        # ax = sns.histplot(x=df[f"{key}_confidence"], label=key)
-    
-    # df = df[['original_sequence']+[f"{key}_confidence" for key in keys]]
-
-    # df = df.melt(id_vars=['original_sequence'], 
-    #                 var_name="key", 
-    #                 value_name="confidence")
-    # print(df['confidence'].min(), df["confidence"].mean())
-    # ax = sns.displot(x=df["confidence"], hue=df["key"], kde=False)#, kind="kde")
-
     plt.tight_layout()
     plt.show()
 

@@ -12,6 +12,10 @@ class SequenceAttack():
         self.embedding_model = embedding_model
         self.alphabet = alphabet
 
+        # start/end idxs of residues tokens in the alphabet
+        self.start, self.end = 4, 29 
+        self.residues_tokens = self.alphabet.all_toks[self.start:self.end]
+
     def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, verbose=False):
 
         n_layers = self.original_model.args.layers
@@ -45,9 +49,8 @@ class SequenceAttack():
             loss = torch.max(torch.abs(output['logits']))
 
         elif loss=='maxTokensRepr':
-            start, end = 4, 29
             output_representations = output['representations'][self.original_model.args.layers]
-            output_representations = output_representations[0, 1:len(original_sequence)+1, start:end]
+            output_representations = output_representations[0, 1:len(original_sequence)+1, self.start:self.end]
             loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
         self.embedding_model.zero_grad()
@@ -57,161 +60,150 @@ class SequenceAttack():
         first_embedding.requires_grad=False
         return signed_gradient, loss
 
-    def attack_sequence(self, name, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False):
+    def attack_sequence(self, name, original_sequence, target_token_idxs, first_embedding, signed_gradient, verbose=False,
+        perturbations_keys=['pred', 'max_cos','min_dist','max_dist'] ):
+
+        assert 'pred' in perturbations_keys
+        adv_perturbations_keys = perturbations_keys.copy()
+        adv_perturbations_keys.remove('pred')
 
         batch_converter = self.alphabet.get_batch_converter()
         _, _, original_batch_tokens = batch_converter([("original", original_sequence)])
-
-        start, end = 4, 29
-        amino_acids_tokens = self.alphabet.all_toks[start:end]
-
-        max_cos_similarity = -1
-        min_euclidean_dist = 10e10
-        max_euclidean_dist = 0
-
-        pred_confidence, max_cos_confidence, min_dist_confidence, max_dist_confidence = 0, 0, 0, 0
-
-        orig_tokens, pred_tokens, max_cos_tokens, min_dist_tokens, max_dist_tokens = [], [], [], [], []
         batch_tokens_masked = original_batch_tokens.clone()
 
-        temp_perturbed_sequence = original_sequence
+        atk_dict = {'name':name, 'original_sequence':original_sequence, 'orig_tokens':[], 'target_token_idxs':target_token_idxs}
+        # to do: da spacchettare sui token idxs alla fine
+
+        for pert_key in perturbations_keys:
+            atk_dict.update({
+                f'{pert_key}_tokens':[], 
+                f'{pert_key}_sequence':original_sequence,
+                f'{pert_key}_confidence':0, 
+                f'{pert_key}_blosum':0
+                })
+
+            if pert_key=='max_cos':
+                atk_dict.update({pert_key:-1})
+
+            if pert_key=='min_dist':
+                atk_dict.update({pert_key:10e10})
+
+            if pert_key=='max_dist':
+                atk_dict.update({pert_key:0})
 
         for target_token_idx in target_token_idxs:
 
-            ### mask original sequence at target_token_idx
+            atk_dict['orig_tokens'].append(original_sequence[target_token_idx])
 
-            orig_tokens.append(temp_perturbed_sequence[target_token_idx])
+            ### mask original sequence at target_token_idx
             batch_tokens_masked[0, target_token_idx] = self.alphabet.mask_idx
 
             ### allowed substitutions at target_token_idx 
-
-            current_token = temp_perturbed_sequence[target_token_idx]
+            current_token = original_sequence[target_token_idx]
             allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
-            for i, new_token in enumerate(allowed_token_substitutions):
-                original_sequence_list = list(temp_perturbed_sequence)
-                original_sequence_list[target_token_idx] = new_token
-                perturbed_sequence = "".join(original_sequence_list)
+            for pert_key in adv_perturbations_keys:
 
-                with torch.no_grad():
-                    batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
+                # updating one token at a time
+                for i, new_token in enumerate(allowed_token_substitutions):
+                    current_sequence_list = list(atk_dict[f'{pert_key}_sequence'])
+                    current_sequence_list[target_token_idx] = new_token
+                    perturbed_sequence = "".join(current_sequence_list)
 
-                    results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-                    z_c = results["representations"][0]
+                    with torch.no_grad():
+                        batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
 
-                    z_c_diff = first_embedding-z_c
-                    cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
-                    euclidean_distance = torch.norm(z_c_diff, p=2)
+                        results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+                        z_c = results["representations"][0]
+                        z_c_diff = first_embedding-z_c
+                            
+                        cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
+                        euclidean_distance = torch.norm(z_c_diff, p=2)
 
-                    ### substitutions that maximize cosine similarity w.r.t. gradient direction
+                        ### substitutions that maximize cosine similarity w.r.t. gradient direction
 
-                    if cosine_similarity > max_cos_similarity:
-                        max_cos_similarity = cosine_similarity
-                        max_cos_token = new_token
-                        max_cos_sequence = perturbed_sequence
+                        if pert_key=='max_cos' and cosine_similarity > atk_dict[pert_key]:
+                                atk_dict[pert_key] = cosine_similarity.item()
+                                atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+                                current_token = new_token
 
-                    ### substitutions that minimize/maximize euclidean distance from the original embedding
+                        ### substitutions that minimize/maximize euclidean distance from the original embedding
 
-                    if euclidean_distance < min_euclidean_dist:
-                        min_euclidean_dist = euclidean_distance
-                        min_dist_token = new_token
-                        min_dist_sequence = perturbed_sequence
+                        if pert_key=='min_dist' and euclidean_distance < atk_dict['min_dist']:
+                            atk_dict[pert_key] = euclidean_distance.item()
+                            atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+                            current_token = new_token
 
-                    if euclidean_distance > max_euclidean_dist:
-                        max_euclidean_dist = euclidean_distance
-                        max_dist_token = new_token
-                        max_dist_sequence = perturbed_sequence
+                        if pert_key=='max_dist' and euclidean_distance > atk_dict['max_dist']:
+                            atk_dict[pert_key] = euclidean_distance.item()
+                            atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+                            current_token = new_token
 
-            # updating one token at a time
-            temp_perturbed_sequence = perturbed_sequence
+                atk_dict[f'{pert_key}_tokens'].append(current_token)
 
-            max_cos_tokens.append(max_cos_token)
-            min_dist_tokens.append(min_dist_token)
-            max_dist_tokens.append(max_dist_token)
-
+        assert len(atk_dict[f'{pert_key}_tokens'])==len(target_token_idxs)
+        
         ### prediction on sequence masked at target_token_idxs
 
         masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
         predicted_sequence_list = list(original_sequence)
 
         for i, target_token_idx in enumerate(target_token_idxs):
-            logits = results["logits"][0, 1:len(original_sequence)+1, start:end]
+            logits = results["logits"][0, 1:len(original_sequence)+1, self.start:self.end]
             probs = torch.softmax(logits, dim=-1)
             predicted_token_idx = probs[target_token_idx,:].argmax()
-            predicted_token = self.alphabet.all_toks[start+predicted_token_idx]
+            predicted_token = self.alphabet.all_toks[self.start+predicted_token_idx]
             predicted_sequence_list[target_token_idx] = predicted_token
-            pred_tokens.append(predicted_token)
+            atk_dict['pred_tokens'].append(predicted_token)
 
             ### compute confidence scores
 
             logits = results["logits"][0, 1:len(original_sequence)+1, :]
             all_probs = torch.softmax(logits, dim=-1)
-            pred_confidence += all_probs[target_token_idx, self.alphabet.get_idx(predicted_token)]
-            max_cos_confidence += all_probs[target_token_idx, self.alphabet.get_idx(max_cos_tokens[i])]
-            min_dist_confidence += all_probs[target_token_idx, self.alphabet.get_idx(min_dist_tokens[i])]
-            max_dist_confidence += all_probs[target_token_idx, self.alphabet.get_idx(max_dist_tokens[i])]
 
-        predicted_sequence = "".join(predicted_sequence_list)
+            for pert_key in perturbations_keys:
+                new_residue_idx = self.alphabet.get_idx(atk_dict[f'{pert_key}_tokens'][i])
+                atk_dict[f'{pert_key}_confidence'] += (all_probs[target_token_idx, new_residue_idx]/len(target_token_idxs)).item()
 
-        pred_confidence /= len(target_token_idxs)
-        max_cos_confidence /= len(target_token_idxs)
-        min_dist_confidence /= len(target_token_idxs)
-        max_dist_confidence /= len(target_token_idxs)
+        atk_dict['pred_sequence'] = "".join(predicted_sequence_list)
+        assert atk_dict[f'{pert_key}_confidence']<=1
 
-        assert pred_confidence<=1
-        assert max_cos_confidence<=1
-        assert min_dist_confidence<=1
-        assert max_dist_confidence<=1
-
-        ### blosum distances
-
-        pred_blosum = self.compute_blosum_distance(original_sequence, predicted_sequence, target_token_idxs)
-        max_cos_blosum = self.compute_blosum_distance(original_sequence, max_cos_sequence, target_token_idxs)
-        min_dist_blosum = self.compute_blosum_distance(original_sequence, min_dist_sequence, target_token_idxs)
-        max_dist_blosum = self.compute_blosum_distance(original_sequence, max_dist_sequence, target_token_idxs)
+        ### compute blosum distances
 
         if verbose:
-            print(f"\norig_tokens = {orig_tokens}")
-            print(f"pred_tokens = {pred_tokens}\t\tlikelihood = {pred_confidence}\t\tblosum_dist = {pred_blosum}")
-            print(f"max_cos_tokens = {max_cos_tokens}\tlikelihood = {max_cos_confidence}\tblosum_dist = {max_cos_blosum}")
-            print(f"min_dist_tokens = {min_dist_tokens}\tlikelihood = {min_dist_confidence}\tblosum_dist = {min_dist_blosum}")
-            print(f"max_dist_tokens = {max_dist_tokens}\tlikelihood = {max_dist_confidence}\tblosum_dist = {max_dist_blosum}")
+            print(f"\norig_tokens = {atk_dict['orig_tokens']}")
+
+        for pert_key in perturbations_keys:
+            atk_dict[f'{pert_key}_blosum'] = self.compute_blosum_distance(
+                original_sequence, atk_dict[f'{pert_key}_sequence'], target_token_idxs)
+
+            if verbose:
+                print(f"{pert_key}_tokens = {atk_dict[f'{pert_key}_tokens']}\
+                    \tlikelihood = {atk_dict[f'{pert_key}_confidence']}\
+                    \tblosum_dist = {atk_dict[f'{pert_key}_blosum']}")
+
+        ### unstack tokens lists
 
         atk_df = pd.DataFrame()
-
         for i, token_idx in enumerate(target_token_idxs):
+            row = atk_dict.copy()
 
-            row = {
-                'name':name,
-                'original_sequence':original_sequence,
-                'target_token_idx':token_idx,
-                'pred_token':pred_tokens[i],
-                'pred_sequence':predicted_sequence,
-                'pred_confidence':pred_confidence.item(),
-                'pred_blosum':pred_blosum,
-                'max_cos_token':max_cos_tokens[i], 
-                'max_cos_sequence':max_cos_sequence, 
-                'max_cos_similarity':max_cos_similarity.item(), 
-                'max_cos_confidence':max_cos_confidence.item(),
-                'max_cos_blosum':max_cos_blosum,
-                'min_dist_token':min_dist_tokens[i],
-                'min_dist_sequence':min_dist_sequence,
-                'min_euclidean_dist':min_euclidean_dist.item(), 
-                'min_dist_confidence':min_dist_confidence.item(),
-                'min_dist_blosum':min_dist_blosum,
-                'max_dist_token':max_dist_tokens[i], 
-                'max_dist_sequence':max_dist_sequence,
-                'max_euclidean_dist':max_euclidean_dist.item(),
-                'max_dist_confidence':max_dist_confidence.item(),
-                'max_dist_blosum':max_dist_blosum,
-                }
+            token_idx = row['target_token_idxs'][i]
+            row['target_token_idx'] = row.pop('target_token_idxs')
+            row['target_token_idx'] = token_idx
 
-            # if verbose:
-            #     print("\n")
-            #     [print(key, value) for key, value in row.items()]
+            token = row['orig_tokens'][i]
+            row['orig_token'] = row.pop('orig_tokens')
+            row['orig_token'] = token
+
+            for pert_key in perturbations_keys:
+                token = row[f'{pert_key}_tokens'][i]
+                row[f'{pert_key}_token'] = row.pop(f'{pert_key}_tokens')
+                row[f'{pert_key}_token'] = token
 
             atk_df = atk_df.append(row, ignore_index=True)
 
+        assert len(atk_df)==len(target_token_idxs)
         return atk_df
 
     def compute_contact_map(self, sequence):
