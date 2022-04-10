@@ -4,6 +4,7 @@ import pandas as pd
 import torch.nn as nn
 from Bio.SubsMat import MatrixInfo
 
+DEBUG=False
 
 class SequenceAttack():
 
@@ -92,6 +93,9 @@ class SequenceAttack():
 
         for target_token_idx in target_token_idxs:
 
+            if DEBUG:
+                print("\ntarget_token_idx =", target_token_idx)
+
             atk_dict['orig_tokens'].append(original_sequence[target_token_idx])
 
             ### mask original sequence at target_token_idx
@@ -103,10 +107,13 @@ class SequenceAttack():
 
             for pert_key in adv_perturbations_keys:
 
+                if DEBUG:
+                    print("\tpert_key =", pert_key)
+
                 # updating one token at a time
-                for i, new_token in enumerate(allowed_token_substitutions):
+                for i, token in enumerate(allowed_token_substitutions):
                     current_sequence_list = list(atk_dict[f'{pert_key}_sequence'])
-                    current_sequence_list[target_token_idx] = new_token
+                    current_sequence_list[target_token_idx] = token
                     perturbed_sequence = "".join(current_sequence_list)
 
                     with torch.no_grad():
@@ -122,23 +129,32 @@ class SequenceAttack():
                         ### substitutions that maximize cosine similarity w.r.t. gradient direction
 
                         if pert_key=='max_cos' and cosine_similarity > atk_dict[pert_key]:
-                                atk_dict[pert_key] = cosine_similarity.item()
-                                atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-                                current_token = new_token
+                            atk_dict[pert_key] = cosine_similarity.item()
+                            atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+                            new_token = token
+                            
+                            if DEBUG:
+                                print("\t\tperturbed_sequence =", perturbed_sequence)
 
                         ### substitutions that minimize/maximize euclidean distance from the original embedding
 
-                        if pert_key=='min_dist' and euclidean_distance < atk_dict['min_dist']:
+                        if pert_key=='min_dist' and euclidean_distance < atk_dict[pert_key]:
                             atk_dict[pert_key] = euclidean_distance.item()
                             atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-                            current_token = new_token
+                            new_token = token
 
-                        if pert_key=='max_dist' and euclidean_distance > atk_dict['max_dist']:
+                            if DEBUG:
+                                print("\t\tperturbed_sequence =", perturbed_sequence)
+
+                        if pert_key=='max_dist' and euclidean_distance > atk_dict[pert_key]:
                             atk_dict[pert_key] = euclidean_distance.item()
                             atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-                            current_token = new_token
+                            new_token = token
 
-                atk_dict[f'{pert_key}_tokens'].append(current_token)
+                            if DEBUG:
+                                print("\t\tperturbed_sequence =", perturbed_sequence)
+                                
+                atk_dict[f'{pert_key}_tokens'].append(new_token)
 
         assert len(atk_dict[f'{pert_key}_tokens'])==len(target_token_idxs)
         
@@ -148,21 +164,19 @@ class SequenceAttack():
         predicted_sequence_list = list(original_sequence)
 
         for i, target_token_idx in enumerate(target_token_idxs):
-            logits = results["logits"][0, 1:len(original_sequence)+1, self.start:self.end]
+            logits = results["logits"][0, 1:len(original_sequence)+1, :]
             probs = torch.softmax(logits, dim=-1)
-            predicted_token_idx = probs[target_token_idx,:].argmax()
-            predicted_token = self.alphabet.all_toks[self.start+predicted_token_idx]
+
+            predicted_token_idx = probs[target_token_idx,self.start:self.end].argmax()
+            predicted_token = self.residues_tokens[predicted_token_idx]
             predicted_sequence_list[target_token_idx] = predicted_token
             atk_dict['pred_tokens'].append(predicted_token)
 
             ### compute confidence scores
 
-            logits = results["logits"][0, 1:len(original_sequence)+1, :]
-            all_probs = torch.softmax(logits, dim=-1)
-
             for pert_key in perturbations_keys:
                 new_residue_idx = self.alphabet.get_idx(atk_dict[f'{pert_key}_tokens'][i])
-                atk_dict[f'{pert_key}_confidence'] += (all_probs[target_token_idx, new_residue_idx]/len(target_token_idxs)).item()
+                atk_dict[f'{pert_key}_confidence'] += (probs[target_token_idx, new_residue_idx]/len(target_token_idxs)).item()
 
         atk_dict['pred_sequence'] = "".join(predicted_sequence_list)
         assert atk_dict[f'{pert_key}_confidence']<=1

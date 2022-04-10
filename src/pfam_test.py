@@ -20,9 +20,9 @@ torch.manual_seed(0)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
+parser.add_argument("--dataset", default='fastaPF00004', type=str, help="Dataset name")
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Dataset name")
-parser.add_argument("--max_tokens", default=120, type=int, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=200, type=int, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=int, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=10, type=int, help="Number of token substitutions in the original sequence")
@@ -55,9 +55,9 @@ else:
     esm1_model = esm1_model.to(args.device)
 
     max_tokens = esm1_model.args.max_tokens if args.max_tokens is None else     args.max_tokens
-    data, avg_seq_lenght = filter_pfam(max_tokens=max_tokens, filepath=pfam_path, filename=filename)
+    data, avg_seq_length = filter_pfam(max_tokens=max_tokens, filepath=pfam_path, filename=filename)
 
-    print("\navg_seq_lenght =", avg_seq_lenght)
+    print("\navg_seq_length =", avg_seq_length)
 
     if args.n_sequences is not None:
         data = random.sample(data, args.n_sequences)
