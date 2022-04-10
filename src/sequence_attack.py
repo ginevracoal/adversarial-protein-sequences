@@ -72,7 +72,6 @@ class SequenceAttack():
         batch_tokens_masked = original_batch_tokens.clone()
 
         atk_dict = {'name':name, 'original_sequence':original_sequence, 'orig_tokens':[], 'target_token_idxs':target_token_idxs}
-        # to do: da spacchettare sui token idxs alla fine
 
         for pert_key in perturbations_keys:
             atk_dict.update({
