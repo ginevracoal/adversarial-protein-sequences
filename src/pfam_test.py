@@ -35,16 +35,20 @@ parser.add_argument("--load", default=False, type=eval, help='If True load else 
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 
-filename = args.dataset
-df_filename = filename+f"_{args.n_substitutions}Tokens_{args.loss}Loss"
-df_filename = df_filename if args.n_sequences is None else df_filename+f"_{args.n_sequences}Seq"
+filename = f"{args.dataset}_subst={args.n_substitutions}"
+
+if args.n_sequences is not None:
+    filename = f"{filename}_seq={args.n_sequences}"
+
+if args.max_tokens is not None:
+    filename = f"{filename}_tokens={args.max_tokens}"
 
 perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
 
 if args.load:
 
-    df = pd.read_csv(os.path.join(out_data_path, df_filename+".csv"), index_col=[0])
-    cmap_df = pd.read_csv(os.path.join(out_data_path, df_filename+"_cmap.csv"))
+    df = pd.read_csv(os.path.join(out_data_path, filename+".csv"), index_col=[0])
+    cmap_df = pd.read_csv(os.path.join(out_data_path, filename+"_cmap.csv"))
 
 else:
 
@@ -54,8 +58,8 @@ else:
 
     esm1_model = esm1_model.to(args.device)
 
-    max_tokens = esm1_model.args.max_tokens if args.max_tokens is None else     args.max_tokens
-    data, avg_seq_length = filter_pfam(max_tokens=max_tokens, filepath=pfam_path, filename=filename)
+    max_tokens = esm1_model.args.max_tokens if args.max_tokens is None else args.max_tokens
+    data, avg_seq_length = filter_pfam(max_tokens=max_tokens, filepath=pfam_path, filename=args.dataset)
 
     print("\navg_seq_length =", avg_seq_length)
 
