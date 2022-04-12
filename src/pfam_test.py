@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from paths import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_cmap_distances, plot_cosine_similarity, plot_tokens_hist, plot_blosum_distances
+from plot_utils import plot_cmap_distances, plot_cosine_similarity, plot_tokens_hist, plot_blosum_distances, plot_confidence
 from data_utils import filter_pfam
 
 random.seed(0)
@@ -22,8 +22,8 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00004', type=str, help="Dataset name")
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Dataset name")
-parser.add_argument("--max_tokens", default=200, type=int, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=100, type=int, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--max_tokens", default=200, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=10, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
@@ -121,15 +121,15 @@ else:
             cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
                 
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
-    df.to_csv(os.path.join(out_data_path,  df_filename+".csv"))
-    cmap_df.to_csv(os.path.join(out_data_path,  df_filename+"_cmap.csv"))
+    df.to_csv(os.path.join(out_data_path,  filename+".csv"))
+    cmap_df.to_csv(os.path.join(out_data_path,  filename+"_cmap.csv"))
 
 
 print("\n", df.keys())
-# print(df.columns)
 print("\n", cmap_df)
 
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
 plot_cosine_similarity(df, filepath=plots_path, filename=filename+"_cosine_distances")
+plot_confidence(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_plot_confidence")
 plot_blosum_distances(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_blosum_distances")
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_cmap_distances")

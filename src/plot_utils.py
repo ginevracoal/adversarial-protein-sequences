@@ -109,15 +109,24 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 
     return fig
 
-def plot_blosum_distances(df, keys, filepath=None, filename=None):
+def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='histplot'):
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
     
-    df = df[['original_sequence']+[f"{key}_blosum" for key in keys]]
-    df = df.melt(id_vars=['original_sequence'], var_name="key", value_name="blosum")
+    if plot_method=='histplot':
+        df = df[['original_sequence']+[f"{key}_blosum" for key in keys]]
+        df = df.melt(id_vars=['original_sequence'], var_name="key", value_name="blosum")
+        ax = sns.histplot(x=df["blosum"], hue=df["key"], kde=False, multiple="stack")
 
-    ax = sns.histplot(x=df["blosum"], hue=df["key"], kde=False, multiple="stack")
+    elif plot_method=='distplot':
+        for idx, key in enumerate(keys):
+            sns.distplot(x=df[f"{key}_blosum"], label=key, kde=True, hist=False)
+
+    else:
+        raise ValueError
+
+    plt.xlabel('Blosum distance')
     plt.tight_layout()
     plt.show()
 
