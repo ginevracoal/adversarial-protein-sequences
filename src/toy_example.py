@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_tokens_attention, plot_representations_norms, plot_contact_maps
+from plot_utils import plot_tokens_attention, plot_attention_matrix, plot_contact_maps
 
 plots_path='plots/'
 
@@ -44,11 +44,12 @@ plot_tokens_attention(sequence=original_sequence, attentions=results['attentions
 
 # target token idx
 
-target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, n_token_substitutions=3)
+target_token_idxs, attention_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
+    n_token_substitutions=3, target_attention='all_layers')
 print("\ntarget_token_idxs =", target_token_idxs)
 
-plot_representations_norms(norms_mat=repr_norms_matrix.cpu().detach().numpy(), sequence=original_sequence, 
-    target_token_idxs=target_token_idxs, filepath=plots_path, filename="representations_norms")
+plot_attention_matrix(attention_matrix=attention_matrix.cpu().detach().numpy(), sequence=original_sequence, 
+    target_token_idxs=target_token_idxs, filepath=plots_path, filename="attention_matrix")
 
 # attack
 
@@ -62,7 +63,7 @@ adversarial_sequence = atk_df['original_sequence'].unique()[0]
 print("\nadversarial sequence =", adversarial_sequence)
 
 # blosum distance
-blosum_distance = atk.compute_blosum_distance(original_sequence, adversarial_sequence)
+blosum_distance = atk.compute_blosum_distance(original_sequence, adversarial_sequence, target_token_idxs=target_token_idxs)
 print("\nblosum_distance = ", blosum_distance)
 
 # contact maps

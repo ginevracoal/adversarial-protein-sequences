@@ -21,11 +21,13 @@ torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00004', type=str, help="Dataset name")
-parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Dataset name")
+parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
+parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
+    choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 parser.add_argument("--max_tokens", default=200, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
-parser.add_argument("--n_substitutions", default=10, type=int, help="Number of token substitutions in the original sequence")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
     range contacts')
 parser.add_argument("--cmap_dist_ubound", default=20, type=int, help='Upper bound for upper triangular matrix of long \
@@ -89,7 +91,8 @@ else:
         atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=alphabet)
 
         target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
-            n_token_substitutions=args.n_substitutions, verbose=args.verbose)
+            n_token_substitutions=args.n_substitutions, target_attention=args.target_attention, 
+            verbose=args.verbose)
 
         signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
             target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss)
