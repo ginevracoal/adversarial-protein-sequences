@@ -97,7 +97,7 @@ def plot_confidence(df, keys, filepath=None, filename=None):
         # print(df[f"{key}_confidence"].describe())
         sns.distplot(x=df[f"{key}_confidence"], label=key, kde=True, hist=False)
     
-    plt.ylabel('Confidence')
+    plt.xlabel('Confidence')
     plt.tight_layout()
     plt.legend()
     plt.show()
@@ -169,12 +169,12 @@ def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filena
     return fig
 
 
-def plot_representations_norms(norms_mat, sequence, target_token_idxs, filepath=None, filename=None):
+def plot_attention_matrix(attention_matrix, sequence, target_token_idxs, filepath=None, filename=None):
 
-    n_layers = norms_mat.shape[0]
+    n_layers = attention_matrix.shape[0]
 
     fig, ax = plt.subplots(figsize=(10,7))
-    ax = sns.heatmap(norms_mat, linewidth=0.2)
+    ax = sns.heatmap(attention_matrix, linewidth=0.2)
 
     ax.set_xticks(range(len(sequence)))
     ax.set_yticks(range(n_layers))
