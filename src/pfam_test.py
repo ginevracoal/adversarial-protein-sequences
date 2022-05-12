@@ -9,10 +9,10 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from paths import *
+from data_utils import *
+from plot_utils import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_cmap_distances, plot_cosine_similarity, plot_tokens_hist, plot_blosum_distances, plot_confidence
-from data_utils import filter_pfam
 
 random.seed(0)
 np.random.seed(0)
@@ -20,11 +20,11 @@ torch.manual_seed(0)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", default='fastaPF00004', type=str, help="Dataset name")
+parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
     choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=200, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
@@ -36,6 +36,7 @@ parser.add_argument("--device", default='cuda', type=str, help="Device: choose '
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
+print(args)
 
 filename = f"{args.dataset}_subst={args.n_substitutions}"
 
@@ -51,6 +52,7 @@ if args.load:
 
     df = pd.read_csv(os.path.join(out_data_path, filename+".csv"), index_col=[0])
     cmap_df = pd.read_csv(os.path.join(out_data_path, filename+"_cmap.csv"))
+    embeddings_distances = load_from_pickle(filepath=out_data_path, filename=filename)
 
 else:
 
@@ -60,16 +62,15 @@ else:
 
     esm1_model = esm1_model.to(args.device)
 
-    max_tokens = esm1_model.args.max_tokens if args.max_tokens is None else args.max_tokens
-    data, avg_seq_length = filter_pfam(max_tokens=max_tokens, filepath=pfam_path, filename=args.dataset)
-
-    print("\navg_seq_length =", avg_seq_length)
+    data = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm1_model.args.max_tokens, 
+        filepath=pfam_path, filename=args.dataset)
 
     if args.n_sequences is not None:
         data = random.sample(data, args.n_sequences)
 
     df = pd.DataFrame()
     cmap_df = pd.DataFrame()
+    embeddings_distances = []
 
     for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
 
@@ -97,11 +98,12 @@ else:
         signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
             target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss)
 
-        atk_df = atk.attack_sequence(name=name, original_sequence=original_sequence, target_token_idxs=target_token_idxs, 
-            first_embedding=first_embedding, signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, 
-            verbose=args.verbose)
+        atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+            target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
+            perturbations_keys=perturbations_keys, verbose=args.verbose)
 
         df = pd.concat([df, atk_df], ignore_index=True)
+        embeddings_distances.append(emb_dist_single_seq)
 
         ### contact maps
 
@@ -109,7 +111,7 @@ else:
         original_contact_map = atk.compute_contact_map(sequence=original_sequence)
 
         min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
-        for k_idx, k in enumerate(torch.arange(min_k_idx, max_k_idx, 1)):
+        for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
 
             row_list = [['name', name],['k',k_idx]]
             for key in perturbations_keys:
@@ -117,16 +119,18 @@ else:
                 topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
                 new_contact_map = atk.compute_contact_map(sequence=atk_df[f'{key}_sequence'].unique()[0])
                 topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
-
                 cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
-                row_list.append([f'{key}_cmap_dist', cmap_distance])
+                row_list.append([f'{key}_cmap_dist', cmap_distance/k])
 
             cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
-                
+
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
     df.to_csv(os.path.join(out_data_path,  filename+".csv"))
     cmap_df.to_csv(os.path.join(out_data_path,  filename+"_cmap.csv"))
 
+    embeddings_distances = torch.stack(embeddings_distances)
+    print(embeddings_distances.shape)
+    save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=filename)
 
 print("\n", df.keys())
 print("\n", cmap_df)
@@ -134,5 +138,6 @@ print("\n", cmap_df)
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
 plot_cosine_similarity(df, filepath=plots_path, filename=filename+"_cosine_distances")
 plot_confidence(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_plot_confidence")
+plot_embeddings_distances(embeddings_distances=embeddings_distances, filepath=plots_path, filename=filename+"_embeddings_distances")
 plot_blosum_distances(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_blosum_distances")
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_cmap_distances")
