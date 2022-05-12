@@ -26,7 +26,7 @@ def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
     plt.close()
     return fig
 
-def plot_tokens_hist(df, keys, filepath=None, filename=None):
+def plot_tokens_hist(df, keys, filepath, filename):
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -37,36 +37,24 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
 
     plt.tight_layout()
     plt.show()
-
-    if filepath is not None and filename is not None:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+".png"))
-    
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    fig.savefig(os.path.join(filepath, filename+".png"))
     plt.close()
 
+    ### split by perturbations_keys
     assert len(keys)==4
     fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharey=True)
     jitter = 0.1
 
-    df = df.sort_values(f'{keys[0]}_token') 
-    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[0]}_token", dodge=True, ax=ax[0,0], jitter=jitter)
-    df = df.sort_values(f'{keys[1]}_token') 
-    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[1]}_token", dodge=True, ax=ax[1,0], jitter=jitter)
-    df = df.sort_values(f'{keys[2]}_token') 
-    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[2]}_token", dodge=True, ax=ax[0,1], jitter=jitter)
-    df = df.sort_values(f'{keys[3]}_token') 
-    sns.stripplot(data=df, y="perc_token_idx", x=f"{keys[3]}_token", dodge=True, ax=ax[1,1], jitter=jitter)
+    for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
+        df = df.sort_values(f'{key}_token') 
+        sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
 
     plt.tight_layout()
     plt.show()
-
-    if filepath is not None and filename is not None:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+f"_token_split.png"))
-        plt.close()
-
-    return fig
-
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    fig.savefig(os.path.join(filepath, filename+f"_token_split.png"))
+    plt.close()
 
 def plot_cmap_distances(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
@@ -89,8 +77,8 @@ def plot_cmap_distances(df, keys, filepath=None, filename=None):
     return fig
 
 def plot_confidence(df, keys, filepath=None, filename=None):
-    sns.set_style("darkgrid")
 
+    sns.set_style("darkgrid")
     fig, ax = plt.subplots(figsize=(8, 5))
 
     for idx, key in enumerate(keys):
@@ -109,9 +97,24 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 
     return fig
 
-def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='histplot'):
-    sns.set_style("darkgrid")
+def plot_embeddings_distances(embeddings_distances, filepath, filename):
 
+    sns.set_style("darkgrid")
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    sns.histplot(x=embeddings_distances.flatten(), legend=None)
+    plt.xlabel(r'Distribution of distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    fig.savefig(os.path.join(filepath, filename+".png"))
+    plt.close()
+
+def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='histplot'):
+
+    sns.set_style("darkgrid")
     fig, ax = plt.subplots(figsize=(8, 5))
     
     if plot_method=='histplot':

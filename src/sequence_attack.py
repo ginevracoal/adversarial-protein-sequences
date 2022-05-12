@@ -2,7 +2,6 @@ import torch
 import itertools
 import pandas as pd
 import torch.nn as nn
-from Bio.SubsMat import MatrixInfo
 
 DEBUG=False
 
@@ -87,6 +86,7 @@ class SequenceAttack():
         _, _, original_batch_tokens = batch_converter([("original", original_sequence)])
         batch_tokens_masked = original_batch_tokens.clone()
 
+        ### init dictionary
         atk_dict = {'name':name, 'original_sequence':original_sequence, 'orig_tokens':[], 'target_token_idxs':target_token_idxs}
 
         for pert_key in perturbations_keys:
@@ -105,6 +105,8 @@ class SequenceAttack():
 
             if pert_key=='max_dist':
                 atk_dict.update({pert_key:0})
+
+        embeddings_distances = []
 
         for target_token_idx in target_token_idxs:
 
@@ -125,7 +127,7 @@ class SequenceAttack():
                 if DEBUG:
                     print("\tpert_key =", pert_key)
 
-                # updating one token at a time
+                ### updating one token at a time
                 for i, token in enumerate(allowed_token_substitutions):
                     current_sequence_list = list(atk_dict[f'{pert_key}_sequence'])
                     current_sequence_list[target_token_idx] = token
@@ -140,6 +142,7 @@ class SequenceAttack():
                             
                         cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
                         euclidean_distance = torch.norm(z_c_diff, p=2)
+                        embeddings_distances.append(euclidean_distance)
 
                         ### substitutions that maximize cosine similarity w.r.t. gradient direction
 
@@ -232,7 +235,7 @@ class SequenceAttack():
             atk_df = atk_df.append(row, ignore_index=True)
 
         assert len(atk_df)==len(target_token_idxs)
-        return atk_df
+        return atk_df, torch.tensor(embeddings_distances)
 
     def compute_contact_map(self, sequence):
 
