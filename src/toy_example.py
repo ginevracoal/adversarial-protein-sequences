@@ -3,9 +3,9 @@ import esm
 import torch
 import matplotlib.pyplot as plt
 
+from plot_utils import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
-from plot_utils import plot_tokens_attention, plot_attention_matrix, plot_contact_maps
 
 plots_path='plots/'
 
