@@ -3,21 +3,29 @@ from Bio import Seq
 import pickle as pkl
 from Bio import SeqIO
 from Bio.Align import MultipleSeqAlignment
+# from Bio.Blast.Record import MultipleAlignment
 
 
 def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True):
 
     path = os.path.join(filepath, filename)
-    min_seq_length = min([len(record.seq) for record in SeqIO.parse(path, format='fasta')])
+    # min_seq_length = min([len(record.seq) for record in SeqIO.parse(path, format='fasta')])
+
+    if max_tokens is None:
+        max_tokens = max_model_tokens-2
 
     if align:
 
-        if max_tokens is None:
-            max_tokens = min_seq_length
-
         data = []
         for record in SeqIO.parse(path, format='fasta'):
-            record.seq = Seq.Seq(record.seq[:max_tokens])
+
+            if len(record.seq) < max_tokens:
+                record.seq = str(record.seq).ljust(max_tokens, '.')
+            else:
+                record.seq = Seq.Seq(record.seq[:max_tokens])
+
+            assert len(record.seq) == max_tokens
+
             data.append(record)
 
         aligned_data = MultipleSeqAlignment(data)
@@ -31,9 +39,6 @@ def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True)
         print(f"\nSequences aligned and cut to {max_tokens} tokens")
 
     else:
-
-        if max_tokens is None:
-            max_tokens = max_model_tokens
 
         file = open(path, 'r')
         file_contents = file.read().split('>')[0:-1]
@@ -53,7 +58,7 @@ def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True)
 
         print(f"\nSequences cut to {max_tokens} tokens")
 
-    return data
+    return data, max_tokens
 
 
 ############

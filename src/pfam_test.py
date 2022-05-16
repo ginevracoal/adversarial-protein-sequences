@@ -21,16 +21,17 @@ torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
+parser.add_argument("--align", default=False, type=eval, help='If True cut to min length and align sequences')
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
     choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=500, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
-parser.add_argument("--cmap_dist_lbound", default=100, type=int, help='Lower bound for upper triangular matrix of long \
+parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
     range contacts')
-parser.add_argument("--cmap_dist_ubound", default=20, type=int, help='Upper bound for upper triangular matrix of long \
+parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, help='Upper bound for upper triangular matrix of long \
     range contacts')
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
@@ -38,13 +39,14 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print(args)
 
-filename = f"{args.dataset}_subst={args.n_substitutions}"
+filename = f"{args.dataset}_subst={args.n_substitutions}_align={args.align}"
 
 if args.n_sequences is not None:
     filename = f"{filename}_seq={args.n_sequences}"
 
 if args.max_tokens is not None:
     filename = f"{filename}_tokens={args.max_tokens}"
+
 
 perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
 
@@ -59,11 +61,10 @@ else:
     esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
     batch_converter = alphabet.get_batch_converter()
     n_layers = esm1_model.args.layers
-
     esm1_model = esm1_model.to(args.device)
 
-    data = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm1_model.args.max_tokens, 
-        filepath=pfam_path, filename=args.dataset)
+    data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm1_model.args.max_tokens, 
+        filepath=pfam_path, filename=args.dataset, align=args.align)
 
     if args.n_sequences is not None:
         data = random.sample(data, args.n_sequences)
@@ -102,35 +103,25 @@ else:
             target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
             perturbations_keys=perturbations_keys, verbose=args.verbose)
 
+        # update sequence row in the df
+
         df = pd.concat([df, atk_df], ignore_index=True)
         embeddings_distances.append(emb_dist_single_seq)
 
-        ### contact maps
+        ### contact maps distances
 
-        atk.original_model.to(args.device)
-        original_contact_map = atk.compute_contact_map(sequence=original_sequence)
-
-        min_k_idx, max_k_idx = len(original_sequence)-args.cmap_dist_lbound, len(original_sequence)-args.cmap_dist_ubound
-        for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
-
-            row_list = [['name', name],['k',k_idx]]
-            for key in perturbations_keys:
-
-                topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
-                new_contact_map = atk.compute_contact_map(sequence=atk_df[f'{key}_sequence'].unique()[0])
-                topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
-                cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
-                row_list.append([f'{key}_cmap_dist', cmap_distance/k])
-
-            cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
+        cmap_df = atk.compute_cmaps_distance(atk_df=atk_df, cmap_df=cmap_df, original_sequence=original_sequence, 
+            sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
+            cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
     df.to_csv(os.path.join(out_data_path,  filename+".csv"))
     cmap_df.to_csv(os.path.join(out_data_path,  filename+"_cmap.csv"))
 
     embeddings_distances = torch.stack(embeddings_distances)
-    print(embeddings_distances.shape)
     save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=filename)
+
+
 
 print("\n", df.keys())
 print("\n", cmap_df)

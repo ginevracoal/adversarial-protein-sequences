@@ -1,8 +1,9 @@
 #!/bin/bash
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
-MAX_TOKENS=200
-N_SEQUENCES=100
+ALIGN=True
+MAX_TOKENS=None
+N_SEQUENCES=None
 DEVICE="cuda"
 LOAD=False
 
@@ -19,9 +20,9 @@ for DATASET in "fastaPF00001" "fastaPF00004"
 do
 	for N_SUBSTITUTIONS in 3 10 20
 	do
-		python pfam_test.py --dataset=$DATASET --max_tokens=$MAX_TOKENS --n_sequences=$N_SEQUENCES \
+		python pfam_test.py --dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS --n_sequences=$N_SEQUENCES \
 							--n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
-							--target_attention=$TARGET_ATTENTION >> $OUT
+							--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
 
 	done
 done
