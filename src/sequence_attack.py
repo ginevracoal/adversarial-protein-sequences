@@ -273,8 +273,8 @@ class SequenceAttack():
         cmap_dist_lbound=0.2, cmap_dist_ubound=0.8):
 
         original_contact_map = self._compute_contact_map(sequence=original_sequence)
-        cmap_dist_lbound = int(max_tokens*cmap_dist_lbound)
-        cmap_dist_ubound = int(max_tokens*cmap_dist_ubound)
+        cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
+        cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
         min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
 
         for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):

@@ -3,7 +3,6 @@ from Bio import Seq
 import pickle as pkl
 from Bio import SeqIO
 from Bio.Align import MultipleSeqAlignment
-# from Bio.Blast.Record import MultipleAlignment
 
 
 def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True):

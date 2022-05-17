@@ -7,8 +7,6 @@ from plot_utils import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
 
-plots_path='plots/'
-
 esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
 batch_converter = alphabet.get_batch_converter()
 n_layers = esm1_model.args.layers

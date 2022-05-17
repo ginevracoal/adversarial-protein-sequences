@@ -21,11 +21,11 @@ torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
-parser.add_argument("--align", default=False, type=eval, help='If True cut to min length and align sequences')
+parser.add_argument("--align", default=False, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
     choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=500, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=200, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
@@ -64,7 +64,7 @@ else:
     esm1_model = esm1_model.to(args.device)
 
     data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm1_model.args.max_tokens, 
-        filepath=pfam_path, filename=args.dataset, align=args.align)
+        filepath=data_path, filename=args.dataset, align=args.align)
 
     if args.n_sequences is not None:
         data = random.sample(data, args.n_sequences)
@@ -127,6 +127,7 @@ print("\n", df.keys())
 print("\n", cmap_df)
 
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
+plot_token_substitutions(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_token_substitutions")
 plot_cosine_similarity(df, filepath=plots_path, filename=filename+"_cosine_distances")
 plot_confidence(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_plot_confidence")
 plot_embeddings_distances(embeddings_distances=embeddings_distances, filepath=plots_path, filename=filename+"_embeddings_distances")

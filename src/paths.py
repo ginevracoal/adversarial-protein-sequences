@@ -1,3 +1,6 @@
-plots_path='plots/'
-pfam_path="data/pfam/"
-out_data_path='data/out/'
+import os
+
+data_path="../data/"
+out_path='../out/'
+plots_path=os.path.join(out_path, 'plots/')
+out_data_path=os.path.join(out_path, 'data/')

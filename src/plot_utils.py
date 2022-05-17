@@ -22,11 +22,11 @@ def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
     if filepath is not None and filename is not None:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         fig.savefig(os.path.join(filepath, filename+".png"))
-    
-    plt.close()
+        plt.close()
+
     return fig
 
-def plot_tokens_hist(df, keys, filepath, filename):
+def plot_tokens_hist(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -52,9 +52,35 @@ def plot_tokens_hist(df, keys, filepath, filename):
 
     plt.tight_layout()
     plt.show()
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    fig.savefig(os.path.join(filepath, filename+f"_token_split.png"))
-    plt.close()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+f"_token_split.png"))
+        plt.close()
+
+    return fig
+
+def plot_token_substitutions(df, keys, filepath=None, filename=None):
+
+    sns.set_style("darkgrid")
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    for key in keys:
+
+        subst_counts = df.groupby(['orig_token', f'{key}_token'], as_index=False).size()
+        subst_counts = subst_counts.rename(columns={"size": "n_substitutions"})
+
+        df_heatmap = subst_counts.pivot_table(values='n_substitutions', columns='orig_token', index=f'{key}_token')
+        sns.heatmap(df_heatmap, annot=True)
+
+        fontdict = {'fontsize': 10}
+        plt.tight_layout()
+        plt.show()
+
+        if filepath is not None and filename is not None:
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            fig.savefig(os.path.join(filepath, filename+f"_{key}_token.png"))
+            plt.close()
 
 def plot_cmap_distances(df, keys, filepath=None, filename=None):
     sns.set_style("darkgrid")

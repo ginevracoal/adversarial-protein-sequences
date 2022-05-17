@@ -11,7 +11,7 @@ source ../venv/bin/activate
 
 DATE=$(date +%Y-%m-%d)
 TIME=$(date +%H:%M:%S)
-LOGS="data/out/logs/"
+LOGS="../out/logs/"
 mkdir -p $LOGS
 OUT="${LOGS}${DATE}_${TIME}_out.txt"
 
