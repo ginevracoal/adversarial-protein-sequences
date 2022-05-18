@@ -2,8 +2,8 @@
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=True
-MAX_TOKENS=None
-N_SEQUENCES=None
+MAX_TOKENS=200
+N_SEQUENCES=500
 DEVICE="cuda"
 LOAD=False
 
@@ -18,7 +18,7 @@ OUT="${LOGS}${DATE}_${TIME}_out.txt"
 
 for DATASET in "fastaPF00001" "fastaPF00004" 
 do
-	for N_SUBSTITUTIONS in 3 10 20
+	for N_SUBSTITUTIONS in 3 10 #20
 	do
 		python pfam_test.py --dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS --n_sequences=$N_SEQUENCES \
 							--n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \

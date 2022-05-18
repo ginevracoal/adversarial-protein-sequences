@@ -169,7 +169,6 @@ class SequenceAttack():
                             new_token = token
                             
                             if DEBUG:
-                                # print(cosine_similarity, atk_dict[pert_key])
                                 print("\t\tperturbed_sequence =", perturbed_sequence)
 
                         ### substitutions that minimize/maximize euclidean distance from the original embedding
@@ -221,9 +220,7 @@ class SequenceAttack():
                 atk_dict[f'{pert_key}_pseudo_likelihood'] += (adv_prob/len(target_token_idxs)).item()
                 atk_dict[f'{pert_key}_evo_velocity'] += ((orig_log_prob-adv_log_prob)/len(target_token_idxs)).item()
 
-                # print(pert_key, atk_dict[f'{pert_key}_evo_velocity'])
-
-                if orig_token==new_token:
+                if atk_dict[f'orig_tokens']==atk_dict[f'{pert_key}_tokens']:
                     assert atk_dict[f'{pert_key}_evo_velocity']==0.
 
         ### compute blosum distances
