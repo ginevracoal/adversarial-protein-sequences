@@ -96,25 +96,21 @@ class SequenceAttack():
         batch_tokens_masked = original_batch_tokens.clone()
 
         ### init dictionary
-        atk_dict = {'name':name, 'original_sequence':original_sequence, 'orig_tokens':[], 
+        atk_dict = {
+            'name':name, 
+            'original_sequence':original_sequence, 
+            'orig_tokens':[], 
             'target_token_idxs':target_token_idxs}
 
         for pert_key in perturbations_keys:
             atk_dict.update({
                 f'{pert_key}_tokens':[], 
                 f'{pert_key}_sequence':original_sequence,
-                f'{pert_key}_confidence':0, 
-                f'{pert_key}_blosum':0
+                f'{pert_key}_pseudo_likelihood':0., 
+                f'{pert_key}_evo_velocity':0., 
+                f'{pert_key}_blosum_dist':0.
                 })
 
-            if pert_key=='max_cos':
-                atk_dict.update({pert_key:-1})
-
-            if pert_key=='min_dist':
-                atk_dict.update({pert_key:10e10})
-
-            if pert_key=='max_dist':
-                atk_dict.update({pert_key:0})
 
         embeddings_distances = []
 
@@ -136,6 +132,17 @@ class SequenceAttack():
 
                 if DEBUG:
                     print("\tpert_key =", pert_key)
+
+
+
+                if pert_key=='max_cos':
+                    atk_dict.update({pert_key:-1})
+
+                if pert_key=='min_dist':
+                    atk_dict.update({pert_key:10e10})
+
+                if pert_key=='max_dist':
+                    atk_dict.update({pert_key:0})
 
                 ### updating one token at a time
                 for i, token in enumerate(allowed_token_substitutions):
@@ -162,6 +169,7 @@ class SequenceAttack():
                             new_token = token
                             
                             if DEBUG:
+                                # print(cosine_similarity, atk_dict[pert_key])
                                 print("\t\tperturbed_sequence =", perturbed_sequence)
 
                         ### substitutions that minimize/maximize euclidean distance from the original embedding
@@ -200,14 +208,23 @@ class SequenceAttack():
             predicted_sequence_list[target_token_idx] = predicted_token
             atk_dict['pred_tokens'].append(predicted_token)
 
-            ### compute confidence score
+            ### compute confidence scores
 
             for pert_key in perturbations_keys:
-                orig_residue_idx = self.alphabet.get_idx(current_token)
-                new_residue_idx = self.alphabet.get_idx(atk_dict[f'{pert_key}_tokens'][i])
+                orig_token, new_token = original_sequence[target_token_idx], atk_dict[f'{pert_key}_tokens'][i]
+                orig_residue_idx, new_residue_idx = self.alphabet.get_idx(orig_token), self.alphabet.get_idx(new_token)
+
                 orig_log_prob = torch.log((probs[target_token_idx, orig_residue_idx]))
-                adv_log_prob = torch.log((probs[target_token_idx, new_residue_idx]))
-                atk_dict[f'{pert_key}_confidence'] += ((orig_log_prob-adv_log_prob)/len(target_token_idxs)).item()
+                adv_prob = (probs[target_token_idx, new_residue_idx])
+                adv_log_prob = torch.log(adv_prob)
+
+                atk_dict[f'{pert_key}_pseudo_likelihood'] += (adv_prob/len(target_token_idxs)).item()
+                atk_dict[f'{pert_key}_evo_velocity'] += ((orig_log_prob-adv_log_prob)/len(target_token_idxs)).item()
+
+                # print(pert_key, atk_dict[f'{pert_key}_evo_velocity'])
+
+                if orig_token==new_token:
+                    assert atk_dict[f'{pert_key}_evo_velocity']==0.
 
         ### compute blosum distances
 
@@ -215,13 +232,13 @@ class SequenceAttack():
             print(f"\norig_tokens = {atk_dict['orig_tokens']}")
 
         for pert_key in perturbations_keys:
-            atk_dict[f'{pert_key}_blosum'] = self.compute_blosum_distance(
+            atk_dict[f'{pert_key}_blosum_dist'] = self.compute_blosum_distance(
                 original_sequence, atk_dict[f'{pert_key}_sequence'], target_token_idxs)
 
             if verbose:
-                print(f"{pert_key}_tokens = {atk_dict[f'{pert_key}_tokens']}\
-                    \tconfidence = {atk_dict[f'{pert_key}_confidence']}\
-                    \tblosum_dist = {atk_dict[f'{pert_key}_blosum']}")
+                print(f"\n{pert_key}\t", end="\t")
+                for dict_key in ['tokens','pseudo_likelihood','evo_velocity','blosum_dist']:
+                    print(f"{dict_key} = {atk_dict[f'{pert_key}_{dict_key}']}", end="\t")
 
         ### unstack tokens lists
 
