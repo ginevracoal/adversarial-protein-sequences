@@ -1,3 +1,5 @@
+#!/usr/bin/python 
+
 import os
 import esm
 import torch
@@ -33,7 +35,7 @@ parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bou
     range contacts')
 parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, help='Upper bound for upper triangular matrix of long \
     range contacts')
-parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'")
+parser.add_argument("--device", default='cpu', type=str, help="Device: choose 'cpu' or 'cuda'")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
