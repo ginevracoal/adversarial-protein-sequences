@@ -69,7 +69,7 @@ constantly=15.1.0=pyh2b92418_0
 cookiecutter=1.7.3=pyhd3eb1b0_0
 cryptography=3.4.8=py38hd23ed53_0
 cssselect=1.1.0=pyhd3eb1b0_0
-cudatoolkit=11.0.221=h6bb024c_0
+cudatoolkit=10.2.89=hfd86e86_1
 curl=7.82.0=h7f8727e_0
 cycler=0.11.0=pyhd3eb1b0_0
 cython=0.29.28=py38h295c915_0
@@ -92,7 +92,7 @@ entrypoints=0.4=py38h06a4308_0
 et_xmlfile=1.1.0=py38h06a4308_0
 executing=0.8.3=pyhd3eb1b0_0
 expat=2.4.4=h295c915_0
-fair-esm=0.4.2=pypi_0
+# fair-esm=0.4.2=pypi_0
 ffmpeg=4.3=hf484d3e_0
 filelock=3.6.0=pyhd3eb1b0_0
 flake8=3.9.2=pyhd3eb1b0_0
