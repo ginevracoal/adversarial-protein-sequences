@@ -1,4 +1,4 @@
-""" EmbModel is a subnetwork of ProteinBert model that takes as input the first continuous embedding.
+""" EsmEmbedding is a subnetwork of ProteinBert model that takes as input the first continuous embedding.
 """
 
 import math
@@ -19,7 +19,7 @@ from esm.modules import (
 from esm.axial_attention import RowSelfAttention, ColumnSelfAttention
 
 
-class EmbModel(nn.Module):
+class EsmEmbedding(nn.Module):
     @classmethod
     def add_args(cls, parser):
         parser.add_argument(

@@ -12,11 +12,10 @@ import matplotlib.pyplot as plt
 
 from data_utils import *
 from plot_utils import *
-from embedding_model import EmbModel
+from esm_embedding import EsmEmbedding
 from sequence_attack import SequenceAttack
 
-print(torch.version.cuda)
-print("\ntorch.cuda.is_available() =", torch.cuda.is_available())
+print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\tversion =", torch.version.cuda)
 
 random.seed(0)
 np.random.seed(0)
@@ -42,11 +41,11 @@ parser.add_argument("--device", default='cpu', type=str, help="Device: choose 'c
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
-print(args)
+print("\n", args)
 
 filename = f"{args.dataset}_subst={args.n_substitutions}_align={args.align}"
-out_data_path = os.path.join(args.out_path, 'data/')
-plots_path = os.path.join(args.out_path, 'plots/')
+out_data_path = os.path.join(args.out_dir, 'data/')
+plots_path = os.path.join(args.out_dir, 'plots/')
 
 if args.n_sequences is not None:
     filename = f"{filename}_seq={args.n_sequences}"
@@ -65,12 +64,12 @@ if args.load:
 
 else:
 
-    esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
+    esm_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
     batch_converter = alphabet.get_batch_converter()
-    n_layers = esm1_model.args.layers
-    esm1_model = esm1_model.to(args.device)
+    n_layers = esm_model.args.layers
+    esm_model = esm_model.to(args.device)
 
-    data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm1_model.args.max_tokens, 
+    data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm_model.args.max_tokens, 
         filepath=args.data_dir, filename=args.dataset, align=args.align)
 
     if args.n_sequences is not None:
@@ -88,16 +87,16 @@ else:
         batch_tokens = batch_tokens.to(args.device)
 
         with torch.no_grad():
-            results = esm1_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
+            results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
 
         first_embedding = results["representations"][0].to(args.device)
 
         ### sequence attacks
 
-        model = EmbModel(esm1_model, alphabet).to(args.device)
-        model.check_correctness(original_model=esm1_model, batch_tokens=batch_tokens)
+        emb_model = EsmEmbedding(esm_model, alphabet).to(args.device)
+        emb_model.check_correctness(original_model=esm_model, batch_tokens=batch_tokens)
 
-        atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=alphabet)
+        atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
         target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
             n_token_substitutions=args.n_substitutions, target_attention=args.target_attention, 
