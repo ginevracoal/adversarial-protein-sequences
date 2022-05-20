@@ -105,12 +105,10 @@ def plot_cmap_distances(df, keys, filepath=None, filename=None):
 def plot_confidence(df, keys, filepath=None, filename=None):
 
     sns.set_style("darkgrid")
-    fig, ax = plt.subplots(figsize=(8, 5))
 
+    fig, ax = plt.subplots(figsize=(8, 5))
     for idx, key in enumerate(keys):
-        # print(df[f"{key}_confidence"].describe())
         sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=False)
-    
     plt.xlabel('Pseudo likelihood of substitution')
     plt.tight_layout()
     plt.legend()
@@ -118,10 +116,21 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 
     if filepath is not None and filename is not None:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+".png"))
+        fig.savefig(os.path.join(filepath, filename+"_pseudo_likelihood.png"))
         plt.close()
 
-    return fig
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for idx, key in enumerate(keys):
+        sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=False)
+    plt.xlabel('Pseudo likelihood of substitution')
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
+
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+"_evo_velocity.png"))
+        plt.close()
 
 def plot_embeddings_distances(embeddings_distances, filepath, filename):
 

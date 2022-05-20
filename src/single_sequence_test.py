@@ -10,18 +10,21 @@ import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from paths import *
 from data_utils import *
 from plot_utils import *
 from embedding_model import EmbModel
 from sequence_attack import SequenceAttack
 
+print(torch.version.cuda)
+print("\ntorch.cuda.is_available() =", torch.cuda.is_available())
+
 random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 
-
 parser = argparse.ArgumentParser()
+parser.add_argument("--data_dir", default='../data', type=str, help="Datasets path")
+parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--align", default=True, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
@@ -42,6 +45,8 @@ args = parser.parse_args()
 print(args)
 
 filename = f"{args.dataset}_subst={args.n_substitutions}_align={args.align}"
+out_data_path = os.path.join(args.out_path, 'data/')
+plots_path = os.path.join(args.out_path, 'plots/')
 
 if args.n_sequences is not None:
     filename = f"{filename}_seq={args.n_sequences}"
@@ -66,7 +71,7 @@ else:
     esm1_model = esm1_model.to(args.device)
 
     data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm1_model.args.max_tokens, 
-        filepath=data_path, filename=args.dataset, align=args.align)
+        filepath=args.data_dir, filename=args.dataset, align=args.align)
 
     if args.n_sequences is not None:
         data = random.sample(data, args.n_sequences)
@@ -131,7 +136,7 @@ print("\n", cmap_df)
 plot_tokens_hist(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_tokens_hist")
 plot_token_substitutions(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_token_substitutions")
 plot_cosine_similarity(df, filepath=plots_path, filename=filename+"_cosine_distances")
-plot_confidence(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_plot_confidence")
+plot_confidence(df, keys=perturbations_keys, filepath=plots_path, filename=filename)
 plot_embeddings_distances(embeddings_distances=embeddings_distances, filepath=plots_path, filename=filename+"_embeddings_distances")
 plot_blosum_distances(df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_blosum_distances")
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=plots_path, filename=filename+"_cmap_distances")

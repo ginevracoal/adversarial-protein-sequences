@@ -3,3 +3,4 @@
 *data/
 *venv/
 *screenlog.0
+*.out

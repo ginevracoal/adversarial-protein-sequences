@@ -111,7 +111,6 @@ class SequenceAttack():
                 f'{pert_key}_blosum_dist':0.
                 })
 
-
         embeddings_distances = []
 
         for target_token_idx in target_token_idxs:
@@ -132,8 +131,6 @@ class SequenceAttack():
 
                 if DEBUG:
                     print("\tpert_key =", pert_key)
-
-
 
                 if pert_key=='max_cos':
                     atk_dict.update({pert_key:-1})
