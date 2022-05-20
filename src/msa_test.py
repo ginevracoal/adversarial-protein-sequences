@@ -52,7 +52,7 @@ if args.n_sequences is not None:
 
 if args.max_tokens is not None:
     filename = f"{filename}_tokens={args.max_tokens}"
-
+print(filename)
 
 perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
 
