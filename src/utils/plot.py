@@ -207,37 +207,37 @@ def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filena
     return fig
 
 
-def plot_attention_matrix(attention_matrix, sequence, target_token_idxs, filepath=None, filename=None):
+# def plot_attention_matrix(attention_matrix, sequence, target_token_idxs, filepath=None, filename=None):
 
-    n_layers = attention_matrix.shape[0]
+#     n_layers = attention_matrix.shape[0]
 
-    fig, ax = plt.subplots(figsize=(10,7))
-    ax = sns.heatmap(attention_matrix, linewidth=0.2)
+#     fig, ax = plt.subplots(figsize=(10,7))
+#     ax = sns.heatmap(attention_matrix, linewidth=0.2)
 
-    ax.set_xticks(range(len(sequence)))
-    ax.set_yticks(range(n_layers))
+#     ax.set_xticks(range(len(sequence)))
+#     ax.set_yticks(range(n_layers))
 
-    fontdict = {'fontsize': 10}
-    ax.set_xticklabels(sequence, fontdict=fontdict)
-    ax.set_yticklabels(list(range(n_layers)), fontdict=fontdict, rotation=90)
+#     fontdict = {'fontsize': 10}
+#     ax.set_xticklabels(sequence, fontdict=fontdict)
+#     ax.set_yticklabels(list(range(n_layers)), fontdict=fontdict, rotation=90)
 
-    for target_token_idx in target_token_idxs:
-        x, y, w, h = target_token_idx, 0, 1, n_layers
-        ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor='black', lw=2, clip_on=False))
-        ax.tick_params(length=0)
+#     for target_token_idx in target_token_idxs:
+#         x, y, w, h = target_token_idx, 0, 1, n_layers
+#         ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor='black', lw=2, clip_on=False))
+#         ax.tick_params(length=0)
 
-    plt.xlabel('Tokens')
-    plt.ylabel('Layers')
+#     plt.xlabel('Tokens')
+#     plt.ylabel('Layers')
 
-    plt.tight_layout()
-    plt.show()  
+#     plt.tight_layout()
+#     plt.show()  
 
-    if filepath is not None and filename is not None:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        fig.savefig(os.path.join(filepath, filename+".png"))
-        plt.close()
+#     if filepath is not None and filename is not None:
+#         os.makedirs(os.path.dirname(filepath), exist_ok=True)
+#         fig.savefig(os.path.join(filepath, filename+".png"))
+#         plt.close()
 
-    return fig
+#     return fig
 
 def plot_contact_maps(original_contacts, adversarial_contacts, filepath=None, filename=None):
 

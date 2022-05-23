@@ -87,6 +87,8 @@ class MsaEsmEmbedding(nn.Module):
 
     def __init__(self, original_model, alphabet):
         super().__init__()
+        original_model.eval()
+
         self.original_model = original_model
         self.args = original_model.args
         self.alphabet = alphabet
@@ -146,41 +148,41 @@ class MsaEsmEmbedding(nn.Module):
             weight=self.embed_tokens.weight,
         )
 
-        # self.check_correctness()
+        self.check_correctness()
 
-    def forward(self, tokens, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
-        """ tokens are needed only for padding mask
-        """
+    def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
 
         if return_contacts:
             need_head_weights = True
 
-        ######
-        assert tokens.ndim == 3
-        batch_size, num_alignments, seqlen = tokens.size()
-        padding_mask = tokens.eq(self.original_model.padding_idx)  # B, R, C
-        if not padding_mask.any():
-            padding_mask = None
+        # ######
+        # assert tokens.ndim == 3
+        # batch_size, num_alignments, seqlen = tokens.size()
+        # padding_mask = tokens.eq(self.original_model.padding_idx)  # B, R, C
+        # if not padding_mask.any():
+        #     padding_mask = None
 
-        x = self.original_model.embed_tokens(tokens)
-        x += self.original_model.embed_positions(tokens.view(batch_size * num_alignments, seqlen)).view(x.size())
-        if self.original_model.msa_position_embedding is not None:
-            if x.size(1) > 1024:
-                raise RuntimeError(
-                    "Using model with MSA position embedding trained on maximum MSA "
-                    f"depth of 1024, but received {x.size(1)} alignments."
-                )
-            x += self.original_model.msa_position_embedding[:, :num_alignments]
-        
+        # x = self.original_model.embed_tokens(tokens)
+        # x += self.original_model.embed_positions(tokens.view(batch_size * num_alignments, seqlen)).view(x.size())
+        # if self.original_model.msa_position_embedding is not None:
+        #     if x.size(1) > 1024:
+        #         raise RuntimeError(
+        #             "Using model with MSA position embedding trained on maximum MSA "
+        #             f"depth of 1024, but received {x.size(1)} alignments."
+        #         )
+        #     x += self.original_model.msa_position_embedding[:, :num_alignments]
+
+        # x = self.emb_layer_norm_before(x)
+        # x = self.dropout_module(x)
+
+
+        # if padding_mask is not None:
+        #     x = x * (1 - padding_mask.unsqueeze(-1).type_as(x))
         ########
+        
+        padding_mask = None
 
         x = first_embedding
-
-        x = self.emb_layer_norm_before(x)
-        x = self.dropout_module(x)
-
-        if padding_mask is not None:
-            x = x * (1 - padding_mask.unsqueeze(-1).type_as(x))
 
         repr_layers = set(repr_layers)
         hidden_representations = {}
@@ -257,6 +259,9 @@ class MsaEsmEmbedding(nn.Module):
             batch_converter = self.alphabet.get_batch_converter()
             _, _, batch_tokens = batch_converter(data)
 
+        self.eval()
+        self.original_model.eval()
+
         with torch.no_grad():
 
             device = next(self.original_model.parameters()).device
@@ -267,26 +272,34 @@ class MsaEsmEmbedding(nn.Module):
             orig_logits = results["logits"]
 
             first_embedding = results["representations"][0]
-            emb_logits = self(tokens=batch_tokens, first_embedding=first_embedding)["logits"]
+            emb_logits = self(first_embedding=first_embedding)["logits"]
 
-            print(orig_logits,"\n", emb_logits)
             assert torch.all(torch.eq(orig_logits, emb_logits))
 
     def get_tokens_attention(self, results, layers_idxs, verbose=False):
 
+        row_attentions = results["row_attentions"]
         col_attentions = results["col_attentions"]
-        batch_size, n_layers, n_heads, n_tokens = col_attentions.shape[:4]
+        batch_size, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
 
         if verbose:
             print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
 
-        assert batch_size==1
+        assert batch_size==1 
+        row_attentions = row_attentions[0, layers_idxs]
         col_attentions = col_attentions[0, layers_idxs]
 
         # compute avg attention across all heads and layers
-        avg_attentions = col_attentions.mean(1).mean(0).squeeze()
+        avg_row_attentions = row_attentions.mean(1).mean(0).squeeze()
+        avg_col_attentions = col_attentions.mean(1).mean(0).squeeze()
+        assert avg_row_attentions.shape[0] == avg_row_attentions.shape[1]
 
-        # remove start token attention        
-        tokens_attention = avg_attentions[1:]
+        # remove start and end tokens attention
+        row_tokens_attention = avg_row_attentions[1:, 1:]
+        col_tokens_attention = avg_col_attentions[1:]
 
+        # compute l2 norm of attention vectors
+        row_tokens_attention = torch.norm(row_tokens_attention, dim=-1, p=2) # to do: check dim
+
+        tokens_attention = F.softmax(row_tokens_attention) + F.softmax(col_tokens_attention)
         return tokens_attention

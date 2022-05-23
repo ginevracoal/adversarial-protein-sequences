@@ -48,6 +48,8 @@ class EsmEmbedding(nn.Module):
 
     def __init__(self, original_model, alphabet):
         super().__init__()
+        original_model.eval()
+
         self.original_model = original_model
         self.args = original_model.args
         self.alphabet = alphabet
@@ -88,7 +90,8 @@ class EsmEmbedding(nn.Module):
             eos_idx=self.eos_idx,
         )
 
-    def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False, tokens=None):
+    def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
+
         if return_contacts:
             need_head_weights = True
 
@@ -163,6 +166,9 @@ class EsmEmbedding(nn.Module):
             batch_converter = self.alphabet.get_batch_converter()
             _, _, batch_tokens = batch_converter(data)
 
+        self.eval()
+        self.original_model.eval()
+
         with torch.no_grad():
 
             device = next(self.original_model.parameters()).device
@@ -196,6 +202,6 @@ class EsmEmbedding(nn.Module):
         tokens_attention = avg_attentions[1:-1, 1:-1]
 
         # compute l2 norm of attention vectors
-        tokens_attention = torch.norm(tokens_attention, dim=-1, p=2)
+        tokens_attention = torch.norm(tokens_attention, dim=-1, p=2) # to do: check dim
 
         return tokens_attention

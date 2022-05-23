@@ -11,6 +11,9 @@ DEBUG=False
 class SequenceAttack():
 
     def __init__(self, original_model, embedding_model, alphabet):
+        original_model.eval()
+        embedding_model.eval()
+
         self.original_model = original_model
         self.embedding_model = embedding_model
         self.alphabet = alphabet
@@ -48,10 +51,10 @@ class SequenceAttack():
 
         return target_token_idxs, tokens_attention
 
-    def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, tokens=None, verbose=False):
+    def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, verbose=False):
 
         first_embedding.requires_grad=True
-        output = self.embedding_model(first_embedding=first_embedding, repr_layers=[self.original_model.args.layers], tokens=tokens)
+        output = self.embedding_model(first_embedding=first_embedding, repr_layers=[self.original_model.args.layers])
 
         if loss=='maxLogits':
             loss = torch.max(torch.abs(output['logits']))
@@ -59,6 +62,8 @@ class SequenceAttack():
         elif loss=='maxTokensRepr':
             output_representations = output['representations'][self.original_model.args.layers]
             output_representations = output_representations[0, 1:len(original_sequence)+1, self.start:self.end]
+
+            print(target_token_idxs, len(output_representations))
             loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
         self.embedding_model.zero_grad()

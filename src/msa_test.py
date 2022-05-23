@@ -95,8 +95,6 @@ else:
 
         batch_tokens = batch_tokens.to(args.device)
 
-        print(original_sequence)
-
         with torch.no_grad():
             results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
 
@@ -109,7 +107,7 @@ else:
             verbose=args.verbose)
 
         signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
-            target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss, tokens=batch_tokens)
+            target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss)
 
         atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
             target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
