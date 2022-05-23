@@ -5,8 +5,9 @@ import esm
 import torch
 import matplotlib.pyplot as plt
 
-from plot_utils import *
-from embedding_model import EmbModel
+from utils.data import *
+from utils.plot import *
+from models.esm_embedding import EsmEmbedding
 from sequence_attack import SequenceAttack
 
 esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
@@ -30,10 +31,9 @@ print("\nlogits.shape = (batch, seq_len, n_tokens) =", results['logits'].shape)
 
 first_embedding = results["representations"][0]
 
-# istantiate models
+# instantiate models
 
-model = EmbModel(esm1_model, alphabet)
-model.check_correctness(original_model=esm1_model, batch_tokens=batch_tokens)
+model = EsmEmbedding(esm1_model, alphabet)
 
 atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=alphabet)
 

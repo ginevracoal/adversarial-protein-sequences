@@ -60,10 +60,10 @@ class SequenceAttack():
 
         return target_token_idxs, normalized_attention_matrix
 
-    def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, verbose=False):
+    def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, tokens=None, verbose=False):
 
         first_embedding.requires_grad=True
-        output = self.embedding_model(first_embedding, repr_layers=[self.original_model.args.layers])
+        output = self.embedding_model(first_embedding, repr_layers=[self.original_model.args.layers], tokens=tokens)
 
         if loss=='maxLogits':
             loss = torch.max(torch.abs(output['logits']))

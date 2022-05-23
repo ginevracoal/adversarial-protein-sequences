@@ -10,9 +10,9 @@ import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from data_utils import *
-from plot_utils import *
-from esm_embedding import EsmEmbedding
+from utils.data import *
+from utils.plot import *
+from models.esm_embedding import EsmEmbedding
 from sequence_attack import SequenceAttack
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\tversion =", torch.version.cuda)
@@ -22,7 +22,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='../data', type=str, help="Datasets path")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone', type=str, help="Datasets path")
 parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--align", default=True, type=eval, help='If True pad and align sequences')
@@ -37,7 +37,7 @@ parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bou
     range contacts')
 parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, help='Upper bound for upper triangular matrix of long \
     range contacts')
-parser.add_argument("--device", default='cpu', type=str, help="Device: choose 'cpu' or 'cuda'")
+parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
@@ -64,16 +64,25 @@ if args.load:
 
 else:
 
+    ### instantiate models and load data    
+
     esm_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
     batch_converter = alphabet.get_batch_converter()
     n_layers = esm_model.args.layers
     esm_model = esm_model.to(args.device)
+    
+    emb_model = EsmEmbedding(original_model=esm_model, alphabet=alphabet).to(args.device)
+    emb_model = emb_model.to(args.device)
+
+    atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
     data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm_model.args.max_tokens, 
         filepath=args.data_dir, filename=args.dataset, align=args.align)
 
     if args.n_sequences is not None:
         data = random.sample(data, args.n_sequences)
+
+    ### fill dataframes
 
     df = pd.DataFrame()
     cmap_df = pd.DataFrame()
@@ -92,11 +101,6 @@ else:
         first_embedding = results["representations"][0].to(args.device)
 
         ### sequence attacks
-
-        emb_model = EsmEmbedding(esm_model, alphabet).to(args.device)
-        emb_model.check_correctness(original_model=esm_model, batch_tokens=batch_tokens)
-
-        atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
         target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
             n_token_substitutions=args.n_substitutions, target_attention=args.target_attention, 

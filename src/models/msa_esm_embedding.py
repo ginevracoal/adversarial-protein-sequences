@@ -85,10 +85,11 @@ class MsaEsmEmbedding(nn.Module):
         )
         # fmt: on
 
-    def __init__(self, bert, alphabet):
+    def __init__(self, original_model, alphabet):
         super().__init__()
-        self.bert = bert
-        self.args = bert.args
+        self.original_model = original_model
+        self.args = original_model.args
+        self.alphabet = alphabet
         self.alphabet_size = len(alphabet)
         self.padding_idx = alphabet.padding_idx
         self.mask_idx = alphabet.mask_idx
@@ -145,14 +146,42 @@ class MsaEsmEmbedding(nn.Module):
             weight=self.embed_tokens.weight,
         )
 
-    def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
+        self.check_correctness()
+
+    def forward(self, tokens, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
         """ tokens are needed only for padding mask
         """
+        # x = first_embedding
+
         if return_contacts:
             need_head_weights = True
 
-        x = first_embedding
-        padding_mask = None
+
+        #####
+        assert tokens.ndim == 3
+        batch_size, num_alignments, seqlen = tokens.size()
+        padding_mask = tokens.eq(self.original_model.padding_idx)  # B, R, C
+        if not padding_mask.any():
+            padding_mask = None
+
+        x = self.original_model.embed_tokens(tokens)
+        x += self.original_model.embed_positions(tokens.view(batch_size * num_alignments, seqlen)).view(x.size())
+        if self.original_model.msa_position_embedding is not None:
+            if x.size(1) > 1024:
+                raise RuntimeError(
+                    "Using model with MSA position embedding trained on maximum MSA "
+                    f"depth of 1024, but received {x.size(1)} alignments."
+                )
+            x += self.original_model.msa_position_embedding[:, :num_alignments]
+        #######
+
+        x = self.original_model.emb_layer_norm_before(x)
+        x = self.original_model.dropout_module(x)
+
+        if padding_mask is not None:
+            x = x * (1 - padding_mask.unsqueeze(-1).type_as(x))
+
+        # padding_mask = None
 
         repr_layers = set(repr_layers)
         hidden_representations = {}
@@ -166,7 +195,7 @@ class MsaEsmEmbedding(nn.Module):
         # B x R x C x D -> R x C x B x D
         x = x.permute(1, 2, 0, 3)
 
-        for layer_idx, layer in enumerate(self.layers):
+        for layer_idx, layer in enumerate(self.original_model.layers):
             x = layer(
                 x,
                 self_attn_padding_mask=padding_mask,
@@ -181,13 +210,13 @@ class MsaEsmEmbedding(nn.Module):
             if (layer_idx + 1) in repr_layers:
                 hidden_representations[layer_idx + 1] = x.permute(2, 0, 1, 3)
 
-        x = self.emb_layer_norm_after(x)
+        x = self.original_model.emb_layer_norm_after(x)
         x = x.permute(2, 0, 1, 3)  # R x C x B x D -> B x R x C x D
 
         # last hidden representation should have layer norm applied
         if (layer_idx + 1) in repr_layers:
             hidden_representations[layer_idx + 1] = x
-        x = self.lm_head(x)
+        x = self.original_model.lm_head(x)
 
         result = {"logits": x, "representations": hidden_representations}
         if need_head_weights:
@@ -198,7 +227,7 @@ class MsaEsmEmbedding(nn.Module):
             result["col_attentions"] = col_attentions
             result["row_attentions"] = row_attentions
             if return_contacts:
-                contacts = self.contact_head(tokens, row_attentions)
+                contacts = self.original_model.contact_head(tokens, row_attentions)
                 result["contacts"] = contacts
 
         return result
@@ -221,10 +250,27 @@ class MsaEsmEmbedding(nn.Module):
             if isinstance(module, (RowSelfAttention, ColumnSelfAttention)):
                 module.max_tokens_per_msa = value
 
-    def check_correctness(self, original_model, batch_tokens):
+    def check_correctness(self, batch_tokens=None):
         """ check output logits are equal """
+
+        assert self.original_model.args == self.args
         
+        if batch_tokens is None:
+            data = [("original_protein", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),]
+            batch_converter = self.alphabet.get_batch_converter()
+            _, _, batch_tokens = batch_converter(data)
+
         with torch.no_grad():
-            results = original_model(batch_tokens, repr_layers=[0])
+
+            device = next(self.original_model.parameters()).device
+            batch_tokens = batch_tokens.to(device)
+            self.to(device)
+
+            results = self.original_model(batch_tokens, repr_layers=[0])
+            orig_logits = results["logits"]
+
             first_embedding = results["representations"][0]
-            assert torch.all(torch.eq(self(first_embedding)['logits'], results['logits']))
+            emb_logits = self(tokens=batch_tokens, first_embedding=first_embedding)["logits"]
+
+            print(orig_logits,"\n", emb_logits)
+            assert torch.all(torch.eq(orig_logits, emb_logits))

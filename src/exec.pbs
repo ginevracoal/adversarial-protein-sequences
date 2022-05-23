@@ -26,15 +26,14 @@ LOAD=False
 # modules #
 ###########
 
-# module load conda/4.9.2
-# module load cuda/11.0.3
-conda activate conda_venv
+module load conda/4.9.2
+conda activate esm
 
 ###############
 # directories #
 ###############
 
-DATA_DIR="scratch/external/gcarbone/"
+DATA_DIR="/scratch/external/gcarbone/"
 WORKING_DIR="storage/adversarial-protein-sequences/src"
 DATA_OUT="storage/adversarial-protein-sequences/out"
 

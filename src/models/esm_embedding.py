@@ -46,10 +46,11 @@ class EsmEmbedding(nn.Module):
             help="number of attention heads",
         )
 
-    def __init__(self, bert, alphabet):
+    def __init__(self, original_model, alphabet):
         super().__init__()
-        self.bert = bert
-        self.args = bert.args
+        self.original_model = original_model
+        self.args = original_model.args
+        self.alphabet = alphabet
         self.alphabet_size = len(alphabet)
         self.padding_idx = alphabet.padding_idx
         self.mask_idx = alphabet.mask_idx
@@ -62,6 +63,8 @@ class EsmEmbedding(nn.Module):
             self.model_version = "ESM-1b"
         else:
             self.model_version = "ESM-1"
+
+        self.check_correctness()
 
     def _init_submodules_common(self):
 
@@ -85,7 +88,7 @@ class EsmEmbedding(nn.Module):
             eos_idx=self.eos_idx,
         )
 
-    def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
+    def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False, tokens=None):
         if return_contacts:
             need_head_weights = True
 
@@ -105,7 +108,7 @@ class EsmEmbedding(nn.Module):
         # if not padding_mask.any():
         padding_mask = None # todo: check this on multiple inputs with different lengths
 
-        for layer_idx, layer in enumerate(self.bert.layers):
+        for layer_idx, layer in enumerate(self.original_model.layers):
             x, attn = layer(
                 x, self_attn_padding_mask=padding_mask, need_head_weights=need_head_weights
             )
@@ -115,23 +118,23 @@ class EsmEmbedding(nn.Module):
                 # (H, B, T, T) => (B, H, T, T)
                 attn_weights.append(attn.transpose(1, 0))
 
-        if self.bert.model_version == "ESM-1b":
-            x = self.bert.emb_layer_norm_after(x)
+        if self.original_model.model_version == "ESM-1b":
+            x = self.original_model.emb_layer_norm_after(x)
             x = x.transpose(0, 1)  # (T, B, E) => (B, T, E)
 
             # last hidden representation should have layer norm applied
             if (layer_idx + 1) in repr_layers:
                 hidden_representations[layer_idx + 1] = x
-            x = self.bert.lm_head(x)
+            x = self.original_model.lm_head(x)
         else:
-            x = F.linear(x, self.bert.embed_out, bias=self.bert.embed_out_bias)
+            x = F.linear(x, self.original_model.embed_out, bias=self.original_model.embed_out_bias)
             x = x.transpose(0, 1)  # (T, B, E) => (B, T, E)
 
         result = {"logits": x, "representations": hidden_representations}
         if need_head_weights:
             # attentions: B x L x H x T x T
             attentions = torch.stack(attn_weights, 1)
-            if self.bert.model_version == "ESM-1":
+            if self.original_model.model_version == "ESM-1":
                 # ESM-1 models have an additional null-token for attention, which we remove
                 attentions = attentions[..., :-1]
             if padding_mask is not None:
@@ -140,7 +143,7 @@ class EsmEmbedding(nn.Module):
                 attentions = attentions * attention_mask[:, None, None, :, :]
             result["attentions"] = attentions
             if return_contacts:
-                contacts = self.bert.contact_head(tokens, attentions)
+                contacts = self.original_model.contact_head(tokens, attentions)
                 result["contacts"] = contacts
 
         return result
@@ -152,19 +155,26 @@ class EsmEmbedding(nn.Module):
     def num_layers(self):
         return self.args.layers
 
-    def check_correctness(self, original_model, batch_tokens):
+    def check_correctness(self, batch_tokens=None):
         """ check output logits are equal """
-        
-        with torch.no_grad():
-            results = original_model(batch_tokens, repr_layers=[0])
-            first_embedding = results["representations"][0]
-            assert torch.all(torch.eq(self(first_embedding)['logits'], results['logits']))
 
-# class SaliencyWrapper(nn.Module):
-    
-#     def __init__(self, model):
-#         super(SaliencyWrapper, self).__init__()
-#         self.model = model
-        
-#     def forward(self, embeddings):        
-#         return self.model(embeddings)['logits']
+        assert self.original_model.args == self.args
+
+        if batch_tokens is None:
+            data = [("original_protein", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),]
+            batch_converter = self.alphabet.get_batch_converter()
+            _, _, batch_tokens = batch_converter(data)
+
+        with torch.no_grad():
+
+            device = next(self.original_model.parameters()).device
+            batch_tokens = batch_tokens.to(device)
+            self.to(device)
+
+            results = self.original_model(batch_tokens.to(device), repr_layers=[0])
+            orig_logits = results["logits"]
+
+            first_embedding = results["representations"][0]
+            emb_logits = self(first_embedding=first_embedding)["logits"]
+
+            assert torch.all(torch.eq(orig_logits, emb_logits))
