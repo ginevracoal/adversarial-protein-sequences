@@ -60,11 +60,12 @@ class SequenceAttack():
             loss = torch.max(torch.abs(output['logits']))
 
         elif loss=='maxTokensRepr':
-            output_representations = output['representations'][self.original_model.args.layers]
-            output_representations = output_representations[0, 1:len(original_sequence)+1, self.start:self.end]
-
-            print(target_token_idxs, len(output_representations))
+            output_representations = output['representations'][self.original_model.args.layers].squeeze()
+            output_representations = output_representations[1:len(original_sequence)+1, :]#self.start:self.end]
             loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
+
+        else:
+            raise AttributeError
 
         self.embedding_model.zero_grad()
         loss.backward()
@@ -86,7 +87,8 @@ class SequenceAttack():
         
         batch_converter = self.alphabet.get_batch_converter()
         _, _, original_batch_tokens = batch_converter([("original", original_sequence)])
-        batch_tokens_masked = original_batch_tokens.clone()
+        batch_tokens_masked = original_batch_tokens.clone().squeeze()
+        assert len(batch_tokens_masked.shape)==1
 
         ### init dictionary
         atk_dict = {
@@ -114,7 +116,7 @@ class SequenceAttack():
             atk_dict['orig_tokens'].append(original_sequence[target_token_idx])
 
             ### mask original sequence at target_token_idx
-            batch_tokens_masked[0, target_token_idx] = self.alphabet.mask_idx
+            batch_tokens_masked[target_token_idx] = self.alphabet.mask_idx
 
             ### allowed substitutions at target_token_idx 
             current_token = original_sequence[target_token_idx]

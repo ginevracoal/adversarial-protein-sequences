@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default='/scratch/external/gcarbone', type=str, help="Datasets path")
 parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
-parser.add_argument("--align", default=False, type=eval, help='If True pad and align sequences')
+parser.add_argument("--align", default=True, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
     choose target token idxs. Set to 'last_layer' or 'all_layers'.")
