@@ -76,7 +76,7 @@ else:
 
     atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
-    data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm_model.args.max_tokens, 
+    data, max_tokens = load_pfam(max_tokens=args.max_tokens, max_model_tokens=esm_model.args.max_positions, 
         filepath=args.data_dir, filename=args.dataset, align=args.align)
 
     if args.n_sequences is not None:

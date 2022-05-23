@@ -12,6 +12,8 @@ def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True)
 
     if max_tokens is None:
         max_tokens = max_model_tokens-2
+    else:
+        max_tokens = min(max_tokens, max_model_tokens)
 
     if align:
 

@@ -87,8 +87,7 @@ class SequenceAttack():
         
         batch_converter = self.alphabet.get_batch_converter()
         _, _, original_batch_tokens = batch_converter([("original", original_sequence)])
-        batch_tokens_masked = original_batch_tokens.clone().squeeze()
-        assert len(batch_tokens_masked.shape)==1
+        batch_tokens_masked = original_batch_tokens.clone()
 
         ### init dictionary
         atk_dict = {
@@ -116,7 +115,8 @@ class SequenceAttack():
             atk_dict['orig_tokens'].append(original_sequence[target_token_idx])
 
             ### mask original sequence at target_token_idx
-            batch_tokens_masked[target_token_idx] = self.alphabet.mask_idx
+            batch_tokens_squeezed = batch_tokens_masked.squeeze()
+            batch_tokens_squeezed[target_token_idx] = self.alphabet.mask_idx
 
             ### allowed substitutions at target_token_idx 
             current_token = original_sequence[target_token_idx]
@@ -191,7 +191,8 @@ class SequenceAttack():
         predicted_sequence_list = list(original_sequence)
 
         for i, target_token_idx in enumerate(target_token_idxs):
-            logits = results["logits"][0, 1:len(original_sequence)+1, :]
+            logits = results["logits"].squeeze()
+            logits = logits[1:len(original_sequence)+1, :]
             probs = torch.softmax(logits, dim=-1)
 
             predicted_token_idx = probs[target_token_idx,self.start:self.end].argmax()

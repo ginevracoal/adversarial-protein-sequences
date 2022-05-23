@@ -4,10 +4,10 @@
 # PBS settings #
 ###################
 
-#PBS -N basic_test
+#PBS -N msa_atk_fasta1
 #PBS -l nodes=1:ppn=20
-#PBS -l walltime=10:00:00
-#PBS -q fat
+#PBS -l walltime=15:00:00
+#PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
 
@@ -17,15 +17,16 @@
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=True
-MAX_TOKENS=500
-N_SEQUENCES=1000
-DEVICE="cpu"
+MAX_TOKENS=None
+N_SEQUENCES=None
+DEVICE="cuda"
 LOAD=False
 
 ###########
 # modules #
 ###########
 
+module load conda/4.9.2
 conda activate esm
 
 ###############
@@ -52,7 +53,7 @@ for DATASET in "fastaPF00001" #"fastaPF00004"
 do
 	for N_SUBSTITUTIONS in 3 10 20
 	do
-		python pfam_test.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
+		python msa_test.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
 			--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
 			--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
