@@ -146,18 +146,16 @@ class MsaEsmEmbedding(nn.Module):
             weight=self.embed_tokens.weight,
         )
 
-        self.check_correctness()
+        # self.check_correctness()
 
     def forward(self, tokens, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
         """ tokens are needed only for padding mask
         """
-        # x = first_embedding
 
         if return_contacts:
             need_head_weights = True
 
-
-        #####
+        ######
         assert tokens.ndim == 3
         batch_size, num_alignments, seqlen = tokens.size()
         padding_mask = tokens.eq(self.original_model.padding_idx)  # B, R, C
@@ -173,15 +171,16 @@ class MsaEsmEmbedding(nn.Module):
                     f"depth of 1024, but received {x.size(1)} alignments."
                 )
             x += self.original_model.msa_position_embedding[:, :num_alignments]
-        #######
+        
+        ########
 
-        x = self.original_model.emb_layer_norm_before(x)
-        x = self.original_model.dropout_module(x)
+        x = first_embedding
+
+        x = self.emb_layer_norm_before(x)
+        x = self.dropout_module(x)
 
         if padding_mask is not None:
             x = x * (1 - padding_mask.unsqueeze(-1).type_as(x))
-
-        # padding_mask = None
 
         repr_layers = set(repr_layers)
         hidden_representations = {}
@@ -252,11 +251,9 @@ class MsaEsmEmbedding(nn.Module):
 
     def check_correctness(self, batch_tokens=None):
         """ check output logits are equal """
-
-        assert self.original_model.args == self.args
         
         if batch_tokens is None:
-            data = [("original_protein", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),]
+            data = [("test_sequence", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),]
             batch_converter = self.alphabet.get_batch_converter()
             _, _, batch_tokens = batch_converter(data)
 
@@ -274,3 +271,22 @@ class MsaEsmEmbedding(nn.Module):
 
             print(orig_logits,"\n", emb_logits)
             assert torch.all(torch.eq(orig_logits, emb_logits))
+
+    def get_tokens_attention(self, results, layers_idxs, verbose=False):
+
+        col_attentions = results["col_attentions"]
+        batch_size, n_layers, n_heads, n_tokens = col_attentions.shape[:4]
+
+        if verbose:
+            print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
+
+        assert batch_size==1
+        col_attentions = col_attentions[0, layers_idxs]
+
+        # compute avg attention across all heads and layers
+        avg_attentions = col_attentions.mean(1).mean(0).squeeze()
+
+        # remove start token attention        
+        tokens_attention = avg_attentions[1:]
+
+        return tokens_attention

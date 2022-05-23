@@ -3,12 +3,12 @@
 ## Linux CentOS 7 + python 3.8
 
 ```
+module load python/3.8.2/gnu/4.8.5
+module load conda/4.9.2
 conda create -n conda_venv python=3.8 anaconda
 conda create -n conda_venv --file conda_requirements_centos7_python3.8 
 conda activate conda_venv
 pip install fair-esm==0.4.2
-module load conda/4.9.2
-module load cuda/11.0.3
 ```
 
 ## Ubuntu 18.10 + python 3.7.6

@@ -10,6 +10,8 @@ from utils.plot import *
 from models.esm_embedding import EsmEmbedding
 from sequence_attack import SequenceAttack
 
+plots_path = '../out/plots/'
+
 esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
 batch_converter = alphabet.get_batch_converter()
 n_layers = esm1_model.args.layers
@@ -44,12 +46,12 @@ plot_tokens_attention(sequence=original_sequence, attentions=results['attentions
 
 # target token idx
 
-target_token_idxs, attention_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
+target_token_idxs, tokens_attention = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
     n_token_substitutions=3, target_attention='all_layers')
 print("\ntarget_token_idxs =", target_token_idxs)
 
-plot_attention_matrix(attention_matrix=attention_matrix.cpu().detach().numpy(), sequence=original_sequence, 
-    target_token_idxs=target_token_idxs, filepath=plots_path, filename="attention_matrix")
+# plot_attention_matrix(attention_matrix=attention_matrix.cpu().detach().numpy(), sequence=original_sequence, 
+#     target_token_idxs=target_token_idxs, filepath=plots_path, filename="attention_matrix")
 
 # attack
 

@@ -16,7 +16,7 @@ class SequenceAttack():
         self.alphabet = alphabet
 
         # start/end idxs of residues tokens in the alphabet
-        self.start, self.end = 4, 29 
+        self.start, self.end = 4, 29
         self.residues_tokens = self.alphabet.all_toks[self.start:self.end]
 
     def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, target_attention, verbose=False):
@@ -37,33 +37,21 @@ class SequenceAttack():
         with torch.no_grad():
             results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
 
-        attentions = results["attentions"]
-        assert attentions.shape[0]==1 # check single input sequence
+        # compute tokens attention
+        tokens_attention = self.embedding_model.get_tokens_attention(results=results, layers_idxs=layers_idxs, verbose=verbose)
 
-        avg_heads_attentions = attentions.squeeze().mean(1)
-        significant_tokens_attentions = avg_heads_attentions[:, 1:-1, 1:-1]
-        assert significant_tokens_attentions.shape[0] == n_layers
-        assert significant_tokens_attentions.shape[1] == significant_tokens_attentions.shape[2] # = seq len
-
-        # compute l2 norm of feature vectors
-        attention_matrix = torch.norm(significant_tokens_attentions, dim=1, p=2)
-        # attention_matrix = torch.norm(significant_tokens_attentions, dim=2, p=2)
-
-        # divide rows by max values (i.e. in each layer)
-        normalized_attention_matrix = torch.nn.functional.normalize(attention_matrix, dim=1, p=2)
-
-        # choose top n_token_substitutions token idxs that maximize the sum of normalized scores in all layers
-        target_token_idxs = torch.topk(normalized_attention_matrix.sum(dim=0), k=n_token_substitutions).indices.cpu().detach().numpy()
+        # choose top n_token_substitutions token idxs that maximize the sum of normalized scores
+        target_token_idxs = torch.topk(tokens_attention, k=n_token_substitutions).indices.cpu().detach().numpy()
 
         if verbose:
             print(f"\ntarget_token_idxs = {target_token_idxs}")
 
-        return target_token_idxs, normalized_attention_matrix
+        return target_token_idxs, tokens_attention
 
     def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, tokens=None, verbose=False):
 
         first_embedding.requires_grad=True
-        output = self.embedding_model(first_embedding, repr_layers=[self.original_model.args.layers], tokens=tokens)
+        output = self.embedding_model(first_embedding=first_embedding, repr_layers=[self.original_model.args.layers], tokens=tokens)
 
         if loss=='maxLogits':
             loss = torch.max(torch.abs(output['logits']))

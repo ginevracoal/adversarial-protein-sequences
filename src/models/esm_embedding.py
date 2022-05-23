@@ -158,10 +158,8 @@ class EsmEmbedding(nn.Module):
     def check_correctness(self, batch_tokens=None):
         """ check output logits are equal """
 
-        assert self.original_model.args == self.args
-
         if batch_tokens is None:
-            data = [("original_protein", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),]
+            data = [("test_sequence", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),]
             batch_converter = self.alphabet.get_batch_converter()
             _, _, batch_tokens = batch_converter(data)
 
@@ -178,3 +176,26 @@ class EsmEmbedding(nn.Module):
             emb_logits = self(first_embedding=first_embedding)["logits"]
 
             assert torch.all(torch.eq(orig_logits, emb_logits))
+
+    def get_tokens_attention(self, results, layers_idxs, verbose=False):
+
+        attentions = results["attentions"]
+        batch_size, n_layers, n_heads, n_tokens = attentions.shape[:4]
+
+        if verbose:
+            print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
+
+        assert batch_size==1 
+        attentions = attentions[0, layers_idxs]
+
+        # compute avg attention across all heads and layers
+        avg_attentions = attentions.mean(1).mean(0).squeeze()
+        assert avg_attentions.shape[0] == avg_attentions.shape[1]
+
+        # remove start and end tokens attention
+        tokens_attention = avg_attentions[1:-1, 1:-1]
+
+        # compute l2 norm of attention vectors
+        tokens_attention = torch.norm(tokens_attention, dim=-1, p=2)
+
+        return tokens_attention
