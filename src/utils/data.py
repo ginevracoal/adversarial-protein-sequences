@@ -5,7 +5,7 @@ from Bio import SeqIO
 from Bio.Align import MultipleSeqAlignment
 
 
-def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True):
+def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True, alignment_char="-"):
 
     path = os.path.join(filepath, filename)
     # min_seq_length = min([len(record.seq) for record in SeqIO.parse(path, format='fasta')])
@@ -21,7 +21,7 @@ def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=True)
         for record in SeqIO.parse(path, format='fasta'):
 
             if len(record.seq) < max_tokens:
-                record.seq = str(record.seq).ljust(max_tokens, '.')
+                record.seq = str(record.seq).ljust(max_tokens, alignment_char)
             else:
                 record.seq = Seq.Seq(record.seq[:max_tokens])
 

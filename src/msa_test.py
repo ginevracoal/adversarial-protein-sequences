@@ -22,14 +22,14 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone', type=str, help="Datasets path")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam_fasta/', type=str, help="Datasets path")
 parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--align", default=True, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
     choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=100, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=500, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")

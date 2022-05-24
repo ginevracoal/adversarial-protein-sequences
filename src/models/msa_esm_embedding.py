@@ -299,7 +299,7 @@ class MsaEsmEmbedding(nn.Module):
         col_tokens_attention = avg_col_attentions[1:]
 
         # compute l2 norm of attention vectors
-        row_tokens_attention = torch.norm(row_tokens_attention, dim=-1, p=2) # to do: check dim
+        row_tokens_attention = torch.norm(row_tokens_attention, dim=0, p=2) # to do: check dim
 
         tokens_attention = F.softmax(row_tokens_attention) + F.softmax(col_tokens_attention)
         return tokens_attention

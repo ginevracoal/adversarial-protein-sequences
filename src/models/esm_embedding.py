@@ -202,6 +202,6 @@ class EsmEmbedding(nn.Module):
         tokens_attention = avg_attentions[1:-1, 1:-1]
 
         # compute l2 norm of attention vectors
-        tokens_attention = torch.norm(tokens_attention, dim=-1, p=2) # to do: check dim
+        tokens_attention = torch.norm(tokens_attention, dim=0, p=2) # to do: check dim
 
         return tokens_attention

@@ -22,7 +22,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone', type=str, help="Datasets path")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam_fasta/', type=str, help="Datasets path")
 parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
 parser.add_argument("--align", default=True, type=eval, help='If True pad and align sequences')

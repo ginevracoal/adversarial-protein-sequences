@@ -4,10 +4,10 @@
 # PBS settings #
 ###################
 
-#PBS -N msa_atk_fasta1
+#PBS -N msa_atk_500
 #PBS -l nodes=1:ppn=20
-#PBS -l walltime=15:00:00
-#PBS -q gpu
+#PBS -l walltime=10:00:00
+#PBS -q fat
 #PBS -j oe
 #PBS -o pbs.out
 
@@ -17,9 +17,9 @@
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=True
-MAX_TOKENS=None
-N_SEQUENCES=None
-DEVICE="cuda"
+MAX_TOKENS=500
+N_SEQUENCES=500
+DEVICE="cpu"
 LOAD=False
 
 ###########
@@ -33,9 +33,9 @@ conda activate esm
 # directories #
 ###############
 
-DATA_DIR="/scratch/external/gcarbone/"
+DATA_DIR="/scratch/external/gcarbone/pfam_fasta/"
 WORKING_DIR="storage/adversarial-protein-sequences/src"
-DATA_OUT="storage/adversarial-protein-sequences/out"
+DATA_OUT="../out"
 
 cd $WORKING_DIR
 PBS_O_WORKDIR=$(pwd)
@@ -53,7 +53,7 @@ for DATASET in "fastaPF00001" #"fastaPF00004"
 do
 	for N_SUBSTITUTIONS in 3 10 20
 	do
-		python msa_test.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
+		python msa_test.py --data_dir=$DATA_DIR --out_dir=$DATA_OUT \
 			--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
 			--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1

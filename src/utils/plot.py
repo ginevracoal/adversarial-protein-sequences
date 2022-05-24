@@ -63,15 +63,16 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
 def plot_token_substitutions(df, keys, filepath=None, filename=None):
 
     sns.set_style("darkgrid")
-    fig, ax = plt.subplots(figsize=(10, 7))
 
     for key in keys:
+
+        fig, ax = plt.subplots(figsize=(10, 7))
 
         subst_counts = df.groupby(['orig_token', f'{key}_token'], as_index=False).size()
         subst_counts = subst_counts.rename(columns={"size": "n_substitutions"})
 
         df_heatmap = subst_counts.pivot_table(values='n_substitutions', columns='orig_token', index=f'{key}_token')
-        sns.heatmap(df_heatmap, annot=True)
+        sns.heatmap(df_heatmap, annot=True, cmap="rocket_r")
 
         fontdict = {'fontsize': 10}
         plt.tight_layout()
