@@ -46,7 +46,7 @@ print("\n", args)
 
 filename = f"{args.dataset}_subst={args.n_substitutions}_align={args.align}"
 out_data_path = os.path.join(args.out_dir, 'data/')
-plots_path = os.path.join(args.out_dir, 'plots/')
+plots_path = os.path.join(args.out_dir, 'plots/msa/')
 
 if args.n_sequences is not None:
     filename = f"{filename}_seq={args.n_sequences}"

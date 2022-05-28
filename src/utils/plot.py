@@ -1,20 +1,26 @@
 import os
 import torch
+import matplotlib
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+FONT_SIZE=12
+
 
 def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
+    matplotlib.rc('font', **{'size': FONT_SIZE})
     sns.set_style("darkgrid")
+
     fig, ax = plt.subplots(figsize=(5*len(keys), 4), ncols=len(keys), sharey=True)
 
     for i in range(len(keys)):
         axis = ax if len(keys)==1 else ax[i]
         df = df.sort_values(f'{keys[i]}_token') 
         sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}', dodge=True, ax=axis)
+        ax.set_ylabel(r'Cosine similarity $(z-\tilde{z}, z-z_I(C_I))$')
 
     plt.tight_layout()
     plt.show()
@@ -27,11 +33,15 @@ def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
     return fig
 
 def plot_tokens_hist(df, keys, filepath=None, filename=None):
+    df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['original_sequence']), axis=1)
+
+    matplotlib.rc('font', **{'size': FONT_SIZE})
     sns.set_style("darkgrid")
+
+    ### histogram of token idx percentiles
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['original_sequence']), axis=1)
     sns.histplot(data=df, x="perc_token_idx", legend=None)
     plt.yscale('log')
 
@@ -49,6 +59,7 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
     for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
         df = df.sort_values(f'{key}_token') 
         sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
+        axis.set_ylabel('token idx percentile w.r.t. seq length')
 
     plt.tight_layout()
     plt.show()
@@ -61,7 +72,7 @@ def plot_tokens_hist(df, keys, filepath=None, filename=None):
     return fig
 
 def plot_token_substitutions(df, keys, filepath=None, filename=None):
-
+    matplotlib.rc('font', **{'size': FONT_SIZE})
     sns.set_style("darkgrid")
 
     for key in keys:
@@ -74,7 +85,6 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
         df_heatmap = subst_counts.pivot_table(values='n_substitutions', columns='orig_token', index=f'{key}_token')
         sns.heatmap(df_heatmap, annot=True, cmap="rocket_r")
 
-        fontdict = {'fontsize': 10}
         plt.tight_layout()
         plt.show()
 
@@ -84,11 +94,13 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
             plt.close()
 
 def plot_cmap_distances(df, keys, filepath=None, filename=None):
+    matplotlib.rc('font', **{'size': FONT_SIZE})    
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.set(xlabel='k = len(sequence)-diag_idx', ylabel='l2 distance', 
-        title='dist. bw original and perturbed contact maps')
+    ax.set(xlabel=r'Upper triangular matrix index $k$ = len(sequence)-diag_idx', 
+        ylabel=r'$||$cmap$(x)-$cmap$(\tilde{x})||_2$', 
+        title='l2 dist. bw original and perturbed contact maps')
 
     for key in keys:
         sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key)
@@ -104,13 +116,13 @@ def plot_cmap_distances(df, keys, filepath=None, filename=None):
     return fig
 
 def plot_confidence(df, keys, filepath=None, filename=None):
-
+    matplotlib.rc('font', **{'size': FONT_SIZE})
     sns.set_style("darkgrid")
 
     fig, ax = plt.subplots(figsize=(8, 5))
     for idx, key in enumerate(keys):
         sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=False)
-    plt.xlabel('Pseudo likelihood of substitution')
+    plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[\log p(\tilde{x}_i|x_{\ i})]]$')
     plt.tight_layout()
     plt.legend()
     plt.show()
@@ -123,7 +135,7 @@ def plot_confidence(df, keys, filepath=None, filename=None):
     fig, ax = plt.subplots(figsize=(8, 5))
     for idx, key in enumerate(keys):
         sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=False)
-    plt.xlabel('Pseudo likelihood of substitution')
+    plt.xlabel(r'Evo velocity $\mathbb{E}_{i\in I}[ \log p(x_i|x_{\ i})-\log p(\tilde{x}_i|x_{\ i})]$')
     plt.tight_layout()
     plt.legend()
     plt.show()
@@ -134,8 +146,9 @@ def plot_confidence(df, keys, filepath=None, filename=None):
         plt.close()
 
 def plot_embeddings_distances(embeddings_distances, filepath, filename):
-
+    matplotlib.rc('font', **{'size': FONT_SIZE})
     sns.set_style("darkgrid")
+
     fig, ax = plt.subplots(figsize=(8, 5))
 
     sns.histplot(x=embeddings_distances.flatten(), legend=None)
@@ -149,9 +162,11 @@ def plot_embeddings_distances(embeddings_distances, filepath, filename):
     plt.close()
 
 def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='histplot'):
-
+    matplotlib.rc('font', **{'size': FONT_SIZE})
     sns.set_style("darkgrid")
+
     fig, ax = plt.subplots(figsize=(8, 5))
+    plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
     
     if plot_method=='histplot':
         df = df[['original_sequence']+[f"{key}_blosum_dist" for key in keys]]
@@ -165,7 +180,6 @@ def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='h
     else:
         raise ValueError
 
-    plt.xlabel('Blosum distance')
     plt.tight_layout()
     plt.show()
 
@@ -241,6 +255,8 @@ def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filena
 #     return fig
 
 def plot_contact_maps(original_contacts, adversarial_contacts, filepath=None, filename=None):
+
+    matplotlib.rc('font', **{'size': FONT_SIZE})
 
     fig, ax = plt.subplots(figsize=(10, 4), ncols=3)
     ax[0].imshow(original_contacts, cmap="Blues")
