@@ -4,10 +4,10 @@
 # PBS settings #
 ###################
 
-#PBS -N msa_atk_500
-#PBS -l nodes=1:ppn=20
-#PBS -l walltime=10:00:00
-#PBS -q fat
+#PBS -N esm_atk_300
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=20:00:00
+#PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
 
@@ -17,9 +17,9 @@
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=True
-MAX_TOKENS=500
-N_SEQUENCES=500
-DEVICE="cpu"
+MAX_TOKENS=300
+N_SEQUENCES=300
+DEVICE="cuda"
 LOAD=False
 
 ###########
@@ -49,11 +49,11 @@ OUT="${LOGS}/${DATE}_${TIME}_out.txt"
 # run #
 #######
 
-for DATASET in "fastaPF00001" #"fastaPF00004" 
+for DATASET in "fastaPF00001" "fastaPF00004" 
 do
 	for N_SUBSTITUTIONS in 3 10 20
 	do
-		python msa_test.py --data_dir=$DATA_DIR --out_dir=$DATA_OUT \
+		python esm_test.py --data_dir=$DATA_DIR --out_dir=$DATA_OUT \
 			--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
 			--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1

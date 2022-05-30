@@ -148,6 +148,9 @@ class MsaEsmEmbedding(nn.Module):
             weight=self.embed_tokens.weight,
         )
 
+        print(self.alphabet.all_toks)
+        exit()
+
         self.check_correctness()
 
     def forward(self, first_embedding, repr_layers=[], need_head_weights=False, return_contacts=False):
@@ -278,23 +281,33 @@ class MsaEsmEmbedding(nn.Module):
 
     def get_tokens_attention(self, results, layers_idxs, verbose=False):
 
+        # todo: extend to batch size >1
+
         row_attentions = results["row_attentions"]
         col_attentions = results["col_attentions"]
-        batch_size, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
+        batch_size = col_attentions.shape[-1]
+        _, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
 
         if verbose:
             print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
+            print("row_attentions.shape =", row_attentions.shape)
+            print("col_attentions.shape =", col_attentions.shape)
 
-        assert batch_size==1 
-        row_attentions = row_attentions[0, layers_idxs]
-        col_attentions = col_attentions[0, layers_idxs]
+        row_attentions = row_attentions[:, layers_idxs]
+        col_attentions = col_attentions[:, layers_idxs]
 
         # compute avg attention across all heads and layers
-        avg_row_attentions = row_attentions.mean(1).mean(0).squeeze()
-        avg_col_attentions = col_attentions.mean(1).mean(0).squeeze()
-        assert avg_row_attentions.shape[0] == avg_row_attentions.shape[1]
+        avg_row_attentions = row_attentions.mean(2).mean(1).squeeze()
+        avg_col_attentions = col_attentions.mean(2).mean(1).squeeze()
+        print("avg_row_attentions.shape", avg_row_attentions.shape)
+        print("avg_col_attentions.shape =", avg_col_attentions.shape)
 
-        # remove start and end tokens attention
+        # print(avg_row_attentions[20,40], avg_row_attentions[40,20])
+        # print(avg_col_attentions[20,5,8], avg_col_attentions[20,8,5])
+        # exit()
+
+
+        # remove start tokens attention
         row_tokens_attention = avg_row_attentions[1:, 1:]
         col_tokens_attention = avg_col_attentions[1:]
 
@@ -302,4 +315,5 @@ class MsaEsmEmbedding(nn.Module):
         row_tokens_attention = torch.norm(row_tokens_attention, dim=0, p=2) # to do: check dim
 
         tokens_attention = F.softmax(row_tokens_attention) + F.softmax(col_tokens_attention)
+        print(tokens_attention.shape)
         return tokens_attention

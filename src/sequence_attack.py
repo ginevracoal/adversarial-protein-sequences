@@ -8,6 +8,7 @@ from Bio.SubsMat import MatrixInfo
 
 DEBUG=False
 
+
 class SequenceAttack():
 
     def __init__(self, original_model, embedding_model, alphabet):
@@ -18,13 +19,14 @@ class SequenceAttack():
         self.embedding_model = embedding_model
         self.alphabet = alphabet
 
-        # start/end idxs of residues tokens in the alphabet
-        self.start, self.end = 4, 29
-        self.residues_tokens = self.alphabet.all_toks[self.start:self.end]
+        self.start_token_idx = self.embedding_model.start_token_idx
+        self.end_token_idx = self.embedding_model.end_token_idx
+        self.residues_tokens = self.embedding_model.residues_tokens
 
-    def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, target_attention, verbose=False):
+    def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, target_attention='last_layer', verbose=False):
 
-        print("\nChoosing target token idxs.")
+        if verbose:
+            print("\n=== Choosing target token idxs ===")
 
         n_layers = self.original_model.args.layers
 
@@ -34,17 +36,8 @@ class SequenceAttack():
         elif target_attention=='last_layer':
             layers_idxs = [n_layers-1]
 
-        else:
-            raise AttributeError("Wrong target attention.")
-
-        with torch.no_grad():
-            results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
-
-        # compute tokens attention
-        tokens_attention = self.embedding_model.get_tokens_attention(results=results, layers_idxs=layers_idxs, verbose=verbose)
-
-        # choose top n_token_substitutions token idxs that maximize the sum of normalized scores
-        target_token_idxs = torch.topk(tokens_attention, k=n_token_substitutions).indices.cpu().detach().numpy()
+        target_token_idxs, tokens_attention = self.embedding_model.get_target_token_idxs(batch_tokens=batch_tokens, 
+            layers_idxs=layers_idxs, n_token_substitutions=n_token_substitutions, verbose=verbose)
 
         if verbose:
             print(f"\ntarget_token_idxs = {target_token_idxs}")
@@ -52,6 +45,9 @@ class SequenceAttack():
         return target_token_idxs, tokens_attention
 
     def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss, verbose=False):
+
+        if verbose:
+            print("\n=== Computing loss gradients ===")
 
         first_embedding.requires_grad=True
         output = self.embedding_model(first_embedding=first_embedding, repr_layers=[self.original_model.args.layers])
@@ -74,11 +70,11 @@ class SequenceAttack():
         first_embedding.requires_grad=False
         return signed_gradient, loss
 
-    def attack_sequence(self):
-        raise NotImplementedError("Implement seq atk without evaluations")
-
     def attack_sequence(self, name, original_sequence, target_token_idxs, first_embedding, signed_gradient, 
         verbose=False, perturbations_keys=['pred', 'max_cos','min_dist','max_dist']):
+
+        if verbose:
+            print("\n=== Building adversarial sequences ===")
 
         assert 'pred' in perturbations_keys
 
@@ -110,13 +106,13 @@ class SequenceAttack():
         for target_token_idx in target_token_idxs:
 
             if DEBUG:
-                print("\ntarget_token_idx =", target_token_idx)
+                print("\ntarget_token_idx =", target_token_idx, "original token =", original_sequence[target_token_idx])
+                print("\noriginal_sequence =", original_sequence)
 
             atk_dict['orig_tokens'].append(original_sequence[target_token_idx])
 
             ### mask original sequence at target_token_idx
-            batch_tokens_squeezed = batch_tokens_masked.squeeze()
-            batch_tokens_squeezed[target_token_idx] = self.alphabet.mask_idx
+            batch_tokens_masked[:, 1+target_token_idx] = self.alphabet.mask_idx
 
             ### allowed substitutions at target_token_idx 
             current_token = original_sequence[target_token_idx]
@@ -137,7 +133,7 @@ class SequenceAttack():
                     atk_dict.update({pert_key:0})
 
                 ### updating one token at a time
-                for i, token in enumerate(allowed_token_substitutions):
+                for _, token in enumerate(allowed_token_substitutions):
                     current_sequence_list = list(atk_dict[f'{pert_key}_sequence'])
                     current_sequence_list[target_token_idx] = token
                     perturbed_sequence = "".join(current_sequence_list)
@@ -195,7 +191,7 @@ class SequenceAttack():
             logits = logits[1:len(original_sequence)+1, :]
             probs = torch.softmax(logits, dim=-1)
 
-            predicted_token_idx = probs[target_token_idx,self.start:self.end].argmax()
+            predicted_token_idx = probs[target_token_idx,self.start_token_idx:self.end_token_idx].argmax()
             predicted_token = self.residues_tokens[predicted_token_idx]
             predicted_sequence_list[target_token_idx] = predicted_token
             atk_dict['pred_tokens'].append(predicted_token)

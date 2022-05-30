@@ -22,14 +22,14 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam_fasta/', type=str, help="Datasets path")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/', type=str, help="Datasets path")
 parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
-parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
-parser.add_argument("--align", default=True, type=eval, help='If True pad and align sequences')
+parser.add_argument("--dataset", default='PF00533_rp15', type=str, help="Dataset name")
+parser.add_argument("--align", default=False, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss", default='maxTokensRepr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
     choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=500, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
     None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
@@ -88,41 +88,52 @@ else:
     cmap_df = pd.DataFrame()
     embeddings_distances = []
 
-    for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
+    batch_labels, batch_strs, batch_tokens = batch_converter(data)
+    # batch_labels, batch_strs, batch_tokens = batch_converter([data[0]])
 
-        name, original_sequence = single_sequence_data
-        batch_labels, batch_strs, batch_tokens = batch_converter([single_sequence_data])
+    # print(name, original_sequence)
 
-        batch_tokens = batch_tokens.to(args.device)
+    # for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
 
-        with torch.no_grad():
-            results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
+        # name, original_sequence = single_sequence_data
+    batch_tokens = batch_tokens.to(args.device)
 
-        first_embedding = results["representations"][0].to(args.device)
+    with torch.no_grad():
+        results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
 
-        ### sequence attacks
+    # print(results.keys())
+    # print(results["logits"].shape)
+    # exit()
 
-        target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
-            n_token_substitutions=args.n_substitutions, target_attention=args.target_attention, 
-            verbose=args.verbose)
+    # print('results["representations"].keys()', results["representations"].keys())
 
-        signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
-            target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss)
+    first_embedding = results["representations"][0].to(args.device)
 
-        atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
-            target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
-            perturbations_keys=perturbations_keys, verbose=args.verbose)
+    print("first_embedding.shape", first_embedding.shape)
 
-        # update sequence row in the df
+    ### sequence attacks
 
-        df = pd.concat([df, atk_df], ignore_index=True)
-        embeddings_distances.append(emb_dist_single_seq)
+    target_token_idxs, repr_norms_matrix = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
+        n_token_substitutions=args.n_substitutions, target_attention=args.target_attention, 
+        verbose=args.verbose)
+    exit()
+    signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
+        target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss=args.loss)
 
-        ### contact maps distances
+    atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+        target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
+        perturbations_keys=perturbations_keys, verbose=args.verbose)
 
-        cmap_df = atk.compute_cmaps_distance(atk_df=atk_df, cmap_df=cmap_df, original_sequence=original_sequence, 
-            sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
-            cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+    # update sequence row in the df
+
+    df = pd.concat([df, atk_df], ignore_index=True)
+    embeddings_distances.append(emb_dist_single_seq)
+
+    ### contact maps distances
+
+    cmap_df = atk.compute_cmaps_distance(atk_df=atk_df, cmap_df=cmap_df, original_sequence=original_sequence, 
+        sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
+        cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
     os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
     df.to_csv(os.path.join(out_data_path,  filename+".csv"))
