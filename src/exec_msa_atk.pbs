@@ -16,11 +16,12 @@
 ###################
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
-ALIGN=True
+ALIGN=False
 MAX_TOKENS=300
 N_SEQUENCES=300
 DEVICE="cuda"
 LOAD=False
+MAX_HAMMING_MSA_SIZE=500
 
 ###########
 # modules #
@@ -33,8 +34,9 @@ conda activate esm
 # directories #
 ###############
 
-DATA_DIR="/scratch/external/gcarbone/pfam_fasta/"
 WORKING_DIR="storage/adversarial-protein-sequences/src"
+DATA_DIR="/scratch/external/gcarbone/msa/"
+DATASET="PF00533_rp15" 
 DATA_OUT="../out"
 
 cd $WORKING_DIR
@@ -49,16 +51,14 @@ OUT="${LOGS}/${DATE}_${TIME}_out.txt"
 # run #
 #######
 
-for DATASET in "fastaPF00001" "fastaPF00004" 
+for N_SUBSTITUTIONS in 3 10 20
 do
-	for N_SUBSTITUTIONS in 3 10 20
-	do
-		python esm_test.py --data_dir=$DATA_DIR --out_dir=$DATA_OUT \
-			--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
-			--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
-			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
 
-	done
+	python attack_msa.py --data_dir=$DATA_DIR --out_dir=$DATA_OUT \
+		--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
+		--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
+		--target_attention=$TARGET_ATTENTION --max_hamming_msa_size=$MAX_HAMMING_MSA_SIZE >> $OUT 2>&1
+
 done
 
 conda deactivate
