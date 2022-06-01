@@ -145,21 +145,30 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_evo_velocity.png"))
 		plt.close()
 
-def plot_embeddings_distances(embeddings_distances, filepath, filename):
+def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 
-	sns.histplot(x=embeddings_distances.flatten(), legend=None)
-	plt.xlabel(r'Distribution of distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
+	### all possible token choices and residues substitutions
+
+	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=True)
+
+	### adversarial perturbations
+
+	for idx, key in enumerate(keys):
+		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=True)
+
+	plt.xlabel(r'Distribution of embeddings distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
 
-	os.makedirs(os.path.dirname(filepath), exist_ok=True)
-	fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
-	plt.close()
+	if filepath is not None and filename is not None:
+		os.makedirs(os.path.dirname(filepath), exist_ok=True)
+		fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
+		plt.close()
 
 def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='histplot'):
 	matplotlib.rc('font', **{'size': FONT_SIZE})

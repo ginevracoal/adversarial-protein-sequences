@@ -31,11 +31,11 @@ parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=5, type=eval, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
-parser.add_argument("--max_hamming_msa_size", default=3, type=eval, 
+parser.add_argument("--max_hamming_msa_size", default=50, type=eval, 
 	help="Number of sequences selected for the reference MSA.")
-parser.add_argument("--n_substitutions", default=2, type=int, help="Number of token substitutions in the original sequence")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
 	range contacts')
 parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, help='Upper bound for upper triangular matrix of long \
@@ -139,6 +139,8 @@ plot_tokens_hist(df, keys=perturbations_keys, filepath=out_plots_path, filename=
 plot_token_substitutions(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cosine_similarity(df, filepath=out_plots_path, filename=out_filename)
 plot_confidence(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+
+# plot_entropy_vs_attention()

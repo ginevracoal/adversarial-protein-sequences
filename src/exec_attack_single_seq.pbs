@@ -17,8 +17,8 @@
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=False
-MAX_TOKENS=300
-N_SEQUENCES=300
+MAX_TOKENS=100
+N_SEQUENCES=100
 DEVICE="cuda"
 LOAD=False
 

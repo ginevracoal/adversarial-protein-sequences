@@ -87,6 +87,7 @@ class SequenceAttack():
 			atk_dict.update({
 				f'{pert_key}_tokens':[], 
 				f'{pert_key}_sequence':original_sequence,
+				f'{pert_key}_embedding_distance':0.,
 				f'{pert_key}_pseudo_likelihood':0.,
 				f'{pert_key}_evo_velocity':0.,
 				f'{pert_key}_blosum_dist':0.
@@ -142,6 +143,7 @@ class SequenceAttack():
 						if pert_key=='max_cos' and cosine_similarity > atk_dict[pert_key]:
 							atk_dict[pert_key] = cosine_similarity.item()
 							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+							atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
 							new_token = token
 							
 							if DEBUG:
@@ -152,6 +154,7 @@ class SequenceAttack():
 						if pert_key=='min_dist' and euclidean_distance < atk_dict[pert_key]:
 							atk_dict[pert_key] = euclidean_distance.item()
 							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+							atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
 							new_token = token
 
 							if DEBUG:
@@ -160,6 +163,7 @@ class SequenceAttack():
 						if pert_key=='max_dist' and euclidean_distance > atk_dict[pert_key]:
 							atk_dict[pert_key] = euclidean_distance.item()
 							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+							atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
 							new_token = token
 
 							if DEBUG:
@@ -210,7 +214,15 @@ class SequenceAttack():
 				if atk_dict[f'orig_tokens']==atk_dict[f'{pert_key}_tokens']:
 					assert atk_dict[f'{pert_key}_evo_velocity']==0.
 
-		atk_dict[f'pred_sequence'] = "".join(predicted_sequence_list)
+		predicted_sequence = "".join(predicted_sequence_list)
+		
+		batch_labels, batch_strs, batch_tokens = batch_converter([(f"pred_seq", predicted_sequence)])
+		results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+		z_c = results["representations"][0]
+		euclidean_distance = torch.norm(first_embedding-z_c, p=2)
+
+		atk_dict[f'pred_sequence'] = predicted_sequence
+		atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
 
 		### compute blosum distances
 

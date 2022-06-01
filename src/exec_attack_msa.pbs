@@ -4,10 +4,10 @@
 # PBS settings #
 ###################
 
-#PBS -N msa_100ham_300seq
+#PBS -N msa_100ham_100seq
 #PBS -l nodes=1:ppn=24
 #PBS -l walltime=20:00:00
-#PBS -q fat
+#PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
 
@@ -18,10 +18,10 @@
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=False
 MAX_TOKENS=None
-N_SEQUENCES=300
-DEVICE="cpu"
+N_SEQUENCES=100
+DEVICE="cuda"
 LOAD=False
-MAX_HAMMING_MSA_SIZE=100
+MAX_HAMMING_MSA_SIZE=50
 
 ###########
 # modules #
