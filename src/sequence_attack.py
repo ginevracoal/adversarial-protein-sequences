@@ -4,7 +4,8 @@ import itertools
 import numpy as np
 import pandas as pd
 import torch.nn as nn
-from Bio.SubsMat import MatrixInfo
+
+from utils.protein import compute_blosum_distance, compute_cmaps_distance
 
 DEBUG=False
 
@@ -104,11 +105,6 @@ class SequenceAttack():
 			current_token = original_sequence[target_token_idx]
 			allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
-			if DEBUG:
-				print("\n\ntarget_token_idx =", target_token_idx, 
-					"original token =", original_sequence[target_token_idx])
-				print("\nbatch_chars_masked = ", [self.alphabet.all_toks[idx] for idx in batch_tokens_masked[0]])
-
 			for pert_key in adv_perturbations_keys:
 
 				if DEBUG:
@@ -175,29 +171,37 @@ class SequenceAttack():
 		
 		### prediction on sequence masked at target_token_idxs
 
+		if DEBUG:
+			print("\nbatch_tokens_masked =", batch_tokens_masked)
+			print("\nbatch_chars_masked = ", [self.alphabet.all_toks[idx] for idx in batch_tokens_masked[0]])
+
 		masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
 		predicted_sequence_list = list(original_sequence)
 
 		for i, target_token_idx in enumerate(target_token_idxs):
-			logits = results["logits"].squeeze()
+			logits = masked_prediction["logits"].squeeze()
 			assert len(logits.shape)==2
 
 			logits = logits[1:len(original_sequence)+1, :]
 			probs = torch.softmax(logits, dim=-1)
 
-			predicted_token_idx = probs[target_token_idx,self.start_token_idx:self.end_token_idx].argmax()
-			predicted_token = self.residues_tokens[predicted_token_idx]
+			predicted_residue_idx = probs[target_token_idx, :].argmax()
+			predicted_token = self.alphabet.all_toks[predicted_residue_idx]
 			predicted_sequence_list[target_token_idx] = predicted_token
 			atk_dict['pred_tokens'].append(predicted_token)
 
 			### compute confidence scores
 
 			for pert_key in perturbations_keys:
-				orig_token, new_token = original_sequence[target_token_idx], atk_dict[f'{pert_key}_tokens'][i]
-				orig_residue_idx, new_residue_idx = self.alphabet.get_idx(orig_token), self.alphabet.get_idx(new_token)
 
-				orig_log_prob = torch.log((probs[target_token_idx, orig_residue_idx]))
-				adv_prob = (probs[target_token_idx, new_residue_idx])
+				orig_token = original_sequence[target_token_idx]
+				new_token = atk_dict[f'{pert_key}_tokens'][i]
+
+				orig_residue_idx = self.alphabet.get_idx(orig_token)
+				new_residue_idx = self.alphabet.get_idx(new_token)
+
+				orig_log_prob = torch.log(probs[target_token_idx, orig_residue_idx])
+				adv_prob = probs[target_token_idx, new_residue_idx]
 				adv_log_prob = torch.log(adv_prob)
 
 				atk_dict[f'{pert_key}_pseudo_likelihood'] += (adv_prob/len(target_token_idxs)).item()
@@ -206,14 +210,16 @@ class SequenceAttack():
 				if atk_dict[f'orig_tokens']==atk_dict[f'{pert_key}_tokens']:
 					assert atk_dict[f'{pert_key}_evo_velocity']==0.
 
+		atk_dict[f'pred_sequence'] = "".join(predicted_sequence_list)
+
 		### compute blosum distances
 
 		if verbose:
 			print(f"\norig_tokens = {atk_dict['orig_tokens']}")
 
 		for pert_key in perturbations_keys:
-			atk_dict[f'{pert_key}_blosum_dist'] = self.compute_blosum_distance(
-				original_sequence, atk_dict[f'{pert_key}_sequence'], target_token_idxs)
+			atk_dict[f'{pert_key}_blosum_dist'] = compute_blosum_distance(original_sequence, 
+				atk_dict[f'{pert_key}_sequence'], target_token_idxs)
 
 			if verbose:
 				print(f"\n{pert_key}\t", end="\t")
@@ -243,48 +249,3 @@ class SequenceAttack():
 
 		assert len(atk_df)==len(target_token_idxs)
 		return atk_df, torch.tensor(embeddings_distances)
-
-	def compute_blosum_distance(self, seq1, seq2, target_token_idxs, penalty=2):
-
-		def get_score(token1, token2):
-			try:
-				return blosum[(token1,token2)]
-			except:
-				return penalty*min(blosum.values()) # very unlikely substitution 
-
-		blosum = MatrixInfo.blosum62
-		assert len(seq1)==len(seq2)
-		blosum_distance = sum([get_score(seq1[i],seq1[i])-get_score(seq1[i],seq2[i]) for i in target_token_idxs])
-
-		return blosum_distance
-
-	def _compute_contact_map(self, sequence):
-
-		device = next(self.original_model.parameters()).device
-		batch_converter = self.alphabet.get_batch_converter()
-		batch_labels, batch_strs, batch_tokens = batch_converter([('seq',sequence)])
-		contact_map = self.original_model.predict_contacts(batch_tokens.to(device))[0]
-		return contact_map
-
-	def compute_cmaps_distance(self, atk_df, cmap_df, original_sequence, sequence_name, max_tokens, perturbations_keys,
-		cmap_dist_lbound=0.2, cmap_dist_ubound=0.8):
-
-		original_contact_map = self._compute_contact_map(sequence=original_sequence)
-		cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
-		cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
-		min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
-
-		for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
-
-			row_list = [['name', sequence_name],['k',k_idx]]
-			for key in perturbations_keys:
-
-				topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
-				new_contact_map = self._compute_contact_map(sequence=atk_df[f'{key}_sequence'].unique()[0])
-				topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
-				cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten()).item()
-				row_list.append([f'{key}_cmap_dist', cmap_distance/k])
-
-			cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
-
-		return cmap_df

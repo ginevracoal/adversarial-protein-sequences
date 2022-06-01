@@ -7,25 +7,6 @@ from Bio import SeqIO
 from Bio.Align import MultipleSeqAlignment
 
 
-def get_max_hamming_msa(reference_sequence, msa, max_size):
-
-	def hamming_distance(s1, s2):
-		if len(s1) != len(s2):
-			raise ValueError("Lengths are not equal!")
-		return sum(ch1 != ch2 for ch1,ch2 in zip(s1,s2))
-
-	hamming_distances = []
-	for _, sequence_data in enumerate(msa):
-		hamming_distances.append(hamming_distance(s1=reference_sequence[1], s2=sequence_data[1]))
-
-	n_sequences = min(len(msa), max_size)
-	topk_idxs = torch.topk(torch.tensor(hamming_distances), k=n_sequences).indices.cpu().detach().numpy()
-	max_hamming_msa = [reference_sequence] + [msa[idx] for idx in topk_idxs]
-
-	assert len(max_hamming_msa)==n_sequences+1
-	return max_hamming_msa
-
-
 ################
 # data loaders #
 ################

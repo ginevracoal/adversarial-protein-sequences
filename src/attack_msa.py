@@ -12,8 +12,9 @@ import matplotlib.pyplot as plt
 
 from utils.data import *
 from utils.plot import *
-from models.msa_esm_embedding import MsaEsmEmbedding
 from sequence_attack import SequenceAttack
+from models.msa_esm_embedding import MsaEsmEmbedding
+from utils.protein import compute_cmaps_distance, get_max_hamming_msa
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\tversion =", torch.version.cuda)
 
@@ -48,8 +49,7 @@ print("\n", args)
 
 out_data_path = os.path.join(args.out_dir, 'data/')
 out_plots_path = os.path.join(args.out_dir, 'plots/msa/')
-out_filename = f"{args.dataset}_align={args.align}_seqs={args.n_sequences}\
-	_toks={args.max_tokens}_subst={args.n_substitutions}_maxHamming={args.max_hamming_msa_size}"
+out_filename = f"{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}_maxHamming={args.max_hamming_msa_size}"
 
 perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
 
@@ -119,7 +119,8 @@ else:
 
 		### contact maps distances
 
-		cmap_df = atk.compute_cmaps_distance(atk_df=atk_df, cmap_df=cmap_df, original_sequence=original_sequence, 
+		cmap_df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, atk_df=atk_df, cmap_df=cmap_df, 
+			original_sequence=original_sequence, 
 			sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
 			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
