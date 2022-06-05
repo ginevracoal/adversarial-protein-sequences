@@ -30,7 +30,7 @@ parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 parser.add_argument("--max_tokens", default=100, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--n_sequences", default=20, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
@@ -43,11 +43,11 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-out_data_path = os.path.join(args.out_dir, 'data/')
-out_plots_path = os.path.join(args.out_dir, 'plots/single_sequence/')
 out_filename = f"{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}"
+out_plots_path = os.path.join(args.out_dir, 'plots/single_sequence/', out_filename+"/")
+out_data_path = os.path.join(args.out_dir, 'data/')
 
-perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
 
 if args.load:
 
@@ -101,6 +101,7 @@ else:
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
 		atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+			original_batch_tokens=batch_tokens,
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
 			perturbations_keys=perturbations_keys, verbose=args.verbose)
 

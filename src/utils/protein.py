@@ -7,6 +7,9 @@ DEBUG=False
 
 def get_max_hamming_msa(reference_sequence, msa, max_size):
 
+    if len(reference_sequence)!=2:
+        raise AttributeError("reference_sequence should be a couple (name, sequence)")
+
     def hamming_distance(s1, s2):
         if len(s1) != len(s2):
             raise ValueError("Lengths are not equal!")

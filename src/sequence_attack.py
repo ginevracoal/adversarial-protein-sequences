@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch.nn as nn
 
-from utils.protein import compute_blosum_distance, compute_cmaps_distance
+from utils.protein import compute_blosum_distance, compute_cmaps_distance, get_max_hamming_msa
 
 DEBUG=False
 
@@ -61,19 +61,25 @@ class SequenceAttack():
 		first_embedding.requires_grad=False
 		return signed_gradient, loss
 
-	def attack_sequence(self, name, original_sequence, target_token_idxs, first_embedding, signed_gradient, 
-		verbose=False, perturbations_keys=['pred', 'max_cos','min_dist','max_dist']):
+	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
+		signed_gradient, msa=None, max_hamming_msa_size=None, 
+		verbose=False, perturbations_keys=['masked_pred', 'max_cos','min_dist','max_dist']):
 
 		if verbose:
 			print("\n=== Building adversarial sequences ===")
 
-		assert 'pred' in perturbations_keys
-
+		assert 'masked_pred' in perturbations_keys
 		adv_perturbations_keys = perturbations_keys.copy()
-		adv_perturbations_keys.remove('pred')
+		adv_perturbations_keys.remove('masked_pred')
 		
-		batch_converter = self.alphabet.get_batch_converter()
-		_, _, original_batch_tokens = batch_converter([("original", original_sequence)])
+		if msa: 
+			original_sequences=msa
+		else:
+			original_sequences=[("original", original_sequence)]
+
+		# batch_converter = self.alphabet.get_batch_converter()
+		# _, _, original_batch_tokens = batch_converter(original_sequences)
+		batch_converter = self.embedding_model.alphabet.get_batch_converter()
 		batch_tokens_masked = original_batch_tokens.clone()
 
 		### init dictionary
@@ -81,7 +87,8 @@ class SequenceAttack():
 			'name':name, 
 			'original_sequence':original_sequence, 
 			'orig_tokens':[], 
-			'target_token_idxs':target_token_idxs}
+			'target_token_idxs':target_token_idxs,
+			'masked_pred_accuracy':0.}
 
 		for pert_key in perturbations_keys:
 			atk_dict.update({
@@ -183,7 +190,12 @@ class SequenceAttack():
 		predicted_sequence_list = list(original_sequence)
 
 		for i, target_token_idx in enumerate(target_token_idxs):
-			logits = masked_prediction["logits"].squeeze()
+			
+			if msa:
+				logits = masked_prediction["logits"][:,0].squeeze()
+			else:
+				logits = masked_prediction["logits"].squeeze() ######
+
 			assert len(logits.shape)==2
 
 			logits = logits[1:len(original_sequence)+1, :]
@@ -192,7 +204,12 @@ class SequenceAttack():
 			predicted_residue_idx = probs[target_token_idx, :].argmax()
 			predicted_token = self.alphabet.all_toks[predicted_residue_idx]
 			predicted_sequence_list[target_token_idx] = predicted_token
-			atk_dict['pred_tokens'].append(predicted_token)
+			atk_dict['masked_pred_tokens'].append(predicted_token)
+
+			atk_dict['masked_pred_accuracy'] += int(predicted_token==original_sequence[target_token_idx])/len(target_token_idxs)
+			
+			if DEBUG:
+				print(f"pred={predicted_token}, true={original_sequence[target_token_idx]}, acc={atk_dict['masked_pred_accuracy']}")
 
 			### compute confidence scores
 
@@ -215,13 +232,19 @@ class SequenceAttack():
 					assert atk_dict[f'{pert_key}_evo_velocity']==0.
 
 		predicted_sequence = "".join(predicted_sequence_list)
+
+		if msa:
+			predicted_batch = get_max_hamming_msa(reference_sequence=("pred_seq", predicted_sequence), msa=msa, 
+				max_size=max_hamming_msa_size)
+		else:
+			predicted_batch = [(f"pred_seq", predicted_sequence)]
 		
-		batch_labels, batch_strs, batch_tokens = batch_converter([(f"pred_seq", predicted_sequence)])
+		batch_labels, batch_strs, batch_tokens = batch_converter(predicted_batch)
 		results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 		z_c = results["representations"][0]
 		euclidean_distance = torch.norm(first_embedding-z_c, p=2)
 
-		atk_dict[f'pred_sequence'] = predicted_sequence
+		atk_dict[f'masked_pred_sequence'] = predicted_sequence
 		atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
 
 		### compute blosum distances

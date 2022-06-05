@@ -30,10 +30,10 @@ parser.add_argument("--align", default=False, type=eval, help='If True pad and a
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--max_tokens", default=100, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--n_sequences", default=10, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
-parser.add_argument("--max_hamming_msa_size", default=50, type=eval, 
+parser.add_argument("--max_hamming_msa_size", default=5, type=eval, 
 	help="Number of sequences selected for the reference MSA.")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
@@ -46,12 +46,14 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
+if args.n_sequences < args.max_hamming_msa_size:
+	raise ValueError("Choose n_sequences >= max_hamming_msa_size")
 
+out_filename = f"msa_{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}_maxHamming={args.max_hamming_msa_size}"
+out_plots_path = os.path.join(args.out_dir, 'plots/msa/', out_filename+"/")
 out_data_path = os.path.join(args.out_dir, 'data/')
-out_plots_path = os.path.join(args.out_dir, 'plots/msa/')
-out_filename = f"{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}_maxHamming={args.max_hamming_msa_size}"
 
-perturbations_keys = ['pred','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
 
 if args.load:
 
@@ -87,17 +89,17 @@ else:
 
 		name, original_sequence = single_sequence_data
 
-		max_hamming_msa = get_max_hamming_msa(reference_sequence=single_sequence_data, msa=data, 
+		msa = get_max_hamming_msa(reference_sequence=single_sequence_data, msa=data, 
 			max_size=args.max_hamming_msa_size)
 
-		batch_labels, batch_strs, batch_tokens = batch_converter(max_hamming_msa)
+		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
+
 
 		with torch.no_grad():
 			batch_tokens = batch_tokens.to(args.device)
 			results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
 
 		first_embedding = results["representations"][0].to(args.device)
-		print("first_embedding.shape", first_embedding.shape)
 
 		### sequence attacks
 
@@ -109,6 +111,7 @@ else:
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
 		atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+			original_batch_tokens=batch_tokens, msa=data, max_hamming_msa_size=args.max_hamming_msa_size, 
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
 			perturbations_keys=perturbations_keys, verbose=args.verbose)
 
@@ -125,11 +128,11 @@ else:
 			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
 	os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
-	df.to_csv(os.path.join(out_data_path,  filename+".csv"))
-	cmap_df.to_csv(os.path.join(out_data_path,  filename+"_cmap.csv"))
+	df.to_csv(os.path.join(out_data_path,  out_filename+".csv"))
+	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmap.csv"))
 
 	embeddings_distances = torch.stack(embeddings_distances)
-	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=filename)
+	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
 
 
 print("\n", df.keys())
@@ -143,4 +146,3 @@ plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embe
 plot_blosum_distances(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 
-# plot_entropy_vs_attention()
