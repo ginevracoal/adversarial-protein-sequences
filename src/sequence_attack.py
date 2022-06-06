@@ -75,6 +75,7 @@ class SequenceAttack():
 		if msa: 
 			original_sequences=msa
 			first_embedding=first_embedding[:,0]
+			signed_gradient=signed_gradient[:,0]
 		else:
 			original_sequences=[("original", original_sequence)]
 

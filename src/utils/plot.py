@@ -114,13 +114,31 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
+	### masked pred accuracy vs pseudo likelihood
+
+	df["masked_pred_accuracy"] = df["masked_pred_accuracy"].apply(lambda x: format(float(x),".2f"))
+	df = df.sort_values(by=['masked_pred_accuracy'])
+
+	fig, ax = plt.subplots(figsize=(8, 5))
+	g = sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood")
+	plt.setp(ax.collections, alpha=.8)
+
+	plt.tight_layout()
+	plt.legend()
+	plt.show()
+
+	if filepath is not None and filename is not None:
+		os.makedirs(os.path.dirname(filepath), exist_ok=True)
+		fig.savefig(os.path.join(filepath, filename+"_accuracy_vs_likelihood.png"))
+		plt.close()
+
+	### pseudo-likelihood
+
 	fig, ax = plt.subplots(figsize=(8, 5))
 	for idx, key in enumerate(keys):
 		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=False)
 
 	plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x_{<i>})]]$')
-	# plt.yscale('log')
-	# plt.ylabel('log Density')
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
@@ -129,6 +147,8 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
 		fig.savefig(os.path.join(filepath, filename+"_pseudo_likelihood.png"))
 		plt.close()
+
+	### evo-velocity
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 	for idx, key in enumerate(keys):
@@ -148,16 +168,15 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 	sns.set_style("darkgrid")
 	fig, ax = plt.subplots(figsize=(8, 5))
 
-	print(df[f'max_cos_embedding_distance'].describe())
-	print(df[f'masked_pred_embedding_distance'].describe())
-
-	### all possible token choices and residues substitutions
-	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=False)
+	# print(df[f'max_cos_embedding_distance'].describe())
+	# print(df[f'masked_pred_embedding_distance'].describe())
 	
 	### adversarial perturbations
 	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=False)
+		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=True)
 
+	### all possible token choices and residues substitutions
+	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=False)
 
 	plt.xlabel(r'Distribution of embeddings distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
 	plt.tight_layout()

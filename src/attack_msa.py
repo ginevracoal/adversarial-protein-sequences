@@ -33,7 +33,7 @@ parser.add_argument("--target_attention", default='last_layer', type=str, help="
 parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
 parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
-parser.add_argument("--max_hamming_msa_size", default=10, type=eval, 
+parser.add_argument("--max_hamming_msa_size", default=30, type=eval, 
 	help="Number of sequences selected for the reference MSA.")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
