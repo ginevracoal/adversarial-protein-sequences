@@ -319,7 +319,8 @@ class MsaEsmEmbedding(nn.Module):
 		return loss
 
 	def mask_batch_tokens(self, batch_tokens, target_token_idx):
+		""" Mask the first sequence in the batch at `target_token_idx`.
+		"""
 		assert batch_tokens.shape[1]>1
-
-		batch_tokens[:, :, 1+target_token_idx] = self.alphabet.mask_idx
+		batch_tokens[:, 0, 1+target_token_idx] = self.alphabet.mask_idx
 		return batch_tokens

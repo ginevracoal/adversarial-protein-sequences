@@ -15,7 +15,7 @@ from sequence_attack import SequenceAttack
 from models.esm_embedding import EsmEmbedding
 from utils.protein import compute_cmaps_distance, get_max_hamming_msa
 
-print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\tversion =", torch.version.cuda)
+print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
 random.seed(0)
 np.random.seed(0)
@@ -29,8 +29,8 @@ parser.add_argument("--align", default=False, type=eval, help='If True pad and a
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=100, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=20, type=eval, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--max_tokens", default=200, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
@@ -123,7 +123,6 @@ else:
 
 	embeddings_distances = torch.stack(embeddings_distances)
 	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
-
 
 
 print("\n", df.keys())

@@ -62,8 +62,8 @@ class SequenceAttack():
 		return signed_gradient, loss
 
 	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
-		signed_gradient, msa=None, max_hamming_msa_size=None, 
-		verbose=False, perturbations_keys=['masked_pred', 'max_cos','min_dist','max_dist']):
+		signed_gradient, msa=None, max_hamming_msa_size=None,
+		verbose=False, perturbations_keys=['masked_pred', 'max_cos','min_dist','max_dist','max_entropy']):
 
 		if verbose:
 			print("\n=== Building adversarial sequences ===")
@@ -74,11 +74,10 @@ class SequenceAttack():
 		
 		if msa: 
 			original_sequences=msa
+			first_embedding=first_embedding[:,0]
 		else:
 			original_sequences=[("original", original_sequence)]
 
-		# batch_converter = self.alphabet.get_batch_converter()
-		# _, _, original_batch_tokens = batch_converter(original_sequences)
 		batch_converter = self.embedding_model.alphabet.get_batch_converter()
 		batch_tokens_masked = original_batch_tokens.clone()
 
@@ -135,12 +134,21 @@ class SequenceAttack():
 					perturbed_sequence = "".join(current_sequence_list)
 
 					with torch.no_grad():
-						batch_labels, batch_strs, batch_tokens = batch_converter([(f"{i}th-seq", perturbed_sequence)])
 
-						results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-						z_c = results["representations"][0]
+						if msa:
+							perturbed_batch = get_max_hamming_msa(reference_sequence=(f"{i}th-seq", perturbed_sequence), 
+								msa=msa, max_size=max_hamming_msa_size)
+							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+							z_c = results["representations"][0][:,0]
+
+						else:
+							perturbed_batch = [(f"{i}th-seq", perturbed_sequence)]
+							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+							z_c = results["representations"][0]
+
 						z_c_diff = first_embedding-z_c
-						
 						cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
 						euclidean_distance = torch.norm(z_c_diff, p=2)
 						embeddings_distances.append(euclidean_distance)
@@ -194,7 +202,7 @@ class SequenceAttack():
 			if msa:
 				logits = masked_prediction["logits"][:,0].squeeze()
 			else:
-				logits = masked_prediction["logits"].squeeze() ######
+				logits = masked_prediction["logits"].squeeze()
 
 			assert len(logits.shape)==2
 
@@ -245,12 +253,12 @@ class SequenceAttack():
 		euclidean_distance = torch.norm(first_embedding-z_c, p=2)
 
 		atk_dict[f'masked_pred_sequence'] = predicted_sequence
-		atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
+		atk_dict[f'masked_pred_embedding_distance'] = euclidean_distance.item()
 
 		### compute blosum distances
 
 		if verbose:
-			print(f"\norig_tokens = {atk_dict['orig_tokens']}")
+			print(f"\norig_tokens = {atk_dict['orig_tokens']}\tmasked_pred_accuracy = {atk_dict['masked_pred_accuracy']}")
 
 		for pert_key in perturbations_keys:
 			atk_dict[f'{pert_key}_blosum_dist'] = compute_blosum_distance(original_sequence, 

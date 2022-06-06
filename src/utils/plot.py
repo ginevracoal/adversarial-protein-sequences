@@ -32,41 +32,36 @@ def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
 
 	return fig
 
-def plot_tokens_hist(df, keys, filepath=None, filename=None):
+def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 	df['perc_token_idx'] = df.apply(lambda row: row['target_token_idx']/len(row['original_sequence']), axis=1)
 
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
-	### histogram of token idx percentiles
+	if split:
 
-	fig, ax = plt.subplots(figsize=(8, 5))
+		### split by perturbations_keys
+		assert len(keys)==4
+		fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharey=True)
+		jitter = 0.1
 
-	sns.histplot(data=df, x="perc_token_idx", legend=None)
-	plt.yscale('log')
+		for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
+			df = df.sort_values(f'{key}_token') 
+			sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
+			axis.set_ylabel('token idx percentile w.r.t. seq length')
 
-	plt.tight_layout()
-	plt.show()
-	os.makedirs(os.path.dirname(filepath), exist_ok=True)
-	fig.savefig(os.path.join(filepath, filename+"_tokens_hist.png"))
-	plt.close()
-
-	### split by perturbations_keys
-	assert len(keys)==4
-	fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharey=True)
-	jitter = 0.1
-
-	for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
-		df = df.sort_values(f'{key}_token') 
-		sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
-		axis.set_ylabel('token idx percentile w.r.t. seq length')
+	else:
+		### histogram of token idx percentiles
+		fig, ax = plt.subplots(figsize=(8, 5))
+		sns.histplot(data=df, x="perc_token_idx", legend=None)
+		plt.yscale('log')
 
 	plt.tight_layout()
 	plt.show()
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
-		fig.savefig(os.path.join(filepath, filename+f"_tokens_hist_split.png"))
+		fig.savefig(os.path.join(filepath, filename+f"_tokens_hist.png"))
 		plt.close()
 
 	return fig
@@ -122,7 +117,10 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	fig, ax = plt.subplots(figsize=(8, 5))
 	for idx, key in enumerate(keys):
 		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=False)
-	plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[\log p(\tilde{x}_i|x_{\ i})]]$')
+
+	plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x_{<i>})]]$')
+	# plt.yscale('log')
+	# plt.ylabel('log Density')
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
@@ -135,7 +133,7 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	fig, ax = plt.subplots(figsize=(8, 5))
 	for idx, key in enumerate(keys):
 		sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=False)
-	plt.xlabel(r'Evo velocity $\mathbb{E}_{i\in I}[ \log p(x_i|x_{\ i})-\log p(\tilde{x}_i|x_{\ i})]$')
+	plt.xlabel(r'Evo velocity $\mathbb{E}_{i\in I}[ \log p(x_i|x_{<i>})-\log p(\tilde{x}_i|x_{<i>})]$')
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
@@ -148,17 +146,18 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
-
 	fig, ax = plt.subplots(figsize=(8, 5))
 
+	print(df[f'max_cos_embedding_distance'].describe())
+	print(df[f'masked_pred_embedding_distance'].describe())
+
 	### all possible token choices and residues substitutions
-
-	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=True)
-
+	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=False)
+	
 	### adversarial perturbations
-
 	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=True)
+		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=False)
+
 
 	plt.xlabel(r'Distribution of embeddings distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
 	plt.tight_layout()

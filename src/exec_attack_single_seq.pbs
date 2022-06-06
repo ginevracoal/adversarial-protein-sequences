@@ -4,7 +4,7 @@
 # PBS settings #
 ###################
 
-#PBS -N new_attn_single_seq
+#PBS -N single_seq_10subst
 #PBS -l nodes=1:ppn=24
 #PBS -l walltime=20:00:00
 #PBS -q gpu
@@ -17,7 +17,7 @@
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 ALIGN=False
-MAX_TOKENS=100
+MAX_TOKENS=200
 N_SEQUENCES=100
 DEVICE="cuda"
 LOAD=False

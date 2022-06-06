@@ -16,7 +16,7 @@ from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
 from utils.protein import compute_cmaps_distance, get_max_hamming_msa
 
-print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\tversion =", torch.version.cuda)
+print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
 random.seed(0)
 np.random.seed(0)
@@ -30,10 +30,10 @@ parser.add_argument("--align", default=False, type=eval, help='If True pad and a
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=100, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=10, type=eval, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
+parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
-parser.add_argument("--max_hamming_msa_size", default=5, type=eval, 
+parser.add_argument("--max_hamming_msa_size", default=10, type=eval, 
 	help="Number of sequences selected for the reference MSA.")
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
@@ -46,8 +46,8 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-if args.n_sequences < args.max_hamming_msa_size:
-	raise ValueError("Choose n_sequences >= max_hamming_msa_size")
+if args.n_sequences <= args.max_hamming_msa_size:
+	raise ValueError("Choose n_sequences > max_hamming_msa_size")
 
 out_filename = f"msa_{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}_maxHamming={args.max_hamming_msa_size}"
 out_plots_path = os.path.join(args.out_dir, 'plots/msa/', out_filename+"/")
@@ -57,9 +57,9 @@ perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist']
 
 if args.load:
 
-	df = pd.read_csv(os.path.join(out_data_path, filename+".csv"), index_col=[0])
-	cmap_df = pd.read_csv(os.path.join(out_data_path, filename+"_cmap.csv"))
-	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=filename)
+	df = pd.read_csv(os.path.join(out_data_path, out_filename+".csv"), index_col=[0])
+	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmap.csv"))
+	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
 
 else:
 
@@ -93,7 +93,6 @@ else:
 			max_size=args.max_hamming_msa_size)
 
 		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
-
 
 		with torch.no_grad():
 			batch_tokens = batch_tokens.to(args.device)
@@ -138,11 +137,16 @@ else:
 print("\n", df.keys())
 print("\n", cmap_df)
 
+print("\nmasked_pred_accuracy:\n", df["masked_pred_accuracy"].describe())
+
 plot_tokens_hist(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_token_substitutions(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cosine_similarity(df, filepath=out_plots_path, filename=out_filename)
 plot_confidence(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+# plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(df, keys=['max_cos','min_dist','max_dist'] , embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+
+
 
