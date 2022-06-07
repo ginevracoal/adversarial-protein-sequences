@@ -31,7 +31,7 @@ parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 parser.add_argument("--max_tokens", default=None, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
+parser.add_argument("--n_sequences", default=300, type=eval, help="Number of sequences from the chosen dataset. \
 	None loads all sequences")
 parser.add_argument("--max_hamming_msa_size", default=30, type=eval, 
 	help="Number of sequences selected for the reference MSA.")
@@ -53,7 +53,7 @@ out_filename = f"msa_{args.dataset}_align={args.align}_seqs={args.n_sequences}_t
 out_plots_path = os.path.join(args.out_dir, 'plots/msa/', out_filename+"/")
 out_data_path = os.path.join(args.out_dir, 'data/')
 
-perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['masked_pred','max_entropy','max_cos','min_dist','max_dist'] 
 
 if args.load:
 
@@ -143,8 +143,8 @@ plot_tokens_hist(df, keys=perturbations_keys, filepath=out_plots_path, filename=
 plot_token_substitutions(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cosine_similarity(df, filepath=out_plots_path, filename=out_filename)
 plot_confidence(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-# plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(df, keys=['max_cos','min_dist','max_dist'] , embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+# plot_embeddings_distances(df, keys=['max_cos','min_dist','max_dist'] , embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 

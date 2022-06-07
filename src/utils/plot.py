@@ -41,12 +41,13 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 	if split:
 
 		### split by perturbations_keys
-		assert len(keys)==4
+		assert len(keys)>1
 		fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharey=True)
 		jitter = 0.1
 
 		for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
 			df = df.sort_values(f'{key}_token') 
+			# sns.swarmplot(data=df, y="perc_token_idx", x=f"{key}_token", ax=axis)
 			sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
 			axis.set_ylabel('token idx percentile w.r.t. seq length')
 
@@ -119,12 +120,16 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	df["masked_pred_accuracy"] = df["masked_pred_accuracy"].apply(lambda x: format(float(x),".2f"))
 	df = df.sort_values(by=['masked_pred_accuracy'])
 
-	fig, ax = plt.subplots(figsize=(8, 5))
-	g = sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood")
-	plt.setp(ax.collections, alpha=.8)
+	fig, ax = plt.subplots(2, 1, figsize=(8, 6), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
+
+	# sns.stripplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", jitter=0.3, ax=ax[0])
+	sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", ax=ax[0], palette="Blues")
+	plt.setp(ax[0].collections, alpha=.8)
+
+	sns.histplot(data=df, x="masked_pred_accuracy", ax=ax[1])
 
 	plt.tight_layout()
-	plt.legend()
+	# plt.legend()
 	plt.show()
 
 	if filepath is not None and filename is not None:
@@ -173,10 +178,10 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 	
 	### adversarial perturbations
 	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=True)
+		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=False)
 
 	### all possible token choices and residues substitutions
-	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=False)
+	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=True)
 
 	plt.xlabel(r'Distribution of embeddings distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
 	plt.tight_layout()
