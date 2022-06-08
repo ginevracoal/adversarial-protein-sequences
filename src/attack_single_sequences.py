@@ -26,7 +26,6 @@ parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam/', ty
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output path")
 parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
-parser.add_argument("--align", default=False, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="Loss function")
 parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
 	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
@@ -44,7 +43,7 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-out_filename = f"{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}"
+out_filename = f"{args.dataset}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}"
 out_path = os.path.join(args.out_dir, "single_sequence/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
@@ -71,9 +70,8 @@ else:
 
 	atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
-	data, max_tokens = load_sequences(filepath=args.data_dir, filename=args.dataset, 
-		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens, 
-		align=args.align)
+	data, max_tokens = load_pfam(filepath=args.data_dir, filename=args.dataset, 
+		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
 	### fill dataframes
 

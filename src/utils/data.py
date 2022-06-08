@@ -11,23 +11,7 @@ from Bio.Align import MultipleSeqAlignment
 # data loaders #
 ################
 
-def load_sequences(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=None, align=False, alignment_char="-"):
-
-	if filepath.endswith('msa/'):
-		data, max_tokens = _load_msa(max_tokens=max_tokens, max_model_tokens=max_model_tokens, 
-			filepath=filepath, filename=filename)
-
-	elif filepath.endswith('pfam/'):
-		data, max_tokens = _load_pfam(max_tokens=max_tokens, max_model_tokens=max_model_tokens, 
-			filepath=filepath, filename=filename, align=align)
-
-	if n_sequences is not None:
-		data = random.sample(data, n_sequences)
-
-	return data, max_tokens
-
-
-def _load_msa(filepath, filename, max_model_tokens, max_tokens=None, alignment_char="-"):
+def load_msa(filepath, filename, max_model_tokens, max_tokens=None, alignment_char="-"):
 
 	path = os.path.join(filepath, filename)
 
@@ -53,9 +37,13 @@ def _load_msa(filepath, filename, max_model_tokens, max_tokens=None, alignment_c
 		max_tokens = len(sequence)
 
 	print(f"\nmax tokens = {max_tokens}")
+
+	if n_sequences is not None:
+		data = random.sample(data, n_sequences)
+
 	return data, max_tokens
 
-def _load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=False, alignment_char="-"):
+def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=False, alignment_char="-"):
 
 	path = os.path.join(filepath, filename)
 
@@ -109,6 +97,10 @@ def _load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=Fals
 		avg_seq_lenght = int(avg_seq_lenght/len(data))
 
 	print(f"\nmax tokens = {max_tokens}")
+
+	if n_sequences is not None:
+		data = random.sample(data, n_sequences)
+
 	return data, max_tokens
 
 

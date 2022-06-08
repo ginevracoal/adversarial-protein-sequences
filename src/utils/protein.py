@@ -7,6 +7,9 @@ DEBUG=False
 
 def get_max_hamming_msa(reference_sequence, msa, max_size):
 
+    if len(msa) <= args.max_size:
+      raise ValueError("Choose n_sequences > max_size")
+
     if len(reference_sequence)!=2:
         raise AttributeError("reference_sequence should be a couple (name, sequence)")
 

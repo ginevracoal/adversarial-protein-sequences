@@ -27,7 +27,7 @@ LOAD=False
 ###########
 
 module load conda/4.9.2
-conda activate esm # esm = conda_venv
+conda activate esm
 
 ###############
 # directories #

@@ -29,7 +29,7 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 # modules #
 ###########
 
-source ../venv/bin/activate
+source ../esm/bin/activate
 
 #######
 # run #
