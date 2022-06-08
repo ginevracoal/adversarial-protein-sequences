@@ -22,28 +22,37 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam/', type=str, help="Datasets path")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam/', type=str, help="Datasets path.")
+parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name.")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
-	help="Output path")
-parser.add_argument("--dataset", default='fastaPF00001', type=str, help="Dataset name")
-parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="Loss function")
-parser.add_argument("--target_attention", default='last_layer', type=str, help="Attention matrices used to \
-	choose target token idxs. Set to 'last_layer' or 'all_layers'.")
-parser.add_argument("--max_tokens", default=200, type=eval, help="Cut sequences to max number of tokens")
-parser.add_argument("--n_sequences", default=100, type=eval, help="Number of sequences from the chosen dataset. \
-	None loads all sequences")
-parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence")
-parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, help='Lower bound for upper triangular matrix of long \
-	range contacts')
-parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, help='Upper bound for upper triangular matrix of long \
-	range contacts')
-parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'")
-parser.add_argument("--load", default=False, type=eval, help='If True load else compute')
+	help="Output data path.")
+
+parser.add_argument("--max_tokens", default=200, type=eval, 
+	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
+parser.add_argument("--n_sequences", default=100, type=eval, 
+	help="Number of sequences from the chosen dataset. None loads all sequences.")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
+
+parser.add_argument("--token_selection", default='max_attention', type=str, 
+	help="Method used to select most relevant token idxs. Only 'max_attention' is available on single sequence models.")
+parser.add_argument("--target_attention", default='last_layer', type=str, 
+	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'.")
+
+parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_logits' or 'max_tokens_repr'.")
+
+parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
+	help='Lower bound for upper triangular matrix of long range contacts.')
+parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, 
+	help='Upper bound for upper triangular matrix of long range contacts.')
+
+parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")
+parser.add_argument("--load", default=False, type=eval, help='If True load else compute.')
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-out_filename = f"{args.dataset}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}"
+out_filename = f"pfam_{args.dataset}_seqs={args.n_sequences}_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}"
 out_path = os.path.join(args.out_dir, "single_sequence/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
@@ -94,8 +103,8 @@ else:
 		### sequence attacks
 
 		target_token_idxs, _ = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
-			n_token_substitutions=args.n_substitutions, target_attention=args.target_attention, 
-			verbose=args.verbose)
+			n_token_substitutions=args.n_substitutions, token_selection=args.token_selection,
+			target_attention=args.target_attention, verbose=args.verbose)
 
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)

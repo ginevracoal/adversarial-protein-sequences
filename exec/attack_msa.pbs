@@ -15,13 +15,13 @@
 # script settings #
 ###################
 
+TOKEN_SELECTION='min_entropy' # max_attention, min_entropy
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
-ALIGN=False
 MAX_TOKENS=None
 N_SEQUENCES=300
 DEVICE="cuda"
 LOAD=False
-MAX_HAMMING_MSA_SIZE=10
+MIN_FILTER=10
 DATASET="PF00533" 
 
 ###########
@@ -55,9 +55,9 @@ for N_SUBSTITUTIONS in 3 10
 do
 
 	python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
-		--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
+		--dataset=$DATASET --max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
 		--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
-		--target_attention=$TARGET_ATTENTION --max_hamming_msa_size=$MAX_HAMMING_MSA_SIZE >> $OUT 2>&1
+		--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1
 
 done
 

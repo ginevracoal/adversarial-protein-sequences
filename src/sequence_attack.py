@@ -4,6 +4,7 @@ import itertools
 import numpy as np
 import pandas as pd
 import torch.nn as nn
+from Bio.SubsMat import MatrixInfo
 
 from utils.protein import compute_blosum_distance, compute_cmaps_distance, get_max_hamming_msa
 
@@ -24,7 +25,8 @@ class SequenceAttack():
 		self.end_token_idx = self.embedding_model.end_token_idx
 		self.residues_tokens = self.embedding_model.residues_tokens
 
-	def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, target_attention='last_layer', verbose=False):
+	def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, token_selection='max_attention', 
+		target_attention='last_layer', verbose=False):
 
 		if verbose:
 			print("\n=== Choosing target token idxs ===")
@@ -38,7 +40,8 @@ class SequenceAttack():
 			layers_idxs = [n_layers-1]
 
 		target_token_idxs, tokens_attention = self.embedding_model.get_target_token_idxs(batch_tokens=batch_tokens, 
-			layers_idxs=layers_idxs, n_token_substitutions=n_token_substitutions, verbose=verbose)
+			layers_idxs=layers_idxs, n_token_substitutions=n_token_substitutions, token_selection=token_selection, 
+			verbose=verbose)
 
 		if verbose:
 			print(f"\ntarget_token_idxs = {target_token_idxs}")
@@ -61,9 +64,33 @@ class SequenceAttack():
 		first_embedding.requires_grad=False
 		return signed_gradient, loss
 
+	def get_allowed_token_substitutions(self, current_token, blosum_check=True):
+		""" Get the list of allowed substitutions of `current_token` with new residues from the alphabet.
+		If `blosum_check` is True, remove substitutions with null frequency in BLOSUM62 matrix. 
+		If there are no allowed substitutions keep the original token fixed. 
+		"""
+
+		allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
+		
+		if blosum_check:
+			blosum = MatrixInfo.blosum62
+
+			for new_token in allowed_token_substitutions:
+				if ((current_token, new_token) not in blosum.keys()) & ((new_token, current_token) not in blosum.keys()):
+					allowed_token_substitutions = list(set(allowed_token_substitutions) - set([new_token]))
+
+		if len(allowed_token_substitutions)==0:
+			print("\nNo substitutions allowed, keeping the original token fixed.")
+			allowed_token_substitutions = [current_token]
+
+		if DEBUG:
+			print("\nallowed_token_substitutions =", allowed_token_substitutions)
+
+		return allowed_token_substitutions
+
 	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
 		signed_gradient, msa=None, max_hamming_msa_size=None,
-		verbose=False, perturbations_keys=['masked_pred','max_entropy','max_cos','min_dist','max_dist']):
+		verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist']):
 
 		if verbose:
 			print("\n=== Building adversarial sequences ===")
@@ -73,8 +100,8 @@ class SequenceAttack():
 		assert 'masked_pred' in perturbations_keys
 		adv_perturbations_keys.remove('masked_pred')
 
-		if 'max_entropy' in perturbations_keys:
-			adv_perturbations_keys.remove('max_entropy')
+		# if 'max_entropy' in perturbations_keys:
+		# 	adv_perturbations_keys.remove('max_entropy')
 		
 		if msa: 
 			original_sequences=msa
@@ -115,7 +142,7 @@ class SequenceAttack():
 			batch_tokens_masked = self.embedding_model.mask_batch_tokens(batch_tokens_masked, target_token_idx=target_token_idx)
 
 			### allowed substitutions at target_token_idx 
-			allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
+			allowed_token_substitutions = self.get_allowed_token_substitutions(current_token)
 
 			for pert_key in adv_perturbations_keys:
 
@@ -198,8 +225,8 @@ class SequenceAttack():
 		masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
 		predicted_sequence_list = list(original_sequence)
 
-		if 'max_entropy' in perturbations_keys:
-			atk_dict.update({'max_entropy':0})
+		# if 'max_entropy' in perturbations_keys:
+		# 	atk_dict.update({'max_entropy':0})
 
 		for i, target_token_idx in enumerate(target_token_idxs):
 			
@@ -225,57 +252,57 @@ class SequenceAttack():
 
 			### compute incremental max entropy perturbation
 
-			if 'max_entropy' in perturbations_keys:
+			# if 'max_entropy' in perturbations_keys:
 
-				token_entropy = 0
-				atk_dict['max_entropy_sequence'] = original_sequence
+			# 	token_entropy = 0
+			# 	atk_dict['max_entropy_sequence'] = original_sequence
 
-				current_token = original_sequence[target_token_idx]
-				allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
+			# 	current_token = original_sequence[target_token_idx]
+			# 	allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
 
-				if DEBUG:
-					print("\n\tpert_key = max_entropy")
-					print(f"\t\tcurrent token at position {target_token_idx} = {current_token}")
+			# 	if DEBUG:
+			# 		print("\n\tpert_key = max_entropy")
+			# 		print(f"\t\tcurrent token at position {target_token_idx} = {current_token}")
 
-				for residue in allowed_token_substitutions:
+			# 	for residue in allowed_token_substitutions:
 
-					j = self.alphabet.get_idx(residue)
-					p_ij = probs[i,j]
-					residue_entropy = - p_ij * torch.log(p_ij)
+			# 		j = self.alphabet.get_idx(residue)
+			# 		p_ij = probs[i,j]
+			# 		residue_entropy = - p_ij * torch.log(p_ij)
 
-					if residue_entropy > token_entropy:
+			# 		if residue_entropy > token_entropy:
 
-						new_token = residue
-						token_entropy = residue_entropy
+			# 			new_token = residue
+			# 			token_entropy = residue_entropy
 
-						current_sequence_list = list(atk_dict['max_entropy_sequence'])
-						current_sequence_list[target_token_idx] = residue
-						perturbed_sequence = "".join(current_sequence_list)
-						atk_dict['max_entropy_sequence'] = perturbed_sequence
+			# 			current_sequence_list = list(atk_dict['max_entropy_sequence'])
+			# 			current_sequence_list[target_token_idx] = residue
+			# 			perturbed_sequence = "".join(current_sequence_list)
+			# 			atk_dict['max_entropy_sequence'] = perturbed_sequence
 
-						with torch.no_grad():
+			# 			with torch.no_grad():
 
-							if msa:
-								perturbed_batch = get_max_hamming_msa(reference_sequence=(f"pert_seq", perturbed_sequence), 
-									msa=msa, max_size=max_hamming_msa_size)
-								batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-								results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-								z_c = results["representations"][0][:,0]
+			# 				if msa:
+			# 					perturbed_batch = get_max_hamming_msa(reference_sequence=(f"pert_seq", perturbed_sequence), 
+			# 						msa=msa, max_size=max_hamming_msa_size)
+			# 					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+			# 					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+			# 					z_c = results["representations"][0][:,0]
 
-							else:
-								perturbed_batch = [(f"pert_seq", perturbed_sequence)]
-								batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-								results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-								z_c = results["representations"][0]
+			# 				else:
+			# 					perturbed_batch = [(f"pert_seq", perturbed_sequence)]
+			# 					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+			# 					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+			# 					z_c = results["representations"][0]
 
-						euclidean_distance = torch.norm(first_embedding-z_c, p=2)
-						atk_dict['max_entropy_embedding_distance'] = euclidean_distance.item()
+			# 			euclidean_distance = torch.norm(first_embedding-z_c, p=2)
+			# 			atk_dict['max_entropy_embedding_distance'] = euclidean_distance.item()
 						
-						if DEBUG:
-							print(f"\t\tnew token at position {target_token_idx} = {new_token}\tresidue_entropy = {residue_entropy.item()}")
+			# 			if DEBUG:
+			# 				print(f"\t\tnew token at position {target_token_idx} = {new_token}\tresidue_entropy = {residue_entropy.item()}")
 
-				atk_dict['max_entropy_tokens'].append(new_token)
-				atk_dict['max_entropy'] += token_entropy.item()
+			# 	atk_dict['max_entropy_tokens'].append(new_token)
+			# 	atk_dict['max_entropy'] += token_entropy.item()
 
 			### compute confidence scores
 

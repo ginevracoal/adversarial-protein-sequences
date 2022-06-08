@@ -5,7 +5,6 @@
 ###################
 
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
-ALIGN=True
 MAX_TOKENS=500
 N_SEQUENCES=None
 DEVICE="cuda"
@@ -38,7 +37,7 @@ source ../esm/bin/activate
 for N_SUBSTITUTIONS in 3 10
 do
 	python pfam_test.py  --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
-		--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS --n_sequences=$N_SEQUENCES \
+		--dataset=$DATASET --max_tokens=$MAX_TOKENS --n_sequences=$N_SEQUENCES \
 		--n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 		--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
 

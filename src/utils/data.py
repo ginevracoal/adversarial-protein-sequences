@@ -11,7 +11,7 @@ from Bio.Align import MultipleSeqAlignment
 # data loaders #
 ################
 
-def load_msa(filepath, filename, max_model_tokens, max_tokens=None, alignment_char="-"):
+def load_msa(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=None, alignment_char="-"):
 
 	path = os.path.join(filepath, filename)
 
@@ -43,7 +43,7 @@ def load_msa(filepath, filename, max_model_tokens, max_tokens=None, alignment_ch
 
 	return data, max_tokens
 
-def load_pfam(filepath, filename, max_model_tokens, max_tokens=None, align=False, alignment_char="-"):
+def load_pfam(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=None, align=False, alignment_char="-"):
 
 	path = os.path.join(filepath, filename)
 
