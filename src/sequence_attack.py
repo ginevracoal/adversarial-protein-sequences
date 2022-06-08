@@ -89,8 +89,7 @@ class SequenceAttack():
 		return allowed_token_substitutions
 
 	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
-		signed_gradient, msa=None, max_hamming_msa_size=None,
-		verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist']):
+		signed_gradient, msa=None, verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist']):
 
 		if verbose:
 			print("\n=== Building adversarial sequences ===")
@@ -168,14 +167,13 @@ class SequenceAttack():
 					with torch.no_grad():
 
 						if msa:
-							perturbed_batch = get_max_hamming_msa(reference_sequence=(f"{j}th-seq", perturbed_sequence), 
-								msa=msa, max_size=max_hamming_msa_size)
+							perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa)
 							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
 							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 							z_c = results["representations"][0][:,0]
 
 						else:
-							perturbed_batch = [(f"{j}th-seq", perturbed_sequence)]
+							perturbed_batch = [("pert_seq", perturbed_sequence)]
 							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
 							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 							z_c = results["representations"][0]
@@ -283,9 +281,8 @@ class SequenceAttack():
 			# 			with torch.no_grad():
 
 			# 				if msa:
-			# 					perturbed_batch = get_max_hamming_msa(reference_sequence=(f"pert_seq", perturbed_sequence), 
-			# 						msa=msa, max_size=max_hamming_msa_size)
-			# 					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+			#					perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa)			
+			#  					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
 			# 					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 			# 					z_c = results["representations"][0][:,0]
 
@@ -327,10 +324,9 @@ class SequenceAttack():
 		predicted_sequence = "".join(predicted_sequence_list)
 
 		if msa:
-			predicted_batch = get_max_hamming_msa(reference_sequence=("pred_seq", predicted_sequence), msa=msa, 
-				max_size=max_hamming_msa_size)
+			predicted_batch = [("pert_seq", predicted_sequence)] + list(msa)
 		else:
-			predicted_batch = [(f"pred_seq", predicted_sequence)]
+			predicted_batch = [("pred_seq", predicted_sequence)]
 		
 		batch_labels, batch_strs, batch_tokens = batch_converter(predicted_batch)
 		results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])

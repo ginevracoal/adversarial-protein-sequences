@@ -23,16 +23,17 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/', type=str, help="Datasets path.")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/hhfiltered/', type=str, 
+	help="Datasets path. Choose `msa/` or `hhfiltered/`.")
 parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
 
-parser.add_argument("--max_tokens", default=200, type=eval, 
+parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=300, type=eval, 
+parser.add_argument("--n_sequences", default=100, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
-parser.add_argument("--min_filter", default=30, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
+parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
@@ -83,9 +84,10 @@ else:
 
 	atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
-	data, max_tokens = load_msa(filepath=args.data_dir, filename=args.dataset, 
-		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens, 
-		align=args.align)
+	data, max_tokens = load_msa(
+		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
+		filename=f"{args.dataset}_top_{args.n_sequences}_seqs", 
+		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
 	### fill dataframes
 
@@ -97,8 +99,17 @@ else:
 
 		name, original_sequence = single_sequence_data
 
-		msa = get_max_hamming_msa(reference_sequence=single_sequence_data, msa=data, 
-			max_size=args.max_hamming_msa_size)
+		msa, max_tokens = load_msa(
+			filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
+			filename=f"{args.dataset}_seq_idx={seq_idx+1}_no_gaps_filter={args.min_filter}", 
+			max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
+
+		### eventually remove current sequence from msa
+		msa = dict(msa)
+		if name in msa.keys():
+			msa.pop(name)		
+		msa = tuple(msa.items())
+		print(msa)
 
 		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
 
@@ -118,8 +129,8 @@ else:
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
 		atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
-			original_batch_tokens=batch_tokens, msa=data, max_hamming_msa_size=args.max_hamming_msa_size, 
-			target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
+			original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
+			first_embedding=first_embedding, signed_gradient=signed_gradient, 
 			perturbations_keys=perturbations_keys, verbose=args.verbose)
 
 		# update sequence row in the df

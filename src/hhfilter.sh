@@ -1,8 +1,11 @@
 #!/bin/bash
 
 DATASET="PF00533"
-N_SEQUENCES=2
-FILTER_SIZE=5
+N_SEQUENCES=100
+FILTER_SIZE=100
+
+### set paths
+
 IN_FILENAME="/scratch/external/gcarbone/msa/seqs${DATASET}"
 OUT_PATH="/scratch/external/gcarbone/hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
 
@@ -85,8 +88,13 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	seq_count=$((seq_count+1))
 
+	### delete temporary files
+
 	rm "${OUT_PATH}tmp"
 	rm "${OUT_PATH}swp"
 	rm $OUT_PATH$OUT_NO_GAPS
 
 done
+
+rm "${OUT_PATH}names"
+rm "${OUT_PATH}full_sequences"

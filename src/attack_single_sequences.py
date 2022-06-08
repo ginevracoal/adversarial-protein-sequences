@@ -41,9 +41,9 @@ parser.add_argument("--target_attention", default='last_layer', type=str,
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
 	help="Loss function used to compute gradients in the first embedding space. Choose 'max_logits' or 'max_tokens_repr'.")
 
-parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
+parser.add_argument("--cmap_dist_lbound", default=0.3, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
-parser.add_argument("--cmap_dist_ubound", default=0.8, type=int, 
+parser.add_argument("--cmap_dist_ubound", default=0.6, type=int, 
 	help='Upper bound for upper triangular matrix of long range contacts.')
 
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")

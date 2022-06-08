@@ -11,6 +11,7 @@ from Bio.Align import MultipleSeqAlignment
 # data loaders #
 ################
 
+
 def load_msa(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=None, alignment_char="-"):
 
 	path = os.path.join(filepath, filename)
