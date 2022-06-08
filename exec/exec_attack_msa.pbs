@@ -22,39 +22,39 @@ N_SEQUENCES=300
 DEVICE="cuda"
 LOAD=False
 MAX_HAMMING_MSA_SIZE=10
+DATASET="PF00533" 
 
 ###########
 # modules #
 ###########
 
 module load conda/4.9.2
-conda activate esm
+conda activate esm # esm = conda_venv
 
 ###############
 # directories #
 ###############
 
-WORKING_DIR="storage/adversarial-protein-sequences/src"
+WORKING_DIR="/u/external/gcarbone/adversarial-protein-sequences/src"
+OUT_DIR="/fast/external/gcarbone/adversarial-protein-sequences_out/"
 DATA_DIR="/scratch/external/gcarbone/msa/"
-DATASET="PF00533_rp15" 
-DATA_OUT="../out"
-
+	
 cd $WORKING_DIR
 PBS_O_WORKDIR=$(pwd)
-LOGS="../out/logs"
-mkdir -p $LOGS
+LOGS_DIR="${OUT_DIR}logs/"
+mkdir -p $LOGS_DIR
 DATE=$(date +%Y-%m-%d)
 TIME=$(date +%H:%M:%S)
-OUT="${LOGS}/${DATE}_${TIME}_out.txt"
+OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 
 #######
 # run #
 #######
 
-for N_SUBSTITUTIONS in 3 10 20
+for N_SUBSTITUTIONS in 3 10
 do
 
-	python attack_msa.py --data_dir=$DATA_DIR --out_dir=$DATA_OUT \
+	python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
 		--dataset=$DATASET --align=$ALIGN --max_tokens=$MAX_TOKENS \
 		--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 		--target_attention=$TARGET_ATTENTION --max_hamming_msa_size=$MAX_HAMMING_MSA_SIZE >> $OUT 2>&1

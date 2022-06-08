@@ -24,7 +24,8 @@ torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/', type=str, help="Datasets path")
-parser.add_argument("--out_dir", default='../out', type=str, help="Output path")
+parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
+	help="Output path")
 parser.add_argument("--dataset", default='PF00533_rp15', type=str, help="Dataset name")
 parser.add_argument("--align", default=False, type=eval, help='If True pad and align sequences')
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, help="Loss function")
@@ -46,12 +47,13 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-if args.n_sequences <= args.max_hamming_msa_size:
-	raise ValueError("Choose n_sequences > max_hamming_msa_size")
+# if args.n_sequences <= args.max_hamming_msa_size:
+# 	raise ValueError("Choose n_sequences > max_hamming_msa_size")
 
 out_filename = f"msa_{args.dataset}_align={args.align}_seqs={args.n_sequences}_toks={args.max_tokens}_subst={args.n_substitutions}_maxHamming={args.max_hamming_msa_size}"
-out_plots_path = os.path.join(args.out_dir, 'plots/msa/', out_filename+"/")
-out_data_path = os.path.join(args.out_dir, 'data/')
+out_path = os.path.join(args.out_dir, "msa/", out_filename+"/")
+out_plots_path = os.path.join(out_path, "plots/")
+out_data_path = os.path.join(out_path, "data/")
 
 perturbations_keys = ['masked_pred','max_entropy','max_cos','min_dist','max_dist'] 
 
