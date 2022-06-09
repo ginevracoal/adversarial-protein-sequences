@@ -99,17 +99,20 @@ else:
 
 		name, original_sequence = single_sequence_data
 
+		seq_filename = name.replace('/','_')
+		original_sequence = original_sequence.replace('-','')
+
 		msa, max_tokens = load_msa(
 			filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
-			filename=f"{args.dataset}_seq_idx={seq_idx+1}_no_gaps_filter={args.min_filter}", 
+			filename=f"{args.dataset}_{seq_filename}_no_gaps_filter={args.min_filter}", 
 			max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
 		### eventually remove current sequence from msa
+
 		msa = dict(msa)
 		if name in msa.keys():
 			msa.pop(name)		
 		msa = tuple(msa.items())
-		print(msa)
 
 		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
 
@@ -154,7 +157,7 @@ else:
 
 
 print("\n", df.keys())
-print("\n", cmap_df)
+print("\n", cmap_df.keys())
 
 print("\nmasked_pred_accuracy:\n", df["masked_pred_accuracy"].describe())
 

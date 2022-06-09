@@ -31,7 +31,8 @@ seq_count=1
 for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	current_seq_name=$(sed -n ${seq_count}p "${OUT_PATH}names")
-	OUT_NO_GAPS="${DATASET}_seq_idx=${seq_count}_no_gaps"
+	current_seq_filename=$(echo $current_seq_name | sed 's|[>,]||g' | sed 's/\//_/g')
+	OUT_NO_GAPS="${DATASET}_${current_seq_filename}_no_gaps"
 	cat "${OUT_PATH}full_sequences" > "${OUT_PATH}tmp"
 
 	### remove all columns where current sequence has gaps 
@@ -82,7 +83,7 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	### select top FILTER_SIZE seqs in the new msa
 
-	OUT_NO_GAPS_FILTERED="${DATASET}_seq_idx=${seq_count}_no_gaps_filter=${FILTER_SIZE}"
+	OUT_NO_GAPS_FILTERED="${DATASET}_${current_seq_filename}_no_gaps_filter=${FILTER_SIZE}"
 
 	hhfilter -diff $FILTER_SIZE -i $OUT_PATH$OUT_NO_GAPS -o $OUT_PATH$OUT_NO_GAPS_FILTERED
 

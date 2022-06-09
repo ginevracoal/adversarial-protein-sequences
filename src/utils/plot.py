@@ -254,7 +254,7 @@ def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filena
 	return fig
 
 
-def plot_contact_maps(original_contacts, adversarial_contacts, filepath=None, filename=None):
+def plot_cmaps(original_contacts, adversarial_contacts, filepath=None, filename=None):
 
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 

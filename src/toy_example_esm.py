@@ -76,7 +76,7 @@ adversarial_contacts = atk.compute_contact_maps(adversarial_sequence)
 distance = torch.norm((original_contacts-adversarial_contacts).flatten()).item()
 print("\nl2 distance bw contact maps =", distance)
 
-fig = plot_contact_maps(original_contacts=original_contacts.detach().numpy(), 
+fig = plot_cmaps(original_contacts=original_contacts.detach().numpy(), 
     adversarial_contacts=adversarial_contacts.detach().numpy(), 
     filepath=plots_path, filename="contact_maps")
 
