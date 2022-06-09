@@ -176,13 +176,13 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 	# print(df[f'max_cos_embedding_distance'].describe())
 	# print(df[f'masked_pred_embedding_distance'].describe())
 	
-	### adversarial perturbations
-	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=False)
-
 	### all possible token choices and residues substitutions
 	sns.distplot(x=embeddings_distances.flatten(), label='all possible embeddings', kde=True, hist=True)
 
+	### adversarial perturbations
+	for idx, key in enumerate(keys):
+		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=False)
+		
 	plt.xlabel(r'Distribution of embeddings distances $||z-z_I(C_I)||_2$ (varying $z$ and $C_I$)')
 	plt.tight_layout()
 	plt.legend()

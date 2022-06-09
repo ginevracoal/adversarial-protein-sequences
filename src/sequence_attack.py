@@ -106,6 +106,7 @@ class SequenceAttack():
 
 		signed_gradient = first_embedding.grad.data.sign()
 		first_embedding.requires_grad=False
+		signed_gradient.requires_grad=False
 		return signed_gradient, loss
 
 	def get_allowed_token_substitutions(self, current_token, blosum_check=True):
@@ -135,6 +136,9 @@ class SequenceAttack():
 	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
 		signed_gradient, msa=None, verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist']):
 
+		self.original_model.eval()
+		self.embedding_model.eval()
+
 		if verbose:
 			print("\n=== Building adversarial sequences ===")
 
@@ -147,11 +151,8 @@ class SequenceAttack():
 		# 	adv_perturbations_keys.remove('max_entropy')
 		
 		if msa: 
-			# original_sequences=msa
 			first_embedding=first_embedding[:,0]
 			signed_gradient=signed_gradient[:,0]
-		# else:
-			# original_sequences=[("original", original_sequence)]
 
 		batch_converter = self.embedding_model.alphabet.get_batch_converter()
 		batch_tokens_masked = original_batch_tokens.clone()
@@ -372,12 +373,15 @@ class SequenceAttack():
 			predicted_batch = [("pred_seq", predicted_sequence)] + list(msa[1:])
 		else:
 			predicted_batch = [("pred_seq", predicted_sequence)]
-		
+
 		batch_labels, batch_strs, batch_tokens = batch_converter(predicted_batch)
 		results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 		z_c = results["representations"][0]
-		euclidean_distance = torch.norm(first_embedding-z_c, p=2)
 
+		if msa:
+			z_c = z_c[:,0]
+
+		euclidean_distance = torch.norm(first_embedding-z_c, p=2)
 		atk_dict[f'masked_pred_sequence'] = predicted_sequence
 		atk_dict[f'masked_pred_embedding_distance'] = euclidean_distance.item()
 
