@@ -4,9 +4,9 @@
 # PBS settings #
 ###################
 
-#PBS -N msa_10ham_3hseq
+#PBS -N msa_atk_min_entropy
 #PBS -l nodes=1:ppn=24
-#PBS -l walltime=3:00:00
+#PBS -l walltime=10:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
@@ -18,10 +18,10 @@
 TOKEN_SELECTION='min_entropy' # max_attention, min_entropy
 TARGET_ATTENTION='last_layer' # last_layer, all_layers
 MAX_TOKENS=None
-N_SEQUENCES=300
+N_SEQUENCES=100
 DEVICE="cuda"
 LOAD=False
-MIN_FILTER=10
+MIN_FILTER=100
 DATASET="PF00533" 
 
 ###########
@@ -37,7 +37,7 @@ conda activate esm
 
 WORKING_DIR="/u/external/gcarbone/adversarial-protein-sequences/src"
 OUT_DIR="/fast/external/gcarbone/adversarial-protein-sequences_out/"
-DATA_DIR="/scratch/external/gcarbone/msa/"
+DATA_DIR="/scratch/external/gcarbone/hhfiltered/"
 	
 cd $WORKING_DIR
 PBS_O_WORKDIR=$(pwd)
