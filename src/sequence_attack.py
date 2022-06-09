@@ -26,27 +26,71 @@ class SequenceAttack():
 		self.residues_tokens = self.embedding_model.residues_tokens
 
 	def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, token_selection='max_attention', 
-		target_attention='last_layer', verbose=False):
+		target_attention='last_layer', msa=None, verbose=False):
 
 		if verbose:
 			print("\n=== Choosing target token idxs ===")
 
 		n_layers = self.original_model.args.layers
 
-		if target_attention=='all_layers':
-			layers_idxs = list(range(n_layers))
+		if token_selection=='max_attention':
 
-		elif target_attention=='last_layer':
-			layers_idxs = [n_layers-1]
+			if target_attention=='all_layers':
+				layers_idxs = list(range(n_layers))
 
-		target_token_idxs, tokens_attention = self.embedding_model.get_target_token_idxs(batch_tokens=batch_tokens, 
-			layers_idxs=layers_idxs, n_token_substitutions=n_token_substitutions, token_selection=token_selection, 
-			verbose=verbose)
+			elif target_attention=='last_layer':
+				layers_idxs = [n_layers-1]
+
+			else:
+				raise AttributeError
+
+			target_token_idxs, _ = self.embedding_model.get_max_attention_token_idxs(
+				batch_tokens=batch_tokens, layers_idxs=layers_idxs, n_token_substitutions=n_token_substitutions)
+			
+		elif token_selection=='min_entropy':
+
+			assert msa is not None
+
+			target_token_idxs, _ = self._get_min_entropy_token_idxs(msa=msa, n_token_substitutions=n_token_substitutions)
+
+		else:
+			raise AttributeError("Wrong token_selection method")
 
 		if verbose:
 			print(f"\ntarget_token_idxs = {target_token_idxs}")
 
-		return target_token_idxs, tokens_attention
+		return target_token_idxs
+
+	def _get_min_entropy_token_idxs(self, msa, n_token_substitutions):
+
+		msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
+
+		n_residues = len(self.residues_tokens)
+		n_sequences = msa_array.shape[0]
+		n_tokens = msa_array.shape[1]
+
+		### count occurrence probs of residues in msa columns
+
+		occurrence_frequencies = torch.empty((n_tokens, n_residues))
+
+		for residue_idx, residue in enumerate(self.residues_tokens):
+			for token_idx in range(n_tokens):
+				column_string = "".join(msa_array[:,token_idx])
+				occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
+
+		occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
+
+		### compute token idxs entropy
+
+		tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
+			for i in range(n_tokens)])
+
+		### choose `n_token_substitutions` min entropy idxs
+
+		target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=False)
+
+		return target_token_idxs.cpu().detach().numpy(), tokens_entropy
+
 
 	def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss_method, verbose=False):
 
@@ -103,11 +147,11 @@ class SequenceAttack():
 		# 	adv_perturbations_keys.remove('max_entropy')
 		
 		if msa: 
-			original_sequences=msa
+			# original_sequences=msa
 			first_embedding=first_embedding[:,0]
 			signed_gradient=signed_gradient[:,0]
-		else:
-			original_sequences=[("original", original_sequence)]
+		# else:
+			# original_sequences=[("original", original_sequence)]
 
 		batch_converter = self.embedding_model.alphabet.get_batch_converter()
 		batch_tokens_masked = original_batch_tokens.clone()
@@ -138,7 +182,8 @@ class SequenceAttack():
 			atk_dict['orig_tokens'].append(current_token)
 
 			### mask original sequence at target_token_idx
-			batch_tokens_masked = self.embedding_model.mask_batch_tokens(batch_tokens_masked, target_token_idx=target_token_idx)
+			batch_tokens_masked = self.embedding_model.mask_batch_tokens(batch_tokens_masked, 
+				target_token_idx=target_token_idx)
 
 			### allowed substitutions at target_token_idx 
 			allowed_token_substitutions = self.get_allowed_token_substitutions(current_token)
@@ -167,7 +212,7 @@ class SequenceAttack():
 					with torch.no_grad():
 
 						if msa:
-							perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa)
+							perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa[1:])
 							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
 							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 							z_c = results["representations"][0][:,0]
@@ -281,7 +326,7 @@ class SequenceAttack():
 			# 			with torch.no_grad():
 
 			# 				if msa:
-			#					perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa)			
+			#					perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa[1:])			
 			#  					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
 			# 					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 			# 					z_c = results["representations"][0][:,0]
@@ -324,7 +369,7 @@ class SequenceAttack():
 		predicted_sequence = "".join(predicted_sequence_list)
 
 		if msa:
-			predicted_batch = [("pert_seq", predicted_sequence)] + list(msa)
+			predicted_batch = [("pred_seq", predicted_sequence)] + list(msa[1:])
 		else:
 			predicted_batch = [("pred_seq", predicted_sequence)]
 		

@@ -40,7 +40,8 @@ parser.add_argument("--n_substitutions", default=3, type=int, help="Number of to
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention' or 'min_entropy'.")
 parser.add_argument("--target_attention", default='last_layer', type=str, 
-	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'.")
+	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
+	Used only when `token_selection`=`max_attention")
 
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
 	help="Loss function used to compute gradients in the first embedding space. Choose 'max_logits' or 'max_tokens_repr'.")
@@ -107,12 +108,15 @@ else:
 			filename=f"{args.dataset}_{seq_filename}_no_gaps_filter={args.min_filter}", 
 			max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
-		### eventually remove current sequence from msa
+		### put current sequence on top of the msa
 
 		msa = dict(msa)
 		if name in msa.keys():
 			msa.pop(name)		
 		msa = tuple(msa.items())
+		msa = [(name, original_sequence)] + list(msa)
+
+		### compute first continuous embedding
 
 		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
 
@@ -124,8 +128,8 @@ else:
 
 		### sequence attacks
 
-		target_token_idxs, _ = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
-			n_token_substitutions=args.n_substitutions, token_selection=args.token_selection,
+		target_token_idxs = atk.choose_target_token_idxs(token_selection=args.token_selection, 
+			n_token_substitutions=args.n_substitutions, msa=msa, batch_tokens=batch_tokens, 
 			target_attention=args.target_attention, verbose=args.verbose)
 
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
@@ -136,7 +140,7 @@ else:
 			first_embedding=first_embedding, signed_gradient=signed_gradient, 
 			perturbations_keys=perturbations_keys, verbose=args.verbose)
 
-		# update sequence row in the df
+		### update sequence row in the df
 
 		df = pd.concat([df, atk_df], ignore_index=True)
 		embeddings_distances.append(emb_dist_single_seq)

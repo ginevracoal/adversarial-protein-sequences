@@ -256,63 +256,52 @@ class MsaEsmEmbedding(nn.Module):
 
 			assert torch.all(torch.eq(orig_logits, emb_logits))
 
-	def get_target_token_idxs(self, batch_tokens, layers_idxs, n_token_substitutions, token_selection, verbose=False):
+	def get_max_attention_token_idxs(self, batch_tokens, layers_idxs, n_token_substitutions):
 
 		with torch.no_grad():
 			results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
+		
+		row_attentions = results["row_attentions"]
+		col_attentions = results["col_attentions"]
+		batch_size = col_attentions.shape[-1]
+		_, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
 
-		if token_selection=="max_attention":
-			
-			row_attentions = results["row_attentions"]
-			col_attentions = results["col_attentions"]
-			batch_size = col_attentions.shape[-1]
-			_, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
+		if DEBUG:
+			print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
+			print("\nrow_attentions.shape =", row_attentions.shape)
+			print("col_attentions.shape =", col_attentions.shape)
 
-			if DEBUG:
-				print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
-				print("\nrow_attentions.shape =", row_attentions.shape)
-				print("col_attentions.shape =", col_attentions.shape)
+		row_attentions = row_attentions[0, layers_idxs]
+		col_attentions = col_attentions[0, layers_idxs]
 
-			row_attentions = row_attentions[0, layers_idxs]
-			col_attentions = col_attentions[0, layers_idxs]
+		### compute avg attention across all heads (1) and layers (0)
+		row_attentions = row_attentions.mean(1).mean(0).squeeze()
+		col_attentions = col_attentions.mean(1).mean(0).squeeze()
+		assert row_attentions.shape[0] == row_attentions.shape[1]
+		assert col_attentions.shape[1] == col_attentions.shape[2]
 
-			### compute avg attention across all heads (1) and layers (0)
-			row_attentions = row_attentions.mean(1).mean(0).squeeze()
-			col_attentions = col_attentions.mean(1).mean(0).squeeze()
-			assert row_attentions.shape[0] == row_attentions.shape[1]
-			assert col_attentions.shape[1] == col_attentions.shape[2]
+		### remove start tokens attention
+		row_attentions = row_attentions[1:, 1:]
+		col_attentions = col_attentions[1:].flatten(start_dim=1)
 
-			### remove start tokens attention
-			row_attentions = row_attentions[1:, 1:]
-			col_attentions = col_attentions[1:].flatten(start_dim=1)
+		### compute l2 norm of attention vectors
+		row_attentions = torch.norm(row_attentions, dim=-1, p=2)
+		col_attentions = torch.norm(col_attentions, dim=-1, p=2)
+		tokens_attention = F.softmax(row_attentions, dim=-1) + F.softmax(col_attentions, dim=-1)
 
-			### compute l2 norm of attention vectors
-			row_attentions = torch.norm(row_attentions, dim=-1, p=2)
-			col_attentions = torch.norm(col_attentions, dim=-1, p=2)
-			tokens_attention = F.softmax(row_attentions, dim=-1) + F.softmax(col_attentions, dim=-1)
+		### choose top n_token_substitutions token idxs that maximize the sum of normalized scores
 
-			### choose top n_token_substitutions token idxs that maximize the sum of normalized scores
+		char_idxs = batch_tokens[0, 0, 1:]
+		allowed_token_choices = (char_idxs>=self.start_token_idx) & (char_idxs<=self.end_token_idx)
+		ordered_token_idxs = torch.topk(tokens_attention, k=len(tokens_attention)).indices.cpu().detach().numpy()
 
-			char_idxs = batch_tokens[0, 0, 1:]
-			allowed_token_choices = (char_idxs>=self.start_token_idx) & (char_idxs<=self.end_token_idx)
-			ordered_token_idxs = torch.topk(tokens_attention, k=len(tokens_attention)).indices.cpu().detach().numpy()
+		target_token_idxs = []
+		for token_idx in ordered_token_idxs:
+			if (char_idxs[token_idx]>=self.start_token_idx) & (char_idxs[token_idx]<=self.end_token_idx):
+				target_token_idxs.append(token_idx)
 
-			target_token_idxs = []
-			for token_idx in ordered_token_idxs:
-				if (char_idxs[token_idx]>=self.start_token_idx) & (char_idxs[token_idx]<=self.end_token_idx):
-					target_token_idxs.append(token_idx)
-
-			target_token_idxs = target_token_idxs[:n_token_substitutions]
-			return target_token_idxs, tokens_attention
-
-		elif token_selection=="min_entropy":
-
-			raise NotImplementedError
-			return target_token_idxs, tokens_entropy
-
-		else:
-			raise AttributeError("Wrong token_selection method")
-
+		target_token_idxs = target_token_idxs[:n_token_substitutions]
+		return target_token_idxs, tokens_attention
 
 	def loss(self, method, output, target_token_idxs):
 

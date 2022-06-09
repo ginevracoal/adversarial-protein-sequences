@@ -187,51 +187,45 @@ class EsmEmbedding(nn.Module):
 
 			assert torch.all(torch.eq(orig_logits, emb_logits))
 
-	def get_target_token_idxs(self, batch_tokens, layers_idxs, n_token_substitutions, token_selection, verbose=False):
+	def get_max_attention_token_idxs(self, batch_tokens, layers_idxs, n_token_substitutions):
 
 		with torch.no_grad():
 			results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
 
-		if token_selection=="max_attention":
+		attentions = results["attentions"]
+		batch_size, n_layers, n_heads, n_tokens = attentions.shape[:4]
 
-			attentions = results["attentions"]
-			batch_size, n_layers, n_heads, n_tokens = attentions.shape[:4]
+		if verbose:
+			print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
 
-			if verbose:
-				print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
+		assert batch_size==1 
+		attentions = attentions[0, layers_idxs]
 
-			assert batch_size==1 
-			attentions = attentions[0, layers_idxs]
+		### compute avg attention across all heads (1) and layers (0)
+		avg_attentions = attentions.mean(1).mean(0).squeeze()
+		assert avg_attentions.shape[0] == avg_attentions.shape[1]
 
-			### compute avg attention across all heads (1) and layers (0)
-			avg_attentions = attentions.mean(1).mean(0).squeeze()
-			assert avg_attentions.shape[0] == avg_attentions.shape[1]
+		### remove start and end tokens attention
+		tokens_attention = avg_attentions[1:-1, 1:-1]
 
-			### remove start and end tokens attention
-			tokens_attention = avg_attentions[1:-1, 1:-1]
+		### compute l2 norm of attention vectors
+		tokens_attention = torch.norm(tokens_attention, dim=-1, p=2)
 
-			### compute l2 norm of attention vectors
-			tokens_attention = torch.norm(tokens_attention, dim=-1, p=2)
+		### choose top n_token_substitutions token idxs that maximize the sum of normalized scores (also works on MSA)
 
-			### choose top n_token_substitutions token idxs that maximize the sum of normalized scores (also works on MSA)
+		# target_token_idxs = torch.topk(tokens_attention, n_token_substitutions).indices.cpu().detach().numpy()
 
-			# target_token_idxs = torch.topk(tokens_attention, n_token_substitutions).indices.cpu().detach().numpy()
+		char_idxs = batch_tokens[0, 1:-1]
+		allowed_token_choices = (char_idxs>=self.start_token_idx) & (char_idxs<=self.end_token_idx)
+		ordered_token_idxs = torch.topk(tokens_attention, k=len(tokens_attention)).indices.cpu().detach().numpy()
 
-			char_idxs = batch_tokens[0, 1:-1]
-			allowed_token_choices = (char_idxs>=self.start_token_idx) & (char_idxs<=self.end_token_idx)
-			ordered_token_idxs = torch.topk(tokens_attention, k=len(tokens_attention)).indices.cpu().detach().numpy()
+		target_token_idxs = []
+		for token_idx in ordered_token_idxs:
+			if (char_idxs[token_idx]>=self.start_token_idx) & (char_idxs[token_idx]<=self.end_token_idx):
+				target_token_idxs.append(token_idx)
 
-			target_token_idxs = []
-			for token_idx in ordered_token_idxs:
-				if (char_idxs[token_idx]>=self.start_token_idx) & (char_idxs[token_idx]<=self.end_token_idx):
-					target_token_idxs.append(token_idx)
-
-			target_token_idxs = target_token_idxs[:n_token_substitutions]
-			return target_token_idxs, tokens_attention
-
-		else:
-			raise AttributeError("Wrong token_selection method")
-
+		target_token_idxs = target_token_idxs[:n_token_substitutions]
+		return target_token_idxs, tokens_attention
 
 	def loss(self, method, output, target_token_idxs):
 

@@ -17,13 +17,10 @@ conda activate esm
 
 OUT_NAME="${DATASET}_top_${N_SEQUENCES}_seqs"
 
-# sed -n 1,2p $IN_FILENAME
-
 hhfilter -diff $N_SEQUENCES -i $IN_FILENAME -o $OUT_PATH$OUT_NAME
 
 cat $OUT_PATH$OUT_NAME | awk 'NR % 2 == 1' > "${OUT_PATH}names"
 cat $OUT_PATH$OUT_NAME | awk 'NR % 2 == 0' > "${OUT_PATH}full_sequences"
-
 
 ### for each sequence select columns without gaps and build a filtered MSA of minimum size FILTER_SIZE
 
@@ -65,7 +62,7 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 	printf "\n"
 	cat "${OUT_PATH}tmp"
 
-	### switch back to fasta type dataset
+	### switch back to fasta type
 
 	row_count=1
 
