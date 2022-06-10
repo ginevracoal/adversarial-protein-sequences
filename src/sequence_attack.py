@@ -51,7 +51,15 @@ class SequenceAttack():
 
 			assert msa is not None
 
-			target_token_idxs, _ = self._get_min_entropy_token_idxs(msa=msa, n_token_substitutions=n_token_substitutions)
+			target_token_idxs, _ = self._get_entropy_token_idxs(msa=msa, n_token_substitutions=n_token_substitutions,
+				max_entropy=False)
+
+		elif token_selection=='max_entropy':
+
+			assert msa is not None
+
+			target_token_idxs, _ = self._get_entropy_token_idxs(msa=msa, n_token_substitutions=n_token_substitutions,
+				max_entropy=True)
 
 		else:
 			raise AttributeError("Wrong token_selection method")
@@ -61,7 +69,7 @@ class SequenceAttack():
 
 		return target_token_idxs
 
-	def _get_min_entropy_token_idxs(self, msa, n_token_substitutions):
+	def _get_entropy_token_idxs(self, msa, n_token_substitutions, max_entropy=False):
 
 		msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
 
@@ -87,7 +95,7 @@ class SequenceAttack():
 
 		### choose `n_token_substitutions` min entropy idxs
 
-		target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=False)
+		target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=max_entropy)
 
 		return target_token_idxs.cpu().detach().numpy(), tokens_entropy
 
@@ -362,7 +370,7 @@ class SequenceAttack():
 				adv_log_prob = torch.log(adv_prob)
 
 				atk_dict[f'{pert_key}_pseudo_likelihood'] += (adv_prob/len(target_token_idxs)).item()
-				atk_dict[f'{pert_key}_evo_velocity'] += ((orig_log_prob-adv_log_prob)/len(target_token_idxs)).item()
+				atk_dict[f'{pert_key}_evo_velocity'] += ((adv_log_prob-orig_log_prob)/len(target_token_idxs)).item()
 
 				if atk_dict[f'orig_tokens']==atk_dict[f'{pert_key}_tokens']:
 					assert atk_dict[f'{pert_key}_evo_velocity']==0.

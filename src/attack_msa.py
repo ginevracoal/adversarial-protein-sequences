@@ -33,7 +33,7 @@ parser.add_argument("--max_tokens", default=None, type=eval,
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
 parser.add_argument("--n_sequences", default=100, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
-parser.add_argument("--min_filter", default=50, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
+parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
@@ -163,14 +163,13 @@ else:
 print("\n", df.keys())
 print("\n", cmap_df.keys())
 
-print("\nmasked_pred_accuracy:\n", df["masked_pred_accuracy"].describe())
+# print("\nmasked_pred_accuracy:\n", df["masked_pred_accuracy"].describe())
 
 plot_tokens_hist(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_token_substitutions(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cosine_similarity(df, filepath=out_plots_path, filename=out_filename)
 plot_confidence(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-# plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(df, keys=['max_cos','min_dist','max_dist'] , embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 

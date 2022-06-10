@@ -1,8 +1,26 @@
 #!/bin/bash
 
+### args
+
 DATASET="PF00533"
 N_SEQUENCES=100
-FILTER_SIZE=30
+FILTER_SIZE=100
+
+## todo: debug arg parser
+
+# while getopts d:n:f: flag
+# do
+#     case "${flag}" in
+#         d) DATASET=${OPTARG};;
+#         n) N_SEQUENCES=${OPTARG};;
+#         f) FILTER_SIZE=${OPTARG};;
+#     esac
+# done
+
+# if (( $OPTIND == 1 )); then
+#    echo "Pass input args: e.g. -d PF00533 -n 100 -f 100"
+#    exit 0
+# fi
 
 ### set paths
 
@@ -34,9 +52,10 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	### remove all columns where current sequence has gaps 
 
-	printf "\n\n"
+	printf "\n"
 	echo name: "$current_seq_name" 
 	echo seq: "$current_seq"
+	printf "\n"
 
 	char_count=1
 	for char in $(sed 's/./&\n/g' <(printf "$current_seq")); do
@@ -59,8 +78,8 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	done
 
-	printf "\n"
-	cat "${OUT_PATH}tmp"
+	# printf "\n"
+	# cat "${OUT_PATH}tmp"
 
 	### switch back to fasta type
 
@@ -75,8 +94,8 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	done
 
-	printf "\n"
-	cat $OUT_PATH$OUT_NO_GAPS
+	# printf "\n"
+	# cat $OUT_PATH$OUT_NO_GAPS
 
 	### select top FILTER_SIZE seqs in the new msa
 
