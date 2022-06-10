@@ -137,9 +137,6 @@ else:
 print("\n", df.keys())
 print("\n", cmap_df.keys())
 
-print(cmap_df['k'].describe())
-print(cmap_df[cmap_df['k']==49.].describe())
-
 plot_tokens_hist(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_token_substitutions(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cosine_similarity(df, filepath=out_plots_path, filename=out_filename)

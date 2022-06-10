@@ -193,7 +193,7 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 		fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
 		plt.close()
 
-def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='histplot'):
+def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='distplot'):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
