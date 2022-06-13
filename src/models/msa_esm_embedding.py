@@ -256,7 +256,7 @@ class MsaEsmEmbedding(nn.Module):
 
 			assert torch.all(torch.eq(orig_logits, emb_logits))
 
-	def get_max_attention_token_idxs(self, batch_tokens, layers_idxs, n_token_substitutions):
+	def compute_tokens_attention(self, batch_tokens, layers_idxs):
 
 		with torch.no_grad():
 			results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
@@ -289,19 +289,7 @@ class MsaEsmEmbedding(nn.Module):
 		col_attentions = torch.norm(col_attentions, dim=-1, p=2)
 		tokens_attention = F.softmax(row_attentions, dim=-1) + F.softmax(col_attentions, dim=-1)
 
-		### choose top n_token_substitutions token idxs that maximize the sum of normalized scores
-
-		char_idxs = batch_tokens[0, 0, 1:]
-		allowed_token_choices = (char_idxs>=self.start_token_idx) & (char_idxs<=self.end_token_idx)
-		ordered_token_idxs = torch.topk(tokens_attention, k=len(tokens_attention)).indices.cpu().detach().numpy()
-
-		target_token_idxs = []
-		for token_idx in ordered_token_idxs:
-			if (char_idxs[token_idx]>=self.start_token_idx) & (char_idxs[token_idx]<=self.end_token_idx):
-				target_token_idxs.append(token_idx)
-
-		target_token_idxs = target_token_idxs[:n_token_substitutions]
-		return target_token_idxs, tokens_attention
+		return tokens_attention
 
 	def loss(self, method, output, target_token_idxs):
 

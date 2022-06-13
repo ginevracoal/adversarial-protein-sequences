@@ -31,6 +31,7 @@ python attack_single_sequences.py --data_dir=DATA_DIR --out_dir=OUT_DIR --datase
 Attack MSA model:
 ```
 cd src/
+./hhfilter.sh
 python attack_msa.py --data_dir=DATA_DIR --out_dir=OUT_DIR --dataset=PF00533  \
 	--n_sequences=100 --min_filter=100 --n_substitutions=3 --device=cuda
 ```

@@ -102,7 +102,7 @@ else:
 
 		### sequence attacks
 
-		target_token_idxs = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
+		target_token_idxs, tokens_attention = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
 			n_token_substitutions=args.n_substitutions, token_selection=args.token_selection,
 			target_attention=args.target_attention, verbose=args.verbose)
 

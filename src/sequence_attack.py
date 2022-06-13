@@ -33,33 +33,38 @@ class SequenceAttack():
 
 		n_layers = self.original_model.args.layers
 
+		if target_attention=='all_layers':
+			layers_idxs = list(range(n_layers))
+
+		elif target_attention=='last_layer':
+			layers_idxs = [n_layers-1]
+
+		else:
+			raise AttributeError
+
+		tokens_attention = self.embedding_model.compute_tokens_attention(batch_tokens=batch_tokens, layers_idxs=layers_idxs)
+
 		if token_selection=='max_attention':
 
-			if target_attention=='all_layers':
-				layers_idxs = list(range(n_layers))
+			target_tokens_attention, target_token_idxs = torch.topk(tokens_attention, k=n_token_substitutions, largest=True)
 
-			elif target_attention=='last_layer':
-				layers_idxs = [n_layers-1]
-
-			else:
-				raise AttributeError
-
-			target_token_idxs, _ = self.embedding_model.get_max_attention_token_idxs(
-				batch_tokens=batch_tokens, layers_idxs=layers_idxs, n_token_substitutions=n_token_substitutions)
-			
 		elif token_selection=='min_entropy':
 
-			assert msa is not None
+			if msa is None:
+				raise AttributeError("Entropy selection needs an MSA")
 
-			target_token_idxs, _ = self._get_entropy_token_idxs(msa=msa, n_token_substitutions=n_token_substitutions,
-				max_entropy=False)
+			tokens_entropy = self.compute_tokens_entropy(msa=msa, n_token_substitutions=n_token_substitutions)
+			target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=False)
+			target_tokens_attention = tokens_attention[target_token_idxs]
 
 		elif token_selection=='max_entropy':
 
-			assert msa is not None
+			if msa is None:
+				raise AttributeError("Entropy selection needs an MSA")
 
-			target_token_idxs, _ = self._get_entropy_token_idxs(msa=msa, n_token_substitutions=n_token_substitutions,
-				max_entropy=True)
+			tokens_entropy = self.compute_tokens_entropy(msa=msa, n_token_substitutions=n_token_substitutions)
+			target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=True)
+			target_tokens_attention = tokens_attention[target_token_idxs]
 
 		else:
 			raise AttributeError("Wrong token_selection method")
@@ -67,9 +72,9 @@ class SequenceAttack():
 		if verbose:
 			print(f"\ntarget_token_idxs = {target_token_idxs}")
 
-		return target_token_idxs
+		return target_token_idxs.cpu().detach().numpy(), target_tokens_attention.cpu().detach().numpy()
 
-	def _get_entropy_token_idxs(self, msa, n_token_substitutions, max_entropy=False):
+	def compute_tokens_entropy(self, msa, n_token_substitutions):
 
 		msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
 
@@ -93,12 +98,7 @@ class SequenceAttack():
 		tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
 			for i in range(n_tokens)])
 
-		### choose `n_token_substitutions` min entropy idxs
-
-		target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=max_entropy)
-
-		return target_token_idxs.cpu().detach().numpy(), tokens_entropy
-
+		return tokens_entropy
 
 	def compute_loss_gradient(self, original_sequence, target_token_idxs, first_embedding, loss_method, verbose=False):
 
@@ -142,7 +142,7 @@ class SequenceAttack():
 		return allowed_token_substitutions
 
 	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
-		signed_gradient, msa=None, verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist']):
+		signed_gradient, msa=None, verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist'], p=1):
 
 		self.original_model.eval()
 		self.embedding_model.eval()
@@ -154,9 +154,6 @@ class SequenceAttack():
 
 		assert 'masked_pred' in perturbations_keys
 		adv_perturbations_keys.remove('masked_pred')
-
-		# if 'max_entropy' in perturbations_keys:
-		# 	adv_perturbations_keys.remove('max_entropy')
 		
 		if msa: 
 			first_embedding=first_embedding[:,0]
@@ -234,39 +231,39 @@ class SequenceAttack():
 
 						z_c_diff = first_embedding-z_c
 						cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), z_c_diff.flatten())
-						euclidean_distance = torch.norm(z_c_diff, p=2)
-						embeddings_distances.append(euclidean_distance)
+						embedding_distance = torch.norm(z_c_diff, p=p)
+						embeddings_distances.append(embedding_distance)
 
 						### substitutions that maximize cosine similarity w.r.t. gradient direction
 
 						if pert_key=='max_cos' and cosine_similarity > atk_dict[pert_key]:
 							atk_dict[pert_key] = cosine_similarity.item()
 							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-							atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
+							atk_dict[f'{pert_key}_embedding_distance'] = embedding_distance.item()
 							new_token = token
 							
 							if DEBUG:
 								print(f"\t\tnew token at position {target_token_idx} = {new_token}\tcos_similarity = {cosine_similarity}")
 
-						### substitutions that minimize/maximize euclidean distance from the original embedding
+						### substitutions that minimize/maximize distance from the original embedding
 
-						if pert_key=='min_dist' and euclidean_distance < atk_dict[pert_key]:
-							atk_dict[pert_key] = euclidean_distance.item()
+						if pert_key=='min_dist' and embedding_distance < atk_dict[pert_key]:
+							atk_dict[pert_key] = embedding_distance.item()
 							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-							atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
+							atk_dict[f'{pert_key}_embedding_distance'] = embedding_distance.item()
 							new_token = token
 
 							if DEBUG:
-								print(f"\t\tnew token at position {target_token_idx} = {new_token}\tl2_distance = {euclidean_distance}")
+								print(f"\t\tnew token at position {target_token_idx} = {new_token}\tdistance = {embedding_distance}")
 
-						if pert_key=='max_dist' and euclidean_distance > atk_dict[pert_key]:
-							atk_dict[pert_key] = euclidean_distance.item()
+						if pert_key=='max_dist' and embedding_distance > atk_dict[pert_key]:
+							atk_dict[pert_key] = embedding_distance.item()
 							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-							atk_dict[f'{pert_key}_embedding_distance'] = euclidean_distance.item()
+							atk_dict[f'{pert_key}_embedding_distance'] = embedding_distance.item()
 							new_token = token
 
 							if DEBUG:
-								print(f"\t\tnew token at position {target_token_idx} = {new_token}\tl2_distance = {euclidean_distance}")
+								print(f"\t\tnew token at position {target_token_idx} = {new_token}\tdistance = {embedding_distance}")
 
 				atk_dict[f'{pert_key}_tokens'].append(new_token)
 
@@ -276,9 +273,6 @@ class SequenceAttack():
 
 		masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
 		predicted_sequence_list = list(original_sequence)
-
-		# if 'max_entropy' in perturbations_keys:
-		# 	atk_dict.update({'max_entropy':0})
 
 		for i, target_token_idx in enumerate(target_token_idxs):
 			
@@ -301,59 +295,6 @@ class SequenceAttack():
 			if DEBUG:
 				print("\n\tpert_key = masked_pred")
 				print(f"\t\tpred_token = {predicted_token}, true_token = {original_sequence[target_token_idx]}, masked_pred_acc = {atk_dict['masked_pred_accuracy']}")
-
-			### compute incremental max entropy perturbation
-
-			# if 'max_entropy' in perturbations_keys:
-
-			# 	token_entropy = 0
-			# 	atk_dict['max_entropy_sequence'] = original_sequence
-
-			# 	current_token = original_sequence[target_token_idx]
-			# 	allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
-
-			# 	if DEBUG:
-			# 		print("\n\tpert_key = max_entropy")
-			# 		print(f"\t\tcurrent token at position {target_token_idx} = {current_token}")
-
-			# 	for residue in allowed_token_substitutions:
-
-			# 		j = self.alphabet.get_idx(residue)
-			# 		p_ij = probs[i,j]
-			# 		residue_entropy = - p_ij * torch.log(p_ij)
-
-			# 		if residue_entropy > token_entropy:
-
-			# 			new_token = residue
-			# 			token_entropy = residue_entropy
-
-			# 			current_sequence_list = list(atk_dict['max_entropy_sequence'])
-			# 			current_sequence_list[target_token_idx] = residue
-			# 			perturbed_sequence = "".join(current_sequence_list)
-			# 			atk_dict['max_entropy_sequence'] = perturbed_sequence
-
-			# 			with torch.no_grad():
-
-			# 				if msa:
-			#					perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa[1:])			
-			#  					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-			# 					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-			# 					z_c = results["representations"][0][:,0]
-
-			# 				else:
-			# 					perturbed_batch = [(f"pert_seq", perturbed_sequence)]
-			# 					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-			# 					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-			# 					z_c = results["representations"][0]
-
-			# 			euclidean_distance = torch.norm(first_embedding-z_c, p=2)
-			# 			atk_dict['max_entropy_embedding_distance'] = euclidean_distance.item()
-						
-			# 			if DEBUG:
-			# 				print(f"\t\tnew token at position {target_token_idx} = {new_token}\tresidue_entropy = {residue_entropy.item()}")
-
-			# 	atk_dict['max_entropy_tokens'].append(new_token)
-			# 	atk_dict['max_entropy'] += token_entropy.item()
 
 			### compute confidence scores
 
@@ -389,9 +330,9 @@ class SequenceAttack():
 		if msa:
 			z_c = z_c[:,0]
 
-		euclidean_distance = torch.norm(first_embedding-z_c, p=2)
+		embedding_distance = torch.norm(first_embedding-z_c, p=p)
 		atk_dict[f'masked_pred_sequence'] = predicted_sequence
-		atk_dict[f'masked_pred_embedding_distance'] = euclidean_distance.item()
+		atk_dict[f'masked_pred_embedding_distance'] = embedding_distance.item()
 
 		### compute blosum distances
 
