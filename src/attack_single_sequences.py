@@ -52,7 +52,7 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-out_filename = f"pfam_{args.dataset}_seqs={args.n_sequences}_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}"
+out_filename = f"single_seq_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}"
 out_path = os.path.join(args.out_dir, "single_sequence/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
@@ -61,8 +61,8 @@ perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist']
 
 if args.load:
 
-	df = pd.read_csv(os.path.join(out_data_path, out_filename+".csv"), index_col=[0])
-	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmap.csv"))
+	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
+	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
 	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
 
 else:
@@ -84,7 +84,7 @@ else:
 
 	### fill dataframes
 
-	df = pd.DataFrame()
+	atk_df = pd.DataFrame()
 	cmap_df = pd.DataFrame()
 	embeddings_distances = []
 
@@ -102,45 +102,46 @@ else:
 
 		### sequence attacks
 
-		target_token_idxs, tokens_attention = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
+		target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
 			n_token_substitutions=args.n_substitutions, token_selection=args.token_selection,
 			target_attention=args.target_attention, verbose=args.verbose)
 
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		atk_df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
-			original_batch_tokens=batch_tokens,
-			target_token_idxs=target_token_idxs, first_embedding=first_embedding, signed_gradient=signed_gradient, 
-			perturbations_keys=perturbations_keys, verbose=args.verbose)
+		df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+			original_batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, 
+			target_tokens_attention=target_tokens_attention, first_embedding=first_embedding, 
+			signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, verbose=args.verbose)
 
 		# update sequence row in the df
 
-		df = pd.concat([df, atk_df], ignore_index=True)
+		atk_df = pd.concat([atk_df, df], ignore_index=True)
 		embeddings_distances.append(emb_dist_single_seq)
 
 		### contact maps distances
 
-		cmap_df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, atk_df=atk_df, cmap_df=cmap_df, 
-			original_sequence=original_sequence, 
+		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, atk_df=df, original_sequence=original_sequence, 
 			sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
 			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
+		cmap_df = pd.concat([cmap_df, df], ignore_index=True)
+
 	os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
-	df.to_csv(os.path.join(out_data_path,  out_filename+".csv"))
-	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmap.csv"))
+	atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
+	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
 
 	embeddings_distances = torch.stack(embeddings_distances)
 	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
 
 
-print("\n", df.keys())
+print("\n", atk_df.keys())
 print("\n", cmap_df.keys())
 
-plot_tokens_hist(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_token_substitutions(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_cosine_similarity(df, filepath=out_plots_path, filename=out_filename)
-plot_confidence(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
-plot_blosum_distances(df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
+plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_token_substitutions(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)

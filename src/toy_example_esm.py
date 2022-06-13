@@ -41,7 +41,7 @@ atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=
 
 # attention scores
 
-plot_tokens_attention(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
+plot_attention_matrix(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
     filepath=plots_path, filename=f"tokens_attention_layer={n_layers}")
 
 # target token idx

@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import pandas as pd
 from Bio.SubsMat import MatrixInfo
 
 DEBUG=False
@@ -59,13 +60,15 @@ def get_contact_map(model, alphabet, sequence):
     contact_map = model.predict_contacts(batch_tokens.to(device))[0]
     return contact_map
 
-def compute_cmaps_distance(model, alphabet, atk_df, cmap_df, original_sequence, sequence_name, max_tokens, 
+def compute_cmaps_distance(model, alphabet, atk_df, original_sequence, sequence_name, max_tokens, 
     perturbations_keys, cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1):
 
     original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
     cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
     cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
     min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
+
+    cmap_df = pd.DataFrame()
 
     for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
 

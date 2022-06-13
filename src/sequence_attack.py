@@ -141,8 +141,9 @@ class SequenceAttack():
 
 		return allowed_token_substitutions
 
-	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, first_embedding, 
-		signed_gradient, msa=None, verbose=False, perturbations_keys=['masked_pred','max_cos','min_dist','max_dist'], p=1):
+	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, target_tokens_attention,
+		first_embedding, signed_gradient, msa=None, verbose=False, 
+		perturbations_keys=['masked_pred','max_cos','min_dist','max_dist'], p=1):
 
 		self.original_model.eval()
 		self.embedding_model.eval()
@@ -358,6 +359,7 @@ class SequenceAttack():
 			token_idx = row['target_token_idxs'][i]
 			row['target_token_idx'] = row.pop('target_token_idxs')
 			row['target_token_idx'] = token_idx
+			row['target_token_attention'] = target_tokens_attention[i]
 
 			token = row['orig_tokens'][i]
 			row['orig_token'] = row.pop('orig_tokens')

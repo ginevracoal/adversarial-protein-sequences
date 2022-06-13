@@ -7,27 +7,33 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-FONT_SIZE=12
+FONT_SIZE=13
+TOP=0.92
 
-
-def plot_cosine_similarity(df, keys=['max_cos'], filepath=None, filename=None):
+def plot_attention_scores(df, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
-	fig, ax = plt.subplots(figsize=(5*len(keys), 4), ncols=len(keys), sharey=True)
+	fig, ax = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
 
-	for i in range(len(keys)):
-		axis = ax if len(keys)==1 else ax[i]
-		df = df.sort_values(f'{keys[i]}_token') 
-		sns.stripplot(data=df, x=f'{keys[i]}_token', y=f'{keys[i]}', dodge=True, ax=axis)
-		ax.set_ylabel(r'Cosine similarity $(z-\tilde{z}, z-z_I(C_I))$')
+	df = df.sort_values('masked_pred_token') 
+	sns.stripplot(data=df, x='masked_pred_token', y='target_token_attention', dodge=True, ax=ax[0])
+	ax[0].set_xlabel('Target token')
+	ax[0].set_ylabel('Attention')
+
+	df['target_token_idx'] = df['target_token_idx'].astype(int)
+	sns.stripplot(data=df, x='target_token_idx', y='target_token_attention', dodge=True, ax=ax[1])
+	ax[1].set_xlabel('Target token idx')
+	ax[1].set_ylabel('')
 
 	plt.tight_layout()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
-		fig.savefig(os.path.join(filepath, filename+"_cosine_similarity.png"))
+		fig.savefig(os.path.join(filepath, filename+"_attention_scores.png"))
 		plt.close()
 
 	return fig
@@ -49,7 +55,7 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 			df = df.sort_values(f'{key}_token') 
 			# sns.swarmplot(data=df, y="perc_token_idx", x=f"{key}_token", ax=axis)
 			sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
-			axis.set_ylabel('token idx percentile w.r.t. seq length')
+			axis.set_ylabel('token idx percentile')
 
 	else:
 		### histogram of token idx percentiles
@@ -59,6 +65,8 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 
 	plt.tight_layout()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -83,6 +91,8 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 
 		plt.tight_layout()
 		plt.show()
+		fig.suptitle(filename, fontsize=FONT_SIZE)
+		plt.subplots_adjust(top=TOP) 
 
 		if filepath is not None and filename is not None:
 			os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -95,14 +105,15 @@ def plot_cmap_distances(df, keys, filepath=None, filename=None):
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 	ax.set(xlabel=r'Upper triangular matrix index $k$ = len(sequence)-diag_idx', 
-		ylabel=r'$||$cmap$(x)-$cmap$(\tilde{x})||_2$', 
-		title='l2 dist. bw original and perturbed contact maps')
+		ylabel=r'$||$cmap$(x)-$cmap$(\tilde{x})||_2$')
 
 	for key in keys:
 		sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key)
 
 	plt.tight_layout()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -120,7 +131,7 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	df["masked_pred_accuracy"] = df["masked_pred_accuracy"].apply(lambda x: format(float(x),".2f"))
 	df = df.sort_values(by=['masked_pred_accuracy'])
 
-	fig, ax = plt.subplots(2, 1, figsize=(8, 6), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
+	fig, ax = plt.subplots(2, 1, figsize=(8, 5), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
 
 	# sns.stripplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", jitter=0.3, ax=ax[0])
 	sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", ax=ax[0], palette="Blues")
@@ -129,8 +140,9 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	sns.histplot(data=df, x="masked_pred_accuracy", ax=ax[1])
 
 	plt.tight_layout()
-	# plt.legend()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -147,6 +159,8 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -162,6 +176,8 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -187,6 +203,8 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -199,7 +217,7 @@ def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='d
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
-	
+
 	if plot_method=='histplot':
 		df = df[['original_sequence']+[f"{key}_blosum_dist" for key in keys]]
 		df = df.melt(id_vars=['original_sequence'], var_name="key", value_name="blosum")
@@ -214,6 +232,8 @@ def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='d
 
 	plt.tight_layout()
 	plt.show()
+	fig.suptitle(filename, fontsize=FONT_SIZE)
+	plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -222,7 +242,7 @@ def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='d
 
 	return fig
 
-def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filename=None):
+def plot_attention_matrix(sequence, attentions, layer_idx, filepath=None, filename=None):
 
 	layer_attention_scores = attentions[:,layer_idx-1,:,:,:].squeeze().detach().cpu().numpy()
 
@@ -248,7 +268,7 @@ def plot_tokens_attention(sequence, attentions, layer_idx, filepath=None, filena
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
-		fig.savefig(os.path.join(filepath, filename+"_tokens_attention.png"))
+		fig.savefig(os.path.join(filepath, filename+"_attention_matrix.png"))
 		plt.close()
 
 	return fig
