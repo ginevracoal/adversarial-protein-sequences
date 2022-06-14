@@ -23,12 +23,12 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone/hhfiltered/', type=str, 
-	help="Datasets path. Choose `msa/` or `hhfiltered/`.")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/hhfiltered/', type=str, 
+	help="Datasets path. Choose `msa/` or `msa/hhfiltered/`.")
+parser.add_argument("--missense_dir", default='/scratch/external/gcarbone/missense/', type=str, help="Missense dataset path.")
 parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
-
 parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
 parser.add_argument("--n_sequences", default=100, type=eval, 
@@ -70,6 +70,8 @@ if args.load:
 	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
 	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
 	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
+	missense_evaluation_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_missense.csv"))
+	missense_cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_missense_cmaps.csv"))
 
 else:
 
@@ -148,9 +150,11 @@ else:
 
 		### contact maps distances
 
-		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, atk_df=df, original_sequence=original_sequence, 
-			sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
-			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+		perturbed_sequences_dict = {key:df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
+
+		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
+				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict,
+				cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
 		cmap_df = pd.concat([cmap_df, df], ignore_index=True)
 
@@ -161,9 +165,99 @@ else:
 	embeddings_distances = torch.stack(embeddings_distances)
 	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
 
+	###############################
+	# Evaluate missense mutations #
+	###############################
 
-print("\n", atk_df.keys())
-print("\n", cmap_df.keys())
+	if args.verbose:
+		print("\n=== Evaluating missense mutations ===")
+
+	# # tmp #######################
+	# esm_model, alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
+	# batch_converter = alphabet.get_batch_converter()
+	# n_layers = esm_model.args.layers
+	# esm_model = esm_model.to(args.device)
+
+	# emb_model = MsaEsmEmbedding(original_model=esm_model, alphabet=alphabet).to(args.device)
+	# emb_model = emb_model.to(args.device)
+
+	# atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
+	# ############################
+
+
+	missense_df = pd.read_csv(os.path.join(args.missense_dir, f"missense_mutations_{args.dataset}.csv"))
+
+	missense_evaluation_df = pd.DataFrame()
+	missense_cmap_df = pd.DataFrame()
+
+	for row_idx, row in missense_df.iterrows():
+
+		print(f"\nmutation {row['mutation_name']}")
+
+		name = row['pfam_name']
+		original_sequence = row['original_sequence']
+
+		assert len(original_sequence)==len(row['mutated_sequence'])
+		assert original_sequence[row['mutation_idx']]==row['original_token']
+		assert row['mutated_sequence'][row['mutation_idx']]==row['mutated_token']
+
+		seq_filename = name.replace('/','_')
+		original_sequence = original_sequence.replace('-','')
+
+		msa, max_tokens = load_msa(
+			filepath=f"{args.missense_dir}hhfiltered/hhfiltered_{args.dataset}_filter={args.min_filter}", 
+			filename=f"{args.dataset}_{seq_filename}_no_gaps_filter={args.min_filter}", 
+			max_model_tokens=esm_model.args.max_tokens, max_tokens=args.max_tokens)
+
+		### put current sequence on top of the msa
+
+		msa = dict(msa)
+		if name in msa.keys():
+			msa.pop(name)		
+		msa = tuple(msa.items())
+		msa = [(name, original_sequence)] + list(msa)
+
+		### compute first continuous embedding
+
+		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
+
+		with torch.no_grad():
+			batch_tokens = batch_tokens.to(args.device)
+			results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
+
+		first_embedding = results["representations"][0].to(args.device)
+
+		### evaluate perturbations
+
+		evaluation_dict = atk.evaluate_missense_mutation(name=name, original_sequence=original_sequence, 
+			mutated_sequence=row['mutated_sequence'], target_token_idx=row['mutation_idx'], 
+			original_token=row['original_token'], mutated_token=row['mutated_token'], msa=msa, 
+			target_attention=args.target_attention, verbose=args.verbose)
+
+		for key, value in evaluation_dict.items():
+			missense_evaluation_df.at[row_idx, key] = value
+
+		### cmaps distance df
+
+		perturbed_sequences_dict = {f"missense_sequence":row['mutated_sequence']}
+
+		missense_cmap_df_row = compute_cmaps_distance(model=esm_model, alphabet=alphabet, 
+			original_sequence=original_sequence, sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict,
+			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+		missense_cmap_df_row['mutation_name'] = row['mutation_name']
+
+		missense_cmap_df = pd.concat([missense_cmap_df, missense_cmap_df_row], ignore_index=True)
+
+	assert len(missense_df)==len(missense_evaluation_df)
+	missense_evaluation_df.to_csv(os.path.join(out_data_path, out_filename+"_missense.csv"))
+	missense_cmap_df.to_csv(os.path.join(out_data_path, out_filename+"_missense_cmaps.csv"))
+
+### plots
+
+print("\natk_df:\n", atk_df.keys())
+print("\ncmap_df:\n", cmap_df.keys())
+print("\nmissense_evaluation_df:\n", missense_evaluation_df.keys())
+print("\nmissense_cmap_df:\n", missense_cmap_df.keys())
 
 plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
 plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)

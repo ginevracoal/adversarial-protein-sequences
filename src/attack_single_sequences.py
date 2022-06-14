@@ -114,16 +114,18 @@ else:
 			target_tokens_attention=target_tokens_attention, first_embedding=first_embedding, 
 			signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, verbose=args.verbose)
 
-		# update sequence row in the df
+		### update sequence row in the df
 
 		atk_df = pd.concat([atk_df, df], ignore_index=True)
 		embeddings_distances.append(emb_dist_single_seq)
 
 		### contact maps distances
 
-		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, atk_df=df, original_sequence=original_sequence, 
-			sequence_name=name, max_tokens=max_tokens, perturbations_keys=perturbations_keys,
-			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+		perturbed_sequences_dict = {key:df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
+
+		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
+				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict,
+				cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
 		cmap_df = pd.concat([cmap_df, df], ignore_index=True)
 

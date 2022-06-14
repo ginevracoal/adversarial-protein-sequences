@@ -25,7 +25,7 @@ FILTER_SIZE=100
 ### set paths
 
 IN_FILENAME="/scratch/external/gcarbone/msa/seqs${DATASET}"
-OUT_PATH="/scratch/external/gcarbone/hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
+OUT_PATH="/scratch/external/gcarbone/msa/hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
 
 mkdir -p $OUT_PATH
 module load conda/4.9.2

@@ -60,8 +60,8 @@ def get_contact_map(model, alphabet, sequence):
     contact_map = model.predict_contacts(batch_tokens.to(device))[0]
     return contact_map
 
-def compute_cmaps_distance(model, alphabet, atk_df, original_sequence, sequence_name, max_tokens, 
-    perturbations_keys, cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1):
+def compute_cmaps_distance(model, alphabet, perturbed_sequences_dict, original_sequence, sequence_name, 
+    cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1):
 
     original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
     cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
@@ -73,10 +73,10 @@ def compute_cmaps_distance(model, alphabet, atk_df, original_sequence, sequence_
     for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
 
         row_list = [['name', sequence_name],['k',k_idx]]
-        for key in perturbations_keys:
+        for key, perturbed_sequence in perturbed_sequences_dict.items():
 
             topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
-            new_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=atk_df[f'{key}_sequence'].unique()[0])
+            new_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=perturbed_sequence)
             topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
             cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten(), p=p).item()
             row_list.append([f'{key}_cmap_dist', cmap_distance/k])
