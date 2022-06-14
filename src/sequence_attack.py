@@ -444,6 +444,9 @@ class SequenceAttack():
 		blosum_distance = compute_blosum_distance(original_sequence, mutated_sequence, target_token_idxs=[target_token_idx])
 
 		evaluation_dict = {
+			'target_token_idx':target_token_idx,
+			'original_token':original_token,
+			'missense_token':mutated_token,
 			'target_token_attention':token_attention.item(), 
 			'missense_pseudo_likelihood':pseudo_likelihood.item(),
 			'missense_evo_velocity':evo_velocity.item(),

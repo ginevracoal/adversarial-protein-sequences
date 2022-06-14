@@ -10,21 +10,34 @@ from matplotlib.patches import Rectangle
 FONT_SIZE=13
 TOP=0.92
 
-def plot_attention_scores(df, filepath=None, filename=None):
+def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
-	fig, ax = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={'width_ratios': [1, 3]}, sharey=True)
+	fig, ax = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={'width_ratios': [1, 1]}, sharey=True)
 
-	df = df.sort_values('masked_pred_token') 
-	sns.stripplot(data=df, x='masked_pred_token', y='target_token_attention', dodge=True, ax=ax[0])
+
+	df = df.sort_values('orig_token') 
+	sns.scatterplot(data=df, x='orig_token', y='target_token_attention', ax=ax[0], hue='orig_token', label='')
 	ax[0].set_xlabel('Target token')
 	ax[0].set_ylabel('Attention')
 
 	df['target_token_idx'] = df['target_token_idx'].astype(int)
-	sns.stripplot(data=df, x='target_token_idx', y='target_token_attention', dodge=True, ax=ax[1])
+	sns.scatterplot(data=df, x='target_token_idx', y='target_token_attention', ax=ax[1], hue='target_token_idx', label='')
 	ax[1].set_xlabel('Target token idx')
 	ax[1].set_ylabel('')
+
+	if missense_df is not None:
+		missense_df['orig_token'] = missense_df['original_token']
+		missense_df['target_token_idx'] = missense_df['target_token_idx'].astype(int)
+		sns.scatterplot(x=missense_df['orig_token'], y=missense_df['target_token_attention'], ax=ax[0], 
+			marker='*', color='black', s=200, linewidths=3, label='')
+		sns.scatterplot(x=missense_df['target_token_idx'], y=missense_df['target_token_attention'], ax=ax[1], 
+			marker='*', color='black', s=200, linewidths=3, label='missense')
+
+	ax[0].get_legend().remove()
+	ax[1].get_legend().remove()
+	# ax[1].legend(['missense'])
 
 	plt.tight_layout()
 	plt.show()
@@ -99,7 +112,7 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 			fig.savefig(os.path.join(filepath, filename+f"_substitutions_{key}_token.png"))
 			plt.close()
 
-def plot_cmap_distances(df, keys, filepath=None, filename=None):
+def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})    
 	sns.set_style("darkgrid")
 
@@ -122,7 +135,7 @@ def plot_cmap_distances(df, keys, filepath=None, filename=None):
 
 	return fig
 
-def plot_confidence(df, keys, filepath=None, filename=None):
+def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
@@ -138,6 +151,7 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	plt.setp(ax[0].collections, alpha=.8)
 
 	sns.histplot(data=df, x="masked_pred_accuracy", ax=ax[1])
+
 
 	plt.tight_layout()
 	plt.show()
@@ -156,6 +170,14 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=False)
 
 	plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x_{<i>})]]$')
+
+	if missense_df is not None:
+		ymax = ax.get_ylim()[1]
+
+		for idx, value in enumerate(missense_df['missense_pseudo_likelihood'].unique()):
+			label='missense' if idx==0 else ''
+			plt.plot([value,value], [0, ymax], ls='--', lw=1, color='black', label=label)
+
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
@@ -173,6 +195,14 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 	for idx, key in enumerate(keys):
 		sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=False)
 	plt.xlabel(r'Evo velocity $\mathbb{E}_{i\in I}[ \log p(\tilde{x}_i|x_{<i>})-\log p(x_i|x_{<i>})]$')
+
+	if missense_df is not None:
+		ymax = ax.get_ylim()[1]
+
+		for idx, value in enumerate(missense_df['missense_evo_velocity'].unique()):
+			label='missense' if idx==0 else ''
+			plt.plot([value,value], [0, ymax], ls='--', lw=1, color='black', label=label)
+
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
@@ -211,7 +241,7 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 		fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
 		plt.close()
 
-def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='distplot'):
+def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
@@ -230,6 +260,15 @@ def plot_blosum_distances(df, keys, filepath=None, filename=None, plot_method='d
 	else:
 		raise ValueError
 
+	if missense_df is not None:
+
+		ymax = ax.get_ylim()[1]
+
+		for idx, blosum_dist in enumerate(missense_df['missense_blosum_distance'].unique()):
+			label='missense' if idx==0 else ''
+			plt.plot([blosum_dist,blosum_dist], [0, ymax], ls='--', lw=1, color='black', label=label)
+
+	plt.legend()
 	plt.tight_layout()
 	plt.show()
 	fig.suptitle(filename, fontsize=FONT_SIZE)
