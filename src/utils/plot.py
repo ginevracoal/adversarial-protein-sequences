@@ -123,6 +123,9 @@ def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None
 	for key in keys:
 		sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key)
 
+	if missense_df is not None:
+		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
+
 	plt.tight_layout()
 	plt.show()
 	fig.suptitle(filename, fontsize=FONT_SIZE)

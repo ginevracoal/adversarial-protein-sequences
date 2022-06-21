@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from Bio.SubsMat import MatrixInfo
 
-DEBUG=False
+DEBUG=True
 
 
 def get_max_hamming_msa(reference_sequence, msa, max_size):
@@ -30,7 +30,6 @@ def get_max_hamming_msa(reference_sequence, msa, max_size):
     assert len(max_hamming_msa)==n_sequences+1
     return max_hamming_msa
 
-
 def get_blosum_score(token1, token2, penalty=2):
     blosum = MatrixInfo.blosum62
     try:
@@ -40,18 +39,19 @@ def get_blosum_score(token1, token2, penalty=2):
     except:
         return penalty*min(blosum.values()) # very unlikely substitution 
 
-def compute_blosum_distance(seq1, seq2, target_token_idxs):
+def compute_blosum_distance(seq1, seq2, target_token_idxs=None, verbose=False):
+
+    if target_token_idxs is None:
+        target_token_idxs = range(len(seq1))
 
     assert len(seq1)==len(seq2)
 
-    if DEBUG:
-        print("\n")
+    if verbose:
         for i in target_token_idxs:
-            print(f"token={i} {seq1[i]} -> {seq2[i]} subst score = {get_blosum_score(seq1[i],seq1[i])-get_blosum_score(seq1[i],seq2[i])}")
+            print(f"token={i}\t{seq1[i]} -> {seq2[i]}\tblosum subst score = {get_blosum_score(seq1[i],seq1[i])-get_blosum_score(seq1[i],seq2[i])}")
 
     blosum_distance = sum([get_blosum_score(seq1[i],seq1[i])-get_blosum_score(seq1[i],seq2[i]) for i in target_token_idxs])
     return blosum_distance
-
 
 def get_contact_map(model, alphabet, sequence):
     device = next(model.parameters()).device

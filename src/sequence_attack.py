@@ -147,6 +147,9 @@ class SequenceAttack():
 	def attack_sequence(self, name, original_sequence, original_batch_tokens, target_token_idxs, target_tokens_attention,
 		first_embedding, signed_gradient, msa=None, verbose=False, 
 		perturbations_keys=['masked_pred','max_cos','min_dist','max_dist'], p_norm=1):
+		""" Compute perturbations of the original sequence at target token idxs based on the chosen perturbation methods.
+		Evaluate perturbed sequences against the original one.
+		"""
 
 		self.original_model.eval()
 		self.embedding_model.eval()
@@ -375,88 +378,166 @@ class SequenceAttack():
 
 			atk_df = atk_df.append(row, ignore_index=True)
 
+		for key in perturbations_keys:
+			assert len(atk_df[f'{key}_sequence'].unique())==1
+
 		assert len(atk_df)==len(target_token_idxs)
 		return atk_df, torch.tensor(embeddings_distances)
 
-	def evaluate_missense_mutation(self, name, original_sequence, mutated_sequence, target_token_idx,
-		original_token, mutated_token, msa, target_attention, p_norm=1, verbose=False):
+	# def evaluate_token_substitution(self, name, original_sequence, mutated_sequence, target_token_idx,
+		# original_token, mutated_token, msa, target_attention, p_norm=1, verbose=False):
+
+		# self.original_model.eval()
+		# self.embedding_model.eval()
+		# device = next(self.original_model.parameters()).device
+
+		# ### original prediction
+
+		# batch_converter = self.alphabet.get_batch_converter()
+
+		# with torch.no_grad():
+		# 	batch_labels, batch_strs, original_batch_tokens = batch_converter(msa)
+		# 	original_batch_tokens = original_batch_tokens.to(device)
+		# 	results = self.original_model(original_batch_tokens, repr_layers=[0], return_contacts=True)
+		# 	original_embedding = results["representations"][0].to(device)
+
+		# ### attention
+
+		# layers_idxs = self._get_attention_layers_idxs(target_attention)
+		# tokens_attention = self.embedding_model.compute_tokens_attention(original_batch_tokens, layers_idxs=layers_idxs)
+		# token_attention = tokens_attention[target_token_idx]
+		
+		# ### masked prediction
+
+		# batch_tokens_masked = self.embedding_model.mask_batch_tokens(batch_tokens=original_batch_tokens.clone(), 
+		# 	target_token_idx=target_token_idx)
+
+		# with torch.no_grad():
+		# 	masked_prediction = self.original_model(batch_tokens_masked.to(device))
+
+		# logits = masked_prediction["logits"][:,0].squeeze() if msa else masked_prediction["logits"].squeeze()
+		# assert len(logits.shape)==2
+		# logits = logits[1:len(original_sequence)+1, :]
+		# probs = torch.softmax(logits, dim=-1)
+
+		# ### pseudo likelihood + evo velocity
+
+		# original_residue_idx = self.alphabet.get_idx(original_token)
+		# mutated_residue_idx = self.alphabet.get_idx(mutated_token)
+		# original_prob = probs[target_token_idx, original_residue_idx]
+		# missense_prob = probs[target_token_idx, mutated_residue_idx]
+
+		# pseudo_likelihood = missense_prob
+		# evo_velocity = (torch.log(missense_prob)-torch.log(original_prob))
+
+		# ### embedding + blosum distance
+
+		# if msa:
+		# 	assert len(mutated_sequence)==len(msa[1][1])
+		# 	missense_batch = [("missense_seq", mutated_sequence)] + list(msa[1:])
+		# 	batch_labels, batch_strs, missense_batch_tokens = batch_converter(missense_batch)
+		# 	results = self.original_model(missense_batch_tokens.to(device), repr_layers=[0])
+		# 	z_c = results["representations"][0][:,0]
+
+		# else:
+		# 	missense_batch = [("missense_seq", mutated_sequence)]
+		# 	batch_labels, batch_strs, missense_batch_tokens = batch_converter(missense_batch)
+		# 	results = self.original_model(missense_batch_tokens.to(device), repr_layers=[0])
+		# 	z_c = results["representations"][0]
+
+		# embedding_distance = torch.norm(original_embedding-z_c, p=p_norm)
+
+		# blosum_distance = compute_blosum_distance(original_sequence, mutated_sequence, target_token_idxs=[target_token_idx])
+
+		# evaluation_dict = {
+		# 	'name':name,
+		# 	'original_sequence':original_sequence,
+		# 	'target_token_idx':target_token_idx,
+		# 	'original_token':original_token,
+		# 	'missense_token':mutated_token,
+		# 	'target_token_attention':token_attention.item(), 
+		# 	'missense_pseudo_likelihood':pseudo_likelihood.item(),
+		# 	'missense_evo_velocity':evo_velocity.item(),
+		# 	'missense_embedding_distance':embedding_distance.item(),
+		# 	'missense_blosum_distance':blosum_distance,
+		# 	}
+
+		# if verbose:
+		# 	for key, value in evaluation_dict.items():
+		# 		print(f"{key} = {value}", end="\t")
+		# 	print("\n")
+
+		# return evaluation_dict
+
+	def evaluate_missense(self, missense_row, msa, original_embedding, signed_gradient, adversarial_df, perturbations_keys, 
+		p_norm=1, verbose=False):
+
+		missense_row = missense_row.to_dict()   
+
+		if verbose:
+		  print("\n=== Evaluating missense mutation ===")
 
 		self.original_model.eval()
 		self.embedding_model.eval()
 		device = next(self.original_model.parameters()).device
 
-		### original prediction
+		### compute embeddings
 
+		original_sequence = adversarial_df['original_sequence'].unique()[0] 
 		batch_converter = self.alphabet.get_batch_converter()
 
 		with torch.no_grad():
-			batch_labels, batch_strs, original_batch_tokens = batch_converter(msa)
+
+			original_residue_idx = self.alphabet.get_idx(missense_row['original_token'])
+
+			### mutation embedding
+
+			batch = [("mutated_sequence", missense_row['mutated_sequence'])] + list(msa[1:])
+			batch_labels, batch_strs, original_batch_tokens = batch_converter(batch)
 			original_batch_tokens = original_batch_tokens.to(device)
 			results = self.original_model(original_batch_tokens, repr_layers=[0], return_contacts=True)
-			original_embedding = results["representations"][0].to(device)
+			mutated_embedding = results["representations"][0].to(device)
 
-		### attention
+			embedding_distance = torch.norm(mutated_embedding-original_embedding, p=p_norm).item()
+			missense_row['original_embedding_distance'] = embedding_distance
 
-		layers_idxs = self._get_attention_layers_idxs(target_attention)
-		tokens_attention = self.embedding_model.compute_tokens_attention(original_batch_tokens, layers_idxs=layers_idxs)
-		token_attention = tokens_attention[target_token_idx]
-		
-		### masked prediction
+			embeddings_diff = original_embedding-mutated_embedding
+			cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), embeddings_diff.flatten()).item()
+			missense_row['original_cosine_similarity'] = cosine_similarity
 
-		batch_tokens_masked = self.embedding_model.mask_batch_tokens(batch_tokens=original_batch_tokens.clone(), 
-			target_token_idx=target_token_idx)
+			blosum_distance = compute_blosum_distance(missense_row['mutated_sequence'], original_sequence,
+				target_token_idxs=None) # [missense_row['mutation_idx']])
+			missense_row['original_blosum_distance'] = blosum_distance
 
-		with torch.no_grad():
-			masked_prediction = self.original_model(batch_tokens_masked.to(device))
+			if verbose:
+				print(f"\nmutated vs original:\tembedding_distance = {embedding_distance}\tcosine_similarity = {cosine_similarity}\tblosum_distance = {blosum_distance}")
 
-		logits = masked_prediction["logits"][:,0].squeeze() if msa else masked_prediction["logits"].squeeze()
-		assert len(logits.shape)==2
-		logits = logits[1:len(original_sequence)+1, :]
-		probs = torch.softmax(logits, dim=-1)
+			### perturbations embeddings
 
-		### pseudo likelihood + evo velocity
+			for pert_key in perturbations_keys:
 
-		original_residue_idx = self.alphabet.get_idx(original_token)
-		mutated_residue_idx = self.alphabet.get_idx(mutated_token)
-		original_prob = probs[target_token_idx, original_residue_idx]
-		missense_prob = probs[target_token_idx, mutated_residue_idx]
+				perturbed_sequence = adversarial_df[f'{pert_key}_sequence'].unique()[0] 
 
-		pseudo_likelihood = missense_prob
-		evo_velocity = (torch.log(missense_prob)-torch.log(original_prob))
+				assert len(missense_row['mutated_sequence']) == len(perturbed_sequence)
 
-		### embedding + blosum distance
+				batch = [(f"{pert_key}_sequence", perturbed_sequence)] + list(msa[1:])
+				batch_labels, batch_strs, pert_batch_tokens = batch_converter(batch)
+				pert_batch_tokens = pert_batch_tokens.to(device)
+				results = self.original_model(pert_batch_tokens, repr_layers=[0], return_contacts=True)
+				pert_embedding = results["representations"][0].to(device)
 
-		if msa:
-			assert len(mutated_sequence)==len(msa[1][1])
-			missense_batch = [("missense_seq", mutated_sequence)] + list(msa[1:])
-			batch_labels, batch_strs, missense_batch_tokens = batch_converter(missense_batch)
-			results = self.original_model(missense_batch_tokens.to(device), repr_layers=[0])
-			z_c = results["representations"][0][:,0]
+				embedding_distance = torch.norm(mutated_embedding-pert_embedding, p=p_norm).item()
+				missense_row[f'{pert_key}_embedding_distance'] = embedding_distance
 
-		else:
-			missense_batch = [("missense_seq", mutated_sequence)]
-			batch_labels, batch_strs, missense_batch_tokens = batch_converter(missense_batch)
-			results = self.original_model(missense_batch_tokens.to(device), repr_layers=[0])
-			z_c = results["representations"][0]
+				embeddings_diff = pert_embedding-mutated_embedding
+				cosine_similarity = nn.CosineSimilarity(dim=0)(signed_gradient.flatten(), embeddings_diff.flatten()).item()
+				missense_row['original_cosine_similarity'] = cosine_similarity
 
-		embedding_distance = torch.norm(original_embedding-z_c, p=p_norm)
+				blosum_distance = compute_blosum_distance(missense_row['mutated_sequence'], perturbed_sequence, 
+					target_token_idxs=None) # [missense_row['mutation_idx']])
+				missense_row[f'{pert_key}_blosum_distance'] = blosum_distance
 
-		blosum_distance = compute_blosum_distance(original_sequence, mutated_sequence, target_token_idxs=[target_token_idx])
+				if verbose:
+					print(f"\nmutated vs {pert_key}:\tembedding_distance = {embedding_distance}\tcosine_similarity = {cosine_similarity}\tblosum_distance = {blosum_distance}")
 
-		evaluation_dict = {
-			'target_token_idx':target_token_idx,
-			'original_token':original_token,
-			'missense_token':mutated_token,
-			'target_token_attention':token_attention.item(), 
-			'missense_pseudo_likelihood':pseudo_likelihood.item(),
-			'missense_evo_velocity':evo_velocity.item(),
-			'missense_embedding_distance':embedding_distance.item(),
-			'missense_blosum_distance':blosum_distance,
-			}
-
-		if verbose:
-			for key, value in evaluation_dict.items():
-				print(f"{key} = {value}", end="\t")
-			print("\n")
-
-		return evaluation_dict
+		return missense_row
