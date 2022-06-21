@@ -36,7 +36,7 @@ conda activate esm
 
 WORKING_DIR="/u/external/gcarbone/adversarial-protein-sequences/src"
 OUT_DIR="/fast/external/gcarbone/adversarial-protein-sequences_out/"
-DATA_DIR="/scratch/external/gcarbone/hhfiltered/"
+DATA_DIR="/scratch/external/gcarbone/msa/hhfiltered/"
 	
 cd $WORKING_DIR
 PBS_O_WORKDIR=$(pwd)
