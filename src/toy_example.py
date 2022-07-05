@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from utils.data import *
 from utils.plot import *
-from utils.protein import compute_blosum_distance, get_contact_map
+from utils.protein_sequences import compute_blosum_distance, get_contact_map
 from models.esm_embedding import EsmEmbedding
 from sequence_attack import SequenceAttack
 

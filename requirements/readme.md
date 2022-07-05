@@ -3,7 +3,6 @@
 ## Linux CentOS 7 + python 3.8
 
 ```
-module load python/3.8.2/gnu/4.8.5
 module load conda/4.9.2
 conda create -n esm python=3.8 anaconda
 conda create -n esm --file conda_requirements_centos7_python3.8 

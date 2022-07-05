@@ -9,12 +9,14 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from Bio.SubsMat import MatrixInfo
+blosum = MatrixInfo.blosum62
 
 from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
-from utils.protein import compute_cmaps_distance, get_max_hamming_msa
+from utils.protein_sequences import compute_cmaps_distance, get_max_hamming_msa, get_blosum_score
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -35,16 +37,16 @@ parser.add_argument("--n_sequences", default=100, type=eval,
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=2, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='last_layer', type=str, 
+parser.add_argument("--target_attention", default='all_layers', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
-	help="Loss function used to compute gradients in the first embedding space. Choose 'max_logits' or 'max_tokens_repr'.")
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_prob' or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
@@ -58,20 +60,22 @@ args = parser.parse_args()
 print("\n", args)
 
 
-out_path = os.path.join(args.out_dir, f"msa/msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}/")
-out_plots_path = os.path.join(out_path, "plots/")
-out_data_path = os.path.join(out_path, "data/")
-out_missense_filename = f"msa_{args.dataset}_minFilter={args.min_filter}"
-out_missense_path = os.path.join(args.out_dir, "missense/")
-os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
-os.makedirs(os.path.dirname(out_missense_path), exist_ok=True)
+# out_path = os.path.join(args.out_dir, f"msa/msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}/")
+# out_plots_path = os.path.join(out_path, "plots/")
+# out_data_path = os.path.join(out_path, "data/")
+# out_missense_filename = f"msa_{args.dataset}_minFilter={args.min_filter}"
+# out_missense_path = os.path.join(args.out_dir, "missense/")
+# os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
+# os.makedirs(os.path.dirname(out_missense_path), exist_ok=True)
 
 perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
 
 if args.load:
 
-	missense_evaluation_df = pd.read_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_eval.csv"))
-	missense_cmap_df = pd.read_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
+	raise NotImplementedError
+
+	# missense_evaluation_df = pd.read_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_eval.csv"))
+	# missense_cmap_df = pd.read_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
 
 else:
 
@@ -92,8 +96,10 @@ else:
 
 	for row_idx, row in missense_df.iterrows():
 
+		blosum_score = get_blosum_score(row['original_token'],row['mutated_token'])
+
 		print(f"\n=== Mutation {row['mutation_name']} ===")
-		print(f"\nmutation_idx = {row['mutation_idx']}\toriginal_token = {row['original_token']}\tmutated_token = {row['mutated_token']}")
+		print(f"\nmutation_idx = {row['mutation_idx']}\toriginal_token = {row['original_token']}\tmutated_token = {row['mutated_token']}\tblosum_score = {blosum_score}")
 
 		name = row['pfam_name']
 		original_sequence = row['original_sequence']
@@ -137,7 +143,7 @@ else:
 
 		target_idx_accuracy = np.sum([idx in target_token_idxs for idx in mutated_idxs])/len(mutated_idxs)
 
-		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
+		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, batch_tokens=batch_tokens,
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
 		atk_df, _ = atk.attack_sequence(name=name, original_sequence=original_sequence, 
@@ -151,6 +157,13 @@ else:
 		missense_row = atk.evaluate_missense(missense_row=row,  msa=msa, original_embedding=first_embedding, 
 			signed_gradient=signed_gradient, adversarial_df=atk_df, perturbations_keys=perturbations_keys, 
 			verbose=args.verbose)
+
+		# print('original_sequence', missense_row['original_sequence'])
+		# print('mutated_sequence', missense_row['mutated_sequence'])
+		# print('masked_pred_sequence', atk_df['masked_pred_sequence'])
+		# print('max_cos_sequence', atk_df['max_cos_sequence'])
+		# print('min_dist_sequence', atk_df['min_dist_sequence'])
+		# print('max_dist_sequence', atk_df['max_dist_sequence'])
 
 		missense_row['target_idx_accuracy'] = target_idx_accuracy.item()
 		missense_evaluation_df = missense_evaluation_df.append(missense_row, ignore_index=True)
@@ -166,10 +179,8 @@ else:
 
 		missense_cmap_df = pd.concat([missense_cmap_df, cmap_df], ignore_index=True)
 
-	missense_evaluation_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_eval.csv"))
-	missense_cmap_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
-
-### plots
+	# missense_evaluation_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_eval.csv"))
+	# missense_cmap_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
 
 print("\nmissense_evaluation_df:\n", missense_evaluation_df.keys())
 print("\nmissense_cmap_df:\n", missense_cmap_df.keys())

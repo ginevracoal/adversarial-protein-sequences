@@ -14,7 +14,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
-from utils.protein import compute_cmaps_distance, get_max_hamming_msa
+from utils.protein_sequences import compute_cmaps_distance, get_max_hamming_msa
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -44,7 +44,7 @@ parser.add_argument("--target_attention", default='last_layer', type=str,
 	Used only when `token_selection`=`max_attention")
 
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
-	help="Loss function used to compute gradients in the first embedding space. Choose 'max_logits' or 'max_tokens_repr'.")
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_prob' or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
@@ -74,8 +74,6 @@ if args.load:
 	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
 	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
 	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
-	# missense_evaluation_df = pd.read_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_mutations.csv"))
-	# missense_cmap_df = pd.read_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
 
 else:
 
@@ -129,8 +127,7 @@ else:
 		with torch.no_grad():
 			batch_tokens = batch_tokens.to(args.device)
 			results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
-
-		first_embedding = results["representations"][0].to(args.device)
+			first_embedding = results["representations"][0].to(args.device)
 
 		### sequence attacks
 
@@ -139,7 +136,8 @@ else:
 			target_attention=args.target_attention, verbose=args.verbose)
 
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
-			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
+			batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
+			loss_method=args.loss_method)
 
 		df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
@@ -167,83 +165,6 @@ else:
 
 	embeddings_distances = torch.stack(embeddings_distances)
 	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
-
-	# ###############################
-	# # Evaluate missense mutations #
-	# ###############################
-
-	# if args.verbose:
-	# 	print("\n=== Evaluating missense mutations ===")
-
-	# missense_df = pd.read_csv(os.path.join(args.missense_dir, f"missense_mutations_{args.dataset}.csv"))
-
-	# missense_evaluation_df = pd.DataFrame()
-	# missense_cmap_df = pd.DataFrame()
-
-	# for row_idx, row in missense_df.iterrows():
-
-	# 	print(f"\nmutation {row['mutation_name']}")
-
-	# 	name = row['pfam_name']
-	# 	original_sequence = row['original_sequence']
-
-	# 	assert len(original_sequence)==len(row['mutated_sequence'])
-	# 	assert original_sequence[row['mutation_idx']]==row['original_token']
-	# 	assert row['mutated_sequence'][row['mutation_idx']]==row['mutated_token']
-
-	# 	seq_filename = name.replace('/','_')
-	# 	original_sequence = original_sequence.replace('-','')
-
-	# 	msa, max_tokens = load_msa(
-	# 		filepath=f"{args.missense_dir}hhfiltered/hhfiltered_{args.dataset}_filter={args.min_filter}", 
-	# 		filename=f"{args.dataset}_{seq_filename}_no_gaps_filter={args.min_filter}", 
-	# 		max_model_tokens=esm_model.args.max_tokens, max_tokens=args.max_tokens)
-
-	# 	### put current sequence on top of the msa
-
-	# 	msa = dict(msa)
-	# 	if name in msa.keys():
-	# 		msa.pop(name)		
-	# 	msa = tuple(msa.items())
-	# 	msa = [(name, original_sequence)] + list(msa)
-
-	# 	### compute first continuous embedding
-
-	# 	batch_labels, batch_strs, batch_tokens = batch_converter(msa)
-
-	# 	with torch.no_grad():
-	# 		batch_tokens = batch_tokens.to(args.device)
-	# 		results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
-
-	# 	first_embedding = results["representations"][0].to(args.device)
-
-	# 	### evaluate perturbations
-
-	# 	evaluation_dict = atk.evaluate_token_substitution(name=name, original_sequence=original_sequence, 
-	# 		mutated_sequence=row['mutated_sequence'], target_token_idx=row['mutation_idx'], 
-	# 		original_token=row['original_token'], mutated_token=row['mutated_token'], msa=msa, 
-	# 		target_attention=args.target_attention, verbose=args.verbose)
-
-	# 	missense_evaluation_df = missense_evaluation_df.append(evaluation_dict, ignore_index=True)
-
-	# 	# print(missense_evaluation_df)
-
-	# 	# for key, value in evaluation_dict.items():
-	# 	# 	missense_evaluation_df.at[row_idx, key] = value
-
-	# 	### cmaps distance df
-
-	# 	perturbed_sequences_dict = {f"missense":row['mutated_sequence']}
-
-	# 	missense_cmap_df_row = compute_cmaps_distance(model=esm_model, alphabet=alphabet, 
-	# 		original_sequence=original_sequence, sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict,
-	# 		cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
-	# 	missense_cmap_df_row['mutation_name'] = row['mutation_name']
-
-	# 	missense_cmap_df = pd.concat([missense_cmap_df, missense_cmap_df_row], ignore_index=True)
-
-	# missense_evaluation_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_mutations.csv"))
-	# missense_cmap_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
 
 ### plots
 

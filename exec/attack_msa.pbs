@@ -4,7 +4,7 @@
 # PBS settings #
 ###################
 
-#PBS -N msa_l1_dist
+#PBS -N masked_loss_msa_atk
 #PBS -l nodes=1:ppn=24
 #PBS -l walltime=06:00:00
 #PBS -q gpu
@@ -15,9 +15,10 @@
 # script settings #
 ###################
 
-TARGET_ATTENTION='last_layer' # last_layer, all_layers
+TARGET_ATTENTION='all_layers'
 DATASET="PF00533" 
 MAX_TOKENS=None
+LOSS_METHOD="masked_pred"
 N_SEQUENCES=100
 MIN_FILTER=100
 DEVICE="cuda"
@@ -53,9 +54,9 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 
 for TOKEN_SELECTION in 'max_attention' 'min_entropy' 'max_entropy'; do
 
-	for N_SUBSTITUTIONS in 1 3; do
+	for N_SUBSTITUTIONS in 1; do
 
-		python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR \
+		python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --loss_method=$LOSS_METHOD \
 			--dataset=$DATASET --max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
 			--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 			--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1

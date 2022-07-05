@@ -13,7 +13,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.esm_embedding import EsmEmbedding
-from utils.protein import compute_cmaps_distance, get_max_hamming_msa
+from utils.protein_sequences import compute_cmaps_distance, get_max_hamming_msa
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -39,7 +39,7 @@ parser.add_argument("--target_attention", default='last_layer', type=str,
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 
 parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
-	help="Loss function used to compute gradients in the first embedding space. Choose 'max_logits' or 'max_tokens_repr'.")
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_prob' or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
