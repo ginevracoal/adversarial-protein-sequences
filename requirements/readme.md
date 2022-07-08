@@ -19,3 +19,14 @@ pip3 install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f h
 pip3 install -r pip_requirements_ubuntu18.10_python3.7.6.txt
 ```
 
+## conda environment for structure prediction
+
+Load this enviroment to execute `predict_structures.py`
+
+```
+wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh
+chmod +x install_colabbatch_linux.sh
+./install_colabbatch_linux.sh
+conda activate ~/colabfold/colabfold_batch/colabfold-conda/
+conda install -c conda-forge google-colab
+```

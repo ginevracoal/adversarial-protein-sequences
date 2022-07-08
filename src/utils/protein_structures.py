@@ -1,10 +1,122 @@
-import Bio
-from Bio.PDB import PDBParser
-from Bio.PDB import PDBIO
+import re
+import sys
+import random
+import os.path
+import hashlib
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import matplotlib.pyplot as plt
+from google.colab import files
 
-print("Biopython v" + Bio.__version__)
+
+import Bio
+from Bio.PDB import PDBIO
+from Bio.PDB import PDBParser
+
+from colabfold.utils import setup_logging
+from colabfold.colabfold import plot_protein
+from colabfold.batch import get_queries, run, set_model_type
+from colabfold.download import download_alphafold_params, default_data_dir
+
+
+def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="alphafold/"):
+
+    out_dir = os.path.join(savedir, "structures/", filename+"/")
+    alphafold_dir = os.path.join(savedir, "alphafold/")
+
+    os.makedirs(os.path.dirname(out_dir), exist_ok=True)
+    os.makedirs(os.path.dirname(alphafold_dir), exist_ok=True)
+
+    def add_hash(x,y):
+        return x+"_"+hashlib.sha1(y.encode()).hexdigest()[:5]
+
+    jobname = name
+    query_sequence = "".join(query_sequence.split())
+    basejobname = "".join(jobname.split())
+    basejobname = re.sub(r'\W+', '', basejobname)
+    queries_path=f"{out_dir}{jobname}.csv"
+
+    with open(queries_path, "w") as text_file:
+        text_file.write(f"id,sequence\n{jobname},{query_sequence}")
+
+    ### msa
+
+    msa_mode = "MMseqs2 (UniRef+Environmental)" #@param ["MMseqs2 (UniRef+Environmental)", "MMseqs2 (UniRef only)","single_sequence","custom"]
+    pair_mode = "unpaired+paired" #@param ["unpaired+paired","paired","unpaired"] {type:"string"}
+
+    # decide which a3m to use
+    if msa_mode.startswith("MMseqs2"):
+        a3m_file = f"{out_dir}{jobname}.a3m"
+    elif msa_mode == "custom":
+        a3m_file = f"{out_dir}{jobname}.custom.a3m"
+        if not os.path.isfile(a3m_file):
+            custom_msa_dict = files.upload()
+            custom_msa = list(custom_msa_dict.keys())[0]
+            header = 0
+            import fileinput
+            for line in fileinput.FileInput(custom_msa,inplace=1):
+                if line.startswith(">"):
+                    header = header + 1
+                if not line.rstrip():
+                    continue
+                if line.startswith(">") == False and header == 1:
+                    query_sequence = line.rstrip()
+                print(line, end='')
+
+        os.rename(custom_msa, a3m_file)
+        queries_path=a3m_file
+        print(f"moving {custom_msa} to {a3m_file}")
+    else:
+        a3m_file = f"{out_dir}{jobname}.single_sequence.a3m"
+        with open(a3m_file, "w") as text_file:
+            text_file.write(">1\n%s" % query_sequence)
+
+    ### settings
+
+    model_type = "auto" #@param ["auto", "AlphaFold2-ptm", "AlphaFold2-multimer-v1", "AlphaFold2-multimer-v2"]
+    num_recycles = 3 #@param [1,3,6,12,24,48] {type:"raw"}
+    dpi = 200 #@param {type:"integer"}
+
+    ### run prediction
+
+    if "TF_FORCE_UNIFIED_MEMORY" in os.environ:
+        del os.environ["TF_FORCE_UNIFIED_MEMORY"]
+    if "XLA_PYTHON_CLIENT_MEM_FRACTION" in os.environ:
+        del os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"]
+
+    def prediction_callback(unrelaxed_protein, length, prediction_result, input_features, type):
+        fig = plot_protein(unrelaxed_protein, Ls=length, dpi=150)
+        fig.savefig(os.path.join(out_dir, jobname+"_structure.png"))
+        plt.close()
+
+
+    result_dir=out_dir
+    setup_logging(Path(alphafold_dir).joinpath("log.txt"))
+    queries, is_complex = get_queries(queries_path)
+    model_type = set_model_type(is_complex, model_type)
+    download_alphafold_params(model_type, Path(alphafold_dir))
+    run(
+        queries=queries,
+        result_dir=result_dir,
+        use_templates=False,
+        custom_template_path=None,
+        use_amber=False,
+        msa_mode=msa_mode,    
+        model_type=model_type,
+        num_models=1,
+        num_recycles=num_recycles,
+        model_order=[1],#, 2, 3, 4, 5],
+        is_complex=is_complex,
+        data_dir=Path(alphafold_dir),
+        keep_existing_results=False,
+        recompile_padding=1.0,
+        rank_by="auto",
+        pair_mode=pair_mode,
+        stop_at_score=float(100),
+        prediction_callback=prediction_callback,
+        dpi=dpi
+    )
 
 
 def get_coordinates(protein_name, pdb_filename):
