@@ -58,7 +58,7 @@ signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_seq
 
 perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
 
-atk_df, _ = atk.attack_sequence(name='seq', original_sequence=original_sequence, original_batch_tokens=batch_tokens,
+atk_df, _ = atk.incremental_attack(name='seq', original_sequence=original_sequence, original_batch_tokens=batch_tokens,
     target_token_idxs=target_token_idxs, target_tokens_attention=target_tokens_attention,
     first_embedding=first_embedding, signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, verbose=True)
 

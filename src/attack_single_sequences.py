@@ -109,7 +109,7 @@ else:
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+		df, emb_dist_single_seq = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, 
 			target_tokens_attention=target_tokens_attention, first_embedding=first_embedding, 
 			signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, verbose=args.verbose)

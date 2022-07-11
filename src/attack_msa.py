@@ -35,7 +35,7 @@ parser.add_argument("--n_sequences", default=100, type=eval,
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
@@ -139,7 +139,7 @@ else:
 			batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
 			loss_method=args.loss_method)
 
-		df, emb_dist_single_seq = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+		df, emb_dist_single_seq = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
 			target_tokens_attention=target_tokens_attention,
 			first_embedding=first_embedding, signed_gradient=signed_gradient, 
@@ -170,8 +170,6 @@ else:
 
 print("\natk_df:\n", atk_df.keys())
 print("\ncmap_df:\n", cmap_df.keys())
-print("\nmissense_df:\n", missense_evaluation_df.keys())
-print("\nmissense_cmap_df:\n", missense_cmap_df.keys())
 
 plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
 plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)

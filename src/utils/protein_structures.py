@@ -9,7 +9,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from google.colab import files
 
-
 import Bio
 from Bio.PDB import PDBIO
 from Bio.PDB import PDBParser
@@ -42,8 +41,8 @@ def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="al
 
     ### msa
 
-    msa_mode = "MMseqs2 (UniRef+Environmental)" #@param ["MMseqs2 (UniRef+Environmental)", "MMseqs2 (UniRef only)","single_sequence","custom"]
-    pair_mode = "unpaired+paired" #@param ["unpaired+paired","paired","unpaired"] {type:"string"}
+    msa_mode = "MMseqs2 (UniRef only)" #@param ["MMseqs2 (UniRef+Environmental)", "MMseqs2 (UniRef only)","single_sequence","custom"]
+    pair_mode = "unpaired" #@param ["unpaired+paired","paired","unpaired"] {type:"string"}
 
     # decide which a3m to use
     if msa_mode.startswith("MMseqs2"):
@@ -74,7 +73,7 @@ def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="al
 
     ### settings
 
-    model_type = "auto" #@param ["auto", "AlphaFold2-ptm", "AlphaFold2-multimer-v1", "AlphaFold2-multimer-v2"]
+    model_type = "AlphaFold2-ptm" #@param ["auto", "AlphaFold2-ptm", "AlphaFold2-multimer-v1", "AlphaFold2-multimer-v2"]
     num_recycles = 3 #@param [1,3,6,12,24,48] {type:"raw"}
     dpi = 200 #@param {type:"integer"}
 
@@ -161,7 +160,7 @@ def get_corresponding_residues_coordinates(protein_name_1, pdb_filename_1, prote
 def get_RMSD(coordinates_1, coordinates_2):
     d_i = np.linalg.norm(coordinates_1 - coordinates_2, axis=1)
     rmsd = np.sqrt((d_i**2).mean())
-    assert rmsd > 0
+    assert rmsd >= 0
     return rmsd
 
 def get_dmap(cb_coordinates):
@@ -244,20 +243,20 @@ def get_LDDT(true_dmap, pred_dmap, cutoff=15, sep_thresh=-1, tolerances=[0.5, 1,
         _n_preserved = get_n_preserved(true_flat_in_L, pred_flat_in_L, tol)
         _f_preserved = _n_preserved / L_n
         preserved_fractions.append(_f_preserved)
-    lddt = np.mean(preserved_fractions)
+    lddt = np.mean(preserved_fractions)*100
     if precision > 0:
         lddt = round(lddt, precision)
 
-    assert lddt > 0 and lddt < 1
+    assert lddt >= 0 and lddt <= 100
     return lddt
 
 def get_TM_score(original_length, coordinates_1, coordinates_2):
 
     L_N = original_length
-    d_i = np.linalg.norm(coordinates_1 - coordinates_2, axis=1)
+    d_i = np.linalg.norm(coordinates_1 - coordinates_2, ord=2, axis=1)
     d_0 = 1.24*np.cbrt(L_N-15)-1.8
 
     tm_score = (1 / (1 + (d_i**2 / d_0**2))).sum()/L_N
 
-    assert tm_score > 0 and tm_score < 1
+    assert tm_score > 0 and tm_score <= 1
     return tm_score
