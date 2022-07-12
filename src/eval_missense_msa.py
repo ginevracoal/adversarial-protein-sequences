@@ -37,7 +37,7 @@ parser.add_argument("--n_sequences", default=100, type=eval,
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=2, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
@@ -146,7 +146,7 @@ else:
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, batch_tokens=batch_tokens,
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		atk_df, _ = atk.attack_sequence(name=name, original_sequence=original_sequence, 
+		atk_df, _ = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
 			target_tokens_attention=target_tokens_attention,
 			first_embedding=first_embedding, signed_gradient=signed_gradient, 

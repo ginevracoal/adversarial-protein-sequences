@@ -25,7 +25,6 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/hhfiltered/', type=str, 
 	help="Datasets path. Choose `msa/` or `msa/hhfiltered/`.")
-parser.add_argument("--missense_dir", default='/scratch/external/gcarbone/missense/', type=str, help="Missense dataset path.")
 parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
@@ -35,11 +34,11 @@ parser.add_argument("--n_sequences", default=100, type=eval,
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='last_layer', type=str, 
+parser.add_argument("--target_attention", default='all_layers', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
@@ -62,10 +61,7 @@ out_filename = f"msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_t
 out_path = os.path.join(args.out_dir, "msa/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
-out_missense_filename = f"msa_{args.dataset}_minFilter={args.min_filter}"
-out_missense_path = os.path.join(args.out_dir, "missense/")
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
-os.makedirs(os.path.dirname(out_missense_path), exist_ok=True)
 
 perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
 
