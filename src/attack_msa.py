@@ -38,12 +38,12 @@ parser.add_argument("--n_substitutions", default=1, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='all_layers', type=str, 
+parser.add_argument("--target_attention", default='last_layer', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
-parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
-	help="Loss function used to compute gradients in the first embedding space. Choose 'max_prob' or 'max_tokens_repr'.")
+parser.add_argument("--loss_method", default='masked_pred_ce', type=str, 
+	help="Loss function used to compute gradients in the first embedding space. Choose 'masked_pred_ce', max_prob' or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
@@ -57,7 +57,7 @@ args = parser.parse_args()
 print("\n", args)
 
 
-out_filename = f"msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}"
+out_filename = f"msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}_{args.loss_method}_attn={args.target_attention}"
 out_path = os.path.join(args.out_dir, "msa/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")

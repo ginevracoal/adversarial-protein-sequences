@@ -41,8 +41,8 @@ def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="al
 
     ### msa
 
-    msa_mode = "MMseqs2 (UniRef only)" #@param ["MMseqs2 (UniRef+Environmental)", "MMseqs2 (UniRef only)","single_sequence","custom"]
-    pair_mode = "unpaired" #@param ["unpaired+paired","paired","unpaired"] {type:"string"}
+    msa_mode = "MMseqs2 (UniRef+Environmental)" #@param ["MMseqs2 (UniRef+Environmental)", "MMseqs2 (UniRef only)","single_sequence","custom"]
+    pair_mode = "unpaired+paired" #@param ["unpaired+paired","paired","unpaired"] {type:"string"}
 
     # decide which a3m to use
     if msa_mode.startswith("MMseqs2"):
@@ -89,7 +89,6 @@ def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="al
         fig.savefig(os.path.join(out_dir, jobname+"_structure.png"))
         plt.close()
 
-
     result_dir=out_dir
     setup_logging(Path(alphafold_dir).joinpath("log.txt"))
     queries, is_complex = get_queries(queries_path)
@@ -100,7 +99,7 @@ def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="al
         result_dir=result_dir,
         use_templates=False,
         custom_template_path=None,
-        use_amber=False,
+        use_amber=True, 
         msa_mode=msa_mode,    
         model_type=model_type,
         num_models=1,
@@ -125,15 +124,28 @@ def get_coordinates(protein_name, pdb_filename):
 
     coordinates = []
 
+    count = 1
+    residue_offset = 0
+    missing_residues = []
+
     for chains in s:
         for chain in chains:
             for residue in chain:    
                 for atom in residue:
+
                     if atom.name=="CA":
+                        residue_idx = residue._id[1]-residue_offset
+
+                        if residue_idx!=count:
+                            print(f"\t{protein_name} missing {count}-th Ca atom")
+                            residue_offset += 1
+                            missing_residues.append(count)
+
                         coordinates.append(atom.get_coord())
+                        count += 1
 
     coordinates = np.array(coordinates)
-    return coordinates
+    return coordinates, missing_residues
 
 def get_corresponding_residues_coordinates(protein_name_1, pdb_filename_1, protein_name_2, pdb_filename_2):
 

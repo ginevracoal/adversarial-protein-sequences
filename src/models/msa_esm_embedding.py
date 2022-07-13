@@ -307,7 +307,6 @@ class MsaEsmEmbedding(nn.Module):
 			logits = output['logits'][:,0,1:, :] # heads logits
 			probs = torch.mean(torch.softmax(logits, dim=1), dim=-1) # avg heads probs
 			loss = torch.mean(torch.log(probs[:,target_token_idxs])) # CE on token idxs masked preds
-
 		else:
 			raise AttributeError
 

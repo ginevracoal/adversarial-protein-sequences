@@ -3,7 +3,7 @@
 ### args
 
 DATASET="PF00533"
-N_SEQUENCES=100
+N_SEQUENCES=30
 FILTER_SIZE=100
 
 ## todo: debug arg parser

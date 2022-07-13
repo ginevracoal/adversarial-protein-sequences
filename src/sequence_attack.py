@@ -139,7 +139,7 @@ class SequenceAttack():
 		If there are no allowed substitutions keep the original token fixed. 
 		"""
 
-		allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token]))
+		allowed_token_substitutions = list(set(self.alphabet.standard_toks) - set(['.','-',current_token,'X']))
 		
 		if blosum_check:
 			blosum = MatrixInfo.blosum62
