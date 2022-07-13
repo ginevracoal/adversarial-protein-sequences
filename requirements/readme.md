@@ -29,4 +29,5 @@ chmod +x install_colabbatch_linux.sh
 ./install_colabbatch_linux.sh
 conda activate ~/colabfold/colabfold_batch/colabfold-conda/
 conda install -c conda-forge google-colab
+conda install -c conda-forge openmm=7.5.1 pdbfixer
 ```
