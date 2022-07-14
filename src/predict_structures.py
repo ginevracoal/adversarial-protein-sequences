@@ -27,7 +27,7 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
     help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
     help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=30, type=eval, 
+parser.add_argument("--n_sequences", default=100, type=eval, 
     help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
@@ -39,10 +39,12 @@ parser.add_argument("--target_attention", default='last_layer', type=str,
     help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
     Used only when `token_selection`=`max_attention")
 
-parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
-    help="Loss function used to compute gradients in the first embedding space. Choose 'masked_pred_ce', 'max_prob' or 'max_tokens_repr'.")
+parser.add_argument("--loss_method", default='max_masked_ce', type=str, 
+    help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_prob' \
+    or 'max_tokens_repr'.")
+
 parser.add_argument("--min", default=0, type=int) 
-parser.add_argument("--max", default=30, type=int) 
+parser.add_argument("--max", default=29, type=int) 
 
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute.')
@@ -89,24 +91,9 @@ for row_idx, row in new_df.iterrows():
             filepath = os.path.join(out_structures_dir, f"{key}_{row_idx}_unrelaxed_rank_1_model_1.pdb")
             coordinates_dict[f'{key}_coordinates'], coordinates_dict[f'{key}_missing_residues'] = get_coordinates(structure_id, filepath)
 
-        print("\nScores:\n")
-
-        ##############
-        # Prediction #
-        # confidence # 
-        #   scores   # 
-        ##############
-
-        filepath = os.path.join(out_structures_dir, f'{key}_{row_idx}_unrelaxed_rank_1_model_1_scores.json')
-        f = open(filepath, "r")
-        data = json.loads(f.read())
-        plddt = np.mean(data['plddt'])
-        ptm = data['ptm']
-
-        print(f"\t{key}    PTM = {ptm}\tpLDDT = {plddt:.2f}", end="\t")
+        print("\nScores:")
 
         if np.all([len(coordinates_dict[f'{key}_coordinates'])==len(row['original_sequence']) for key in perturbations_keys]):
-
 
             for key in ['max_cos','min_dist','max_dist']:
 
@@ -125,6 +112,20 @@ for row_idx, row in new_df.iterrows():
 
                 corr_original_coordinates, corr_pert_coordinates = \
                     get_corresponding_residues_coordinates("original", original_filepath, key, pert_filepath)
+
+                ##############
+                # Prediction #
+                # confidence # 
+                #   scores   # 
+                ##############
+
+                filepath = os.path.join(out_structures_dir, f'{key}_{row_idx}_unrelaxed_rank_1_model_1_scores.json')
+                f = open(filepath, "r")
+                data = json.loads(f.read())
+                plddt = np.mean(data['plddt'])
+                ptm = data['ptm']
+
+                print(f"\t{key}    PTM = {ptm}\tpLDDT = {plddt:.2f}", end="\t")
 
                 ########
                 # RMSD #
@@ -158,6 +159,8 @@ for row_idx, row in new_df.iterrows():
         else:
 
             print("\tPart of the 3d structure is unknown")
+
+out_dir = os.path.join(out_dir, 'structures/')
 
 print(f"\nSaving: {out_dir}{filename}_structure_prediction.csv")
 out_df.to_csv(os.path.join(out_dir, filename+"_structure_prediction.csv"))

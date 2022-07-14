@@ -45,8 +45,9 @@ parser.add_argument("--target_attention", default='all_layers', type=str,
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
-parser.add_argument("--loss_method", default='masked_pred_ce', type=str, 
-	help="Loss function used to compute gradients in the first embedding space. Choose 'masked_pred_ce', max_prob' or 'max_tokens_repr'.")
+parser.add_argument("--loss_method", default='max_masked_ce', type=str, 
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_prob' \
+	or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')

@@ -4,9 +4,9 @@
 # PBS settings #
 ###################
 
-#PBS -N single_seq_pfam
-#PBS -l nodes=1:ppn=24
-#PBS -l walltime=20:00:00
+#PBS -N single_seq_attack
+#PBS -l nodes=1:ppn=12
+#PBS -l walltime=5:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out

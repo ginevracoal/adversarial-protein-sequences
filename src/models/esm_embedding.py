@@ -216,7 +216,7 @@ class EsmEmbedding(nn.Module):
 
 		return tokens_attention
 
-	def loss(self, method, output, target_token_idxs):
+	def loss(self, method, output, target_token_idxs, true_residues_idxs):
 
 		if method=='max_prob':
 			logits = output['logits'][:,0,1:-1, :]
@@ -228,10 +228,14 @@ class EsmEmbedding(nn.Module):
 			output_representations = output_representations[1:-1, :]
 			loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
-		elif method=='masked_pred_ce':
+		elif method=='max_masked_ce':
 			logits = output['logits'][:,0,1:-1, :] # heads logits
-			probs = torch.mean(torch.softmax(logits, dim=1), dim=-1) # avg heads probs
-			loss = torch.mean(torch.log(probs[:,target_token_idxs])) # CE on token idxs masked preds
+			probs = torch.softmax(logits, dim=-1)
+
+			target_probs = [probs[:,token_idx,residue_idx] 
+				for token_idx, residue_idx in zip(target_token_idxs, true_residues_idxs)]
+
+			loss = torch.mean(torch.log(torch.stack(target_probs))) # CE on token idxs masked preds
 
 		else:
 			raise AttributeError

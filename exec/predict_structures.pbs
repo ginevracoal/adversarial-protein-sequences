@@ -1,0 +1,81 @@
+#!/bin/sh
+
+###################
+# PBS settings #
+###################
+
+#PBS -N predict_structure
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=20:00:00
+#PBS -q gpu
+#PBS -j oe
+#PBS -o pbs.out
+
+###################
+# script settings #
+###################
+
+DATASET="PF00533" 
+MAX_TOKENS=None
+N_SEQUENCES=100
+MIN_FILTER=100
+TOKEN_SELECTION='max_attention' # 'max_attention', 'min_entropy' 'max_entropy'
+TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
+LOSS_METHOD='max_masked_ce' # 'max_masked_ce', 'max_tokens_repr'
+LOAD=False
+
+###########
+# modules #
+###########
+
+eval "$(conda shell.bash hook)"
+conda activate /u/external/gcarbone/colabfold_batch/colabfold-conda/
+module load cuda/11.0.3
+
+###############
+# directories #
+###############
+
+WORKING_DIR="/u/external/gcarbone/adversarial-protein-sequences/src"
+OUT_DIR="/fast/external/gcarbone/adversarial-protein-sequences_out/"
+DATA_DIR="${OUT_DIR}msa/"
+	
+cd $WORKING_DIR
+PBS_O_WORKDIR=$(pwd)
+LOGS_DIR="${OUT_DIR}logs/"
+mkdir -p $LOGS_DIR
+DATE=$(date +%Y-%m-%d)
+TIME=$(date +%H:%M:%S)
+OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
+
+#######
+# run #
+#######
+
+for LOSS_METHOD in 'max_masked_ce', 'max_tokens_repr'
+do
+	for N_SUBSTITUTIONS in 1 3
+	do
+		# todo: solve memory issues leading to this very bad code 
+		python predict_structures.py --min=0 --max=9 --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+			--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+			--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+		python predict_structures.py --min=10 --max=19 --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+			--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+			--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+		python predict_structures.py --min=20 --max=29 --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+			--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+			--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+
+		python predict_structures.py --min=0 --max=29 --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
+			--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+			--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+	done
+done
+
+conda deactivate
+

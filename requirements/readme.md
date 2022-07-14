@@ -27,7 +27,8 @@ Load this enviroment to execute `predict_structures.py`
 wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh
 chmod +x install_colabbatch_linux.sh
 ./install_colabbatch_linux.sh
-conda activate ~/colabfold/colabfold_batch/colabfold-conda/
+conda activate ~/colabfold_batch/colabfold-conda/
 conda install -c conda-forge google-colab
 conda install -c conda-forge openmm=7.5.1 pdbfixer
+conda install -c anaconda seaborn
 ```

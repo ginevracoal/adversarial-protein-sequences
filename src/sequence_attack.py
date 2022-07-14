@@ -110,7 +110,7 @@ class SequenceAttack():
 		if verbose:
 			print("\n= Computing loss gradients =")
 
-		if loss_method=='masked_pred_ce':
+		if loss_method=='max_masked_ce':
 
 			with torch.no_grad():
 				device = next(self.original_model.parameters()).device
@@ -122,8 +122,11 @@ class SequenceAttack():
 
 		first_embedding.requires_grad=True
 
+		true_residues_idxs = [self.alphabet.get_idx(original_sequence[token_idx]) for token_idx in target_token_idxs]
+
 		output = self.embedding_model(first_embedding=first_embedding, repr_layers=[self.original_model.args.layers])
-		loss = self.embedding_model.loss(method=loss_method, output=output, target_token_idxs=target_token_idxs)
+		loss = self.embedding_model.loss(method=loss_method, output=output, 
+			target_token_idxs=target_token_idxs, true_residues_idxs=true_residues_idxs)
 
 		self.embedding_model.zero_grad()
 		loss.backward()
