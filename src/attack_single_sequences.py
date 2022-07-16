@@ -124,7 +124,7 @@ else:
 
 		perturbed_sequences_dict = {key:df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
 
-		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
+		df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
 				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict,
 				cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 

@@ -14,7 +14,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
-from utils.protein_sequences import compute_cmaps_distance, get_max_hamming_msa
+from utils.protein_sequences import compute_cmaps_distance_df, get_max_hamming_msa
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -30,19 +30,19 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
 	help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=100, type=eval, 
+parser.add_argument("--n_sequences", default=30, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='last_layer', type=str, 
+parser.add_argument("--target_attention", default='all_layers', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
-parser.add_argument("--loss_method", default='max_masked_ce', type=str, 
+parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
 	help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_prob' \
 	or 'max_tokens_repr'.")
 
@@ -64,7 +64,7 @@ out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['masked_pred','min_dist','max_dist','max_cos','max_cmap_dist'] 
 
 if args.load:
 
@@ -117,13 +117,14 @@ else:
 		msa = tuple(msa.items())
 		msa = [(name, original_sequence)] + list(msa)
 
-		### compute first continuous embedding
+		### compute continuous embedding
 
+		embedding_idx = n_layers
 		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
 
 		with torch.no_grad():
 			batch_tokens = batch_tokens.to(args.device)
-			results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
+			results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
 			first_embedding = results["representations"][0].to(args.device)
 
 		### sequence attacks
@@ -151,8 +152,8 @@ else:
 
 		perturbed_sequences_dict = {key:df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
 
-		df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
-				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict,
+		df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
+				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose,
 				cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
 		cmap_df = pd.concat([cmap_df, df], ignore_index=True)

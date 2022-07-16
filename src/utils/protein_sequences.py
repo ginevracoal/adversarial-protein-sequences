@@ -60,10 +60,22 @@ def get_contact_map(model, alphabet, sequence):
     contact_map = model.predict_contacts(batch_tokens.to(device))[0]
     return contact_map
 
-def compute_cmaps_distance(model, alphabet, perturbed_sequences_dict, original_sequence, sequence_name, 
-    cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1):
+def compute_cmaps_distance(model, alphabet, sequence_name, original_sequence, perturbed_sequence, k=1, p=1):
+
+    # default k=1 computes the entire triu cmap
 
     original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
+    topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
+    new_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=perturbed_sequence)
+    topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
+    cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten(), p=p).item()
+
+    return cmap_distance / k
+
+def compute_cmaps_distance_df(model, alphabet, perturbed_sequences_dict, original_sequence, sequence_name, 
+    cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1, verbose=False):
+
+    # original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
     cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
     cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
     min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
@@ -75,12 +87,11 @@ def compute_cmaps_distance(model, alphabet, perturbed_sequences_dict, original_s
         row_list = [['name', sequence_name],['k',k_idx]]
         for key, perturbed_sequence in perturbed_sequences_dict.items():
 
-            topk_original_contacts = torch.triu(original_contact_map, diagonal=k)
-            new_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=perturbed_sequence)
-            topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
-            cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten(), p=p).item()
-            row_list.append([f'{key}_cmap_dist', cmap_distance/k])
+            cmap_distance = compute_cmaps_distance(model=model, alphabet=alphabet, sequence_name=sequence_name, 
+                original_sequence=original_sequence, perturbed_sequence=perturbed_sequence, k=k, p=p)
+            row_list.append([f'{key}_cmap_dist', cmap_distance])
 
         cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
 
+    print(f"\n\ncmap_distances at k=0:\n\n{cmap_df[cmap_df['k']==0]}\n")
     return cmap_df

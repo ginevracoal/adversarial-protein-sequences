@@ -27,7 +27,7 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
     help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
     help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=100, type=eval, 
+parser.add_argument("--n_sequences", default=30, type=eval, 
     help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
@@ -35,16 +35,17 @@ parser.add_argument("--n_substitutions", default=3, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
     help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='last_layer', type=str, 
+parser.add_argument("--target_attention", default='all_layers', type=str, 
     help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
     Used only when `token_selection`=`max_attention")
 
-parser.add_argument("--loss_method", default='max_masked_ce', type=str, 
+parser.add_argument("--loss_method", default='max_tokens_repr', type=str, 
     help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_prob' \
     or 'max_tokens_repr'.")
 
 parser.add_argument("--min", default=0, type=int) 
 parser.add_argument("--max", default=29, type=int) 
+parser.add_argument("--plddt_ths", default=60, type=int) 
 
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute.')
@@ -57,7 +58,7 @@ out_dir = 'out/' if socket.gethostname()=="dmgdottorati" else args.out_dir
 out_structures_dir = os.path.join(out_dir, "structures/", filename)
 os.makedirs(os.path.dirname(out_structures_dir), exist_ok=True)
 
-perturbations_keys = ['original','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['original','max_cos','min_dist','max_dist','max_cmap_dist'] 
 atk_df_dir = "data/" if socket.gethostname()=="dmgdottorati" else os.path.join(args.data_dir, filename+"/data/")
 atk_df = pd.read_csv(os.path.join(atk_df_dir, filename+"_atk.csv"), index_col=[0])
 
@@ -95,7 +96,17 @@ for row_idx, row in new_df.iterrows():
 
         if np.all([len(coordinates_dict[f'{key}_coordinates'])==len(row['original_sequence']) for key in perturbations_keys]):
 
-            for key in ['max_cos','min_dist','max_dist']:
+            filepath = os.path.join(out_structures_dir, f'original_{row_idx}_unrelaxed_rank_1_model_1_scores.json')
+            f = open(filepath, "r")
+            data = json.loads(f.read())
+            original_plddt = np.mean(data['plddt'])
+            original_ptm = data['ptm']
+
+            original_tokens = list(atk_df[atk_df['name']==row['name']][f'original_token'])
+            print(f"\noriginal_sequence\ttokens = {original_tokens}", end='\t')
+            print(f"\tPTM = {original_ptm}\tpLDDT = {original_plddt:.2f}")
+
+            for key in list(set(perturbations_keys)-set(['original'])):
 
                 #######################
                 # collect coordinates #
@@ -125,7 +136,7 @@ for row_idx, row in new_df.iterrows():
                 plddt = np.mean(data['plddt'])
                 ptm = data['ptm']
 
-                print(f"\t{key}    PTM = {ptm}\tpLDDT = {plddt:.2f}", end="\t")
+                print(f"\t\tPTM = {ptm}\tpLDDT = {plddt:.2f}", end="\t")
 
                 ########
                 # RMSD #
@@ -151,10 +162,11 @@ for row_idx, row in new_df.iterrows():
 
                 print(f"\t\tRMSD = {rmsd:.2f}\tLDDT = {lddt:.2f}\tTM-score = {tm:.2f}")
 
-                row_dict = {'seq_idx':row_idx, 'perturbation':key, 'target_token_idxs':target_token_idxs,
-                    'pert_tokens':pert_tokens, 'pLDDT':plddt, 'PTM':ptm, 'LDDT':lddt, 'TM-score':tm, 'RMSD':rmsd}
-                
-                out_df = out_df.append(row_dict, ignore_index=True)
+                if original_plddt>=args.plddt_ths and plddt>=args.plddt_ths:
+
+                    row_dict = {'seq_idx':row_idx, 'perturbation':key, 'target_token_idxs':target_token_idxs,
+                        'pert_tokens':pert_tokens, 'pLDDT':plddt, 'PTM':ptm, 'LDDT':lddt, 'TM-score':tm, 'RMSD':rmsd}                  
+                    out_df = out_df.append(row_dict, ignore_index=True)
 
         else:
 
@@ -169,8 +181,7 @@ out_df.to_csv(os.path.join(out_dir, filename+"_structure_prediction.csv"))
 # plot #
 ########
 
-out_df = out_df[out_df['pLDDT']>70]
-print("\ndf size =",len(out_df['pLDDT']))
+print("\ndf size =",len(out_df))
 
 matplotlib.rc('font', **{'size': 13})
 sns.set_style("darkgrid")

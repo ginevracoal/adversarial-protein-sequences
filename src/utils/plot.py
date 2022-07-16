@@ -17,8 +17,8 @@ def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 	fig, ax = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={'width_ratios': [1, 1]}, sharey=True)
 
 
-	df = df.sort_values('orig_token') 
-	sns.scatterplot(data=df, x='orig_token', y='target_token_attention', ax=ax[0], hue='orig_token', label='')
+	df = df.sort_values('original_token') 
+	sns.scatterplot(data=df, x='original_token', y='target_token_attention', ax=ax[0], hue='original_token', label='')
 	ax[0].set_xlabel('Target token')
 	ax[0].set_ylabel('Attention')
 
@@ -28,9 +28,9 @@ def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 	ax[1].set_ylabel('')
 
 	if missense_df is not None:
-		missense_df['orig_token'] = missense_df['original_token']
+		missense_df['original_token'] = missense_df['original_token']
 		missense_df['target_token_idx'] = missense_df['target_token_idx'].astype(int)
-		sns.scatterplot(x=missense_df['orig_token'], y=missense_df['target_token_attention'], ax=ax[0], 
+		sns.scatterplot(x=missense_df['original_token'], y=missense_df['target_token_attention'], ax=ax[0], 
 			marker='*', color='black', s=200, linewidths=3, label='')
 		sns.scatterplot(x=missense_df['target_token_idx'], y=missense_df['target_token_attention'], ax=ax[1], 
 			marker='*', color='black', s=200, linewidths=3, label='missense')
@@ -96,10 +96,10 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 
 		fig, ax = plt.subplots(figsize=(10, 7))
 
-		subst_counts = df.groupby(['orig_token', f'{key}_token'], as_index=False).size()
+		subst_counts = df.groupby(['original_token', f'{key}_token'], as_index=False).size()
 		subst_counts = subst_counts.rename(columns={"size": "n_substitutions"})
 
-		df_heatmap = subst_counts.pivot_table(values='n_substitutions', columns='orig_token', index=f'{key}_token')
+		df_heatmap = subst_counts.pivot_table(values='n_substitutions', columns='original_token', index=f'{key}_token')
 		sns.heatmap(df_heatmap, annot=True, cmap="rocket_r")
 
 		plt.tight_layout()

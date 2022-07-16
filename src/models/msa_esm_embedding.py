@@ -295,8 +295,8 @@ class MsaEsmEmbedding(nn.Module):
 
 		if method=='max_prob':
 			logits = output['logits'][:,0,1:, :]
-			probs = torch.mean(torch.softmax(logits, dim=1), dim=-1)
-			loss = torch.max(probs)
+			probs = torch.softmax(logits, dim=-1)
+			loss = torch.max(probs[:,target_token_idxs])
 
 		elif method=='max_tokens_repr':
 			output_representations = output['representations'][self.args.layers][:,0].squeeze()
@@ -304,13 +304,14 @@ class MsaEsmEmbedding(nn.Module):
 			loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
 		elif method=='max_masked_ce':
-			logits = output['logits'][:,0,1:, :] # heads logits 
+			logits = output['logits'][:,0,1:, :]
 			probs = torch.softmax(logits, dim=-1)
 
 			target_probs = [probs[:,token_idx,residue_idx] 
 				for token_idx, residue_idx in zip(target_token_idxs, true_residues_idxs)]
 
-			loss = torch.mean(torch.log(torch.stack(target_probs))) # CE on token idxs masked preds
+			# loss = torch.mean(torch.log(torch.stack(target_probs)))
+			loss = torch.max(torch.stack(target_probs))
 
 		else:
 			raise AttributeError
