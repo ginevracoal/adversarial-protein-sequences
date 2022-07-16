@@ -1,0 +1,86 @@
+#!/bin/sh
+
+###################
+# PBS settings #
+###################
+
+#PBS -N full_test
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=20:00:00
+#PBS -q gpu
+#PBS -j oe
+#PBS -o pbs.out
+
+###################
+# script settings #
+###################
+
+DATASET="PF00533" 
+MAX_TOKENS=None
+N_SEQUENCES=100
+MIN_FILTER=100
+TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
+TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
+LOSS_METHOD='max_masked_ce' # 'max_masked_ce', 'max_tokens_repr', 'max_prob'
+N_SUBSTITUTIONS=3
+DEVICE="cuda"
+LOAD=False
+
+###############
+# directories #
+###############
+
+WORKING_DIR="/u/external/gcarbone/adversarial-protein-sequences/src"
+OUT_DIR="/fast/external/gcarbone/adversarial-protein-sequences_out/"
+	
+cd $WORKING_DIR
+PBS_O_WORKDIR=$(pwd)
+LOGS_DIR="${OUT_DIR}logs/"
+mkdir -p $LOGS_DIR
+DATE=$(date +%Y-%m-%d)
+TIME=$(date +%H:%M:%S)
+OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
+
+##########
+# attack #
+##########
+
+eval "$(conda shell.bash hook)"
+conda activate esm 
+
+DATA_DIR="/scratch/external/gcarbone/msa/hhfiltered/"
+
+python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --loss_method=$LOSS_METHOD \
+	--dataset=$DATASET --max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
+	--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
+	--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1
+
+conda deactivate
+
+#############
+#  predict  #
+# structure #
+#############
+
+conda activate /u/external/gcarbone/colabfold_batch/colabfold-conda/
+module load cuda/11.0.3
+
+DATA_DIR="${OUT_DIR}msa/"
+
+for ((min=0; min<=$((N_SEQUENCES-10)); i+=10)); do
+
+	max=$((min+9))
+
+	python predict_structures.py --min=$min --max=$max --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+		--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+		--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+		--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+
+done
+
+python predict_structures.py --min=0 --max=$((N_SEQUENCES-1)) --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
+	--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+	--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+	--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+
+conda deactivate
