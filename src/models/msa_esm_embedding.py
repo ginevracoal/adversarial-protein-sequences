@@ -298,12 +298,12 @@ class MsaEsmEmbedding(nn.Module):
 			probs = torch.softmax(logits, dim=-1)
 			loss = torch.max(probs[:,target_token_idxs])
 
-		elif method=='max_tokens_repr':
+		elif method=='max_tokens':
 			output_representations = output['representations'][self.args.layers][:,0].squeeze()
 			output_representations = output_representations[1:, :]
 			loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
-		elif method=='max_masked_ce':
+		elif method=='max_masked':
 			logits = output['logits'][:,0,1:, :]
 			probs = torch.softmax(logits, dim=-1)
 

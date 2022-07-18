@@ -4,9 +4,9 @@
 # PBS settings #
 ###################
 
-#PBS -N predict_structure
+#PBS -N predict_structures
 #PBS -l nodes=1:ppn=24
-#PBS -l walltime=20:00:00
+#PBS -l walltime=50:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
@@ -17,10 +17,12 @@
 
 DATASET="PF00533" 
 MAX_TOKENS=None
-N_SEQUENCES=30
+N_SEQUENCES=100
 MIN_FILTER=100
 TOKEN_SELECTION='max_attention' # 'max_attention', 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
+LOSS_METHOD='max_masked_ce' # 'max_masked_ce' 'max_tokens_repr' 'max_prob'
+N_SUBSTITUTIONS=3
 LOAD=False
 
 ###########
@@ -51,27 +53,20 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 # run #
 #######
 
-for LOSS_METHOD in 'max_masked_ce' #'max_tokens_repr' 'max_prob'
-do
-	for N_SUBSTITUTIONS in 3 # 1 
-	do
+for ((min=0; min<=$((N_SEQUENCES-10)); i+=10)); do
 
-		for ((min=0; min<=$((N_SEQUENCES-10)); i+=10)); do
+	max=$((min+9))
 
-			max=$((min+9))
-			
-			python predict_structures.py --min=$min --max=$max --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
-				--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
-				--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
-				--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+	python predict_structures_fast.py --min=$min --max=$max --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+		--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+		--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+		--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
 
-		done
-
-		python predict_structures.py --min=0 --max=$((N_SEQUENCES-1)) --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
-			--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
-			--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
-			--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
-	done
 done
+
+python predict_structures.py --min=0 --max=$((N_SEQUENCES-1)) --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
+	--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
+	--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
+	--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
 
 conda deactivate

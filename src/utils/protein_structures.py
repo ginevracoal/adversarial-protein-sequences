@@ -137,7 +137,7 @@ def get_coordinates(protein_name, pdb_filename):
                         residue_idx = residue._id[1]-residue_offset
 
                         if residue_idx!=count:
-                            print(f"\t{protein_name} missing {count}-th Ca atom")
+                            print(f"\n\t{protein_name} missing {count}-th Ca atom")
                             residue_offset += 1
                             missing_residues.append(count)
 
