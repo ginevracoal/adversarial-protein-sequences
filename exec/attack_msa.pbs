@@ -17,10 +17,11 @@
 
 DATASET="PF00533" 
 MAX_TOKENS=None
-N_SEQUENCES=30
+N_SEQUENCES=100
 MIN_FILTER=100
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
+LOSS_METHOD="max_masked_prob"
 DEVICE="cuda"
 LOAD=False
 
@@ -53,15 +54,12 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 #######
 
 
-for LOSS_METHOD in 'max_masked_ce' #'max_prob' 'max_tokens_repr'
+for N_SUBSTITUTIONS in 3
 do
-	for N_SUBSTITUTIONS in 3 #1
-	do
-		python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --loss_method=$LOSS_METHOD \
-			--dataset=$DATASET --max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
-			--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
-			--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1
-	done
+	python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --loss_method=$LOSS_METHOD \
+		--dataset=$DATASET --max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
+		--n_sequences=$N_SEQUENCES --n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
+		--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1
 done
 
 conda deactivate
