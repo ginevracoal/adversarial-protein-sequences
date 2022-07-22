@@ -2,25 +2,9 @@
 
 ### args
 
-DATASET="PF00533"
-N_SEQUENCES=30
+DATASET="PF00240" # PF00533, PF00240, PF00627
+N_SEQUENCES=100
 FILTER_SIZE=100
-
-## todo: debug arg parser
-
-# while getopts d:n:f: flag
-# do
-#     case "${flag}" in
-#         d) DATASET=${OPTARG};;
-#         n) N_SEQUENCES=${OPTARG};;
-#         f) FILTER_SIZE=${OPTARG};;
-#     esac
-# done
-
-# if (( $OPTIND == 1 )); then
-#    echo "Pass input args: e.g. -d PF00533 -n 100 -f 100"
-#    exit 0
-# fi
 
 ### set paths
 
@@ -28,6 +12,7 @@ IN_FILENAME="/scratch/external/gcarbone/msa/seqs${DATASET}"
 OUT_PATH="/scratch/external/gcarbone/msa/hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
 
 mkdir -p $OUT_PATH
+eval "$(conda shell.bash hook)"
 module load conda/4.9.2
 conda activate esm
 

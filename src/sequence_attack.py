@@ -6,7 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 import torch.nn as nn
 from Bio.SubsMat import MatrixInfo
-from utils.protein_sequences import compute_blosum_distance, compute_cmaps_distance, get_max_hamming_msa, get_blosum_score
+from utils.protein_sequences import * #compute_blosum_distance, compute_cmaps_distance, get_max_hamming_msa, get_blosum_score
 
 blosum = MatrixInfo.blosum62
 DEBUG=True
@@ -57,7 +57,7 @@ class SequenceAttack():
 			if msa is None:
 				raise AttributeError("Entropy selection needs an MSA")
 
-			tokens_entropy = self.compute_tokens_entropy(msa=msa, n_token_substitutions=n_token_substitutions)
+			tokens_entropy = self.embedding_model.compute_tokens_entropy(msa=msa)
 			target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=False)
 			target_tokens_attention = tokens_attention[target_token_idxs]
 
@@ -66,7 +66,7 @@ class SequenceAttack():
 			if msa is None:
 				raise AttributeError("Entropy selection needs an MSA")
 
-			tokens_entropy = self.compute_tokens_entropy(msa=msa, n_token_substitutions=n_token_substitutions)
+			tokens_entropy = self.embedding_model.compute_tokens_entropy(msa=msa)
 			target_tokens_entropy, target_token_idxs = torch.topk(tokens_entropy, k=n_token_substitutions, largest=True)
 			target_tokens_attention = tokens_attention[target_token_idxs]
 
@@ -78,31 +78,31 @@ class SequenceAttack():
 
 		return target_token_idxs.cpu().detach().numpy(), target_tokens_attention.cpu().detach().numpy()
 
-	def compute_tokens_entropy(self, msa, n_token_substitutions):
+	# def compute_tokens_entropy(self, msa, n_token_substitutions):
 
-		msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
+	# 	msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
 
-		n_residues = len(self.residues_tokens)
-		n_sequences = msa_array.shape[0]
-		n_tokens = msa_array.shape[1]
+	# 	n_residues = len(self.residues_tokens)
+	# 	n_sequences = msa_array.shape[0]
+	# 	n_tokens = msa_array.shape[1]
 
-		### count occurrence probs of residues in msa columns
+	# 	### count occurrence probs of residues in msa columns
 
-		occurrence_frequencies = torch.empty((n_tokens, n_residues))
+	# 	occurrence_frequencies = torch.empty((n_tokens, n_residues))
 
-		for residue_idx, residue in enumerate(self.residues_tokens):
-			for token_idx in range(n_tokens):
-				column_string = "".join(msa_array[:,token_idx])
-				occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
+	# 	for residue_idx, residue in enumerate(self.residues_tokens):
+	# 		for token_idx in range(n_tokens):
+	# 			column_string = "".join(msa_array[:,token_idx])
+	# 			occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
 
-		occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
+	# 	occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
 
-		### compute token idxs entropy
+	# 	### compute token idxs entropy
 
-		tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
-			for i in range(n_tokens)])
+	# 	tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
+	# 		for i in range(n_tokens)])
 
-		return tokens_entropy
+	# 	return tokens_entropy
 
 	def compute_loss_gradient(self, original_sequence, batch_tokens, target_token_idxs, first_embedding, loss_method, 
 		verbose=False):
@@ -110,7 +110,7 @@ class SequenceAttack():
 		if verbose:
 			print("\n= Computing loss gradients =")
 
-		if loss_method=='max_masked_ce':
+		if loss_method=='max_masked_prob':
 
 			with torch.no_grad():
 				device = next(self.original_model.parameters()).device
@@ -125,6 +125,7 @@ class SequenceAttack():
 		true_residues_idxs = [self.alphabet.get_idx(original_sequence[token_idx]) for token_idx in target_token_idxs]
 
 		output = self.embedding_model(first_embedding=first_embedding, repr_layers=[self.original_model.args.layers])
+
 		loss = self.embedding_model.loss(method=loss_method, output=output, 
 			target_token_idxs=target_token_idxs, true_residues_idxs=true_residues_idxs)
 
@@ -497,6 +498,10 @@ class SequenceAttack():
 				if pert_key=='max_dist':
 					atk_dict.update({pert_key:0})
 
+				if pert_key=='max_entropy' and msa is not None:
+					atk_dict.update({pert_key:0})
+
+
 				### updating one token at a time
 				for j, token in enumerate(allowed_token_substitutions):
 					current_sequence_list = list(atk_dict[f'{pert_key}_sequence'])
@@ -529,6 +534,8 @@ class SequenceAttack():
 						cmaps_distance = compute_cmaps_distance(model=self.original_model, alphabet=self.alphabet, 
 							original_sequence=original_sequence, sequence_name=name, 
 							perturbed_sequence=perturbed_sequence)
+
+						token_entropy = self.embedding_model.compute_tokens_entropy(msa=msa)[target_token_idx]
 
 						### substitutions that maximize the distance bw original and perturbed contact maps
 
@@ -571,6 +578,15 @@ class SequenceAttack():
 
 							if DEBUG:
 								print(f"\t\tnew token = {new_token}\tdistance = {embedding_distance}")
+
+						if pert_key=='max_entropy' and token_entropy > atk_dict[pert_key]:
+							atk_dict[pert_key] = token_entropy.item()
+							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+							atk_dict[f'{pert_key}_embedding_distance'] = embedding_distance.item()
+							new_token = token
+
+							if DEBUG:
+								print(f"\t\tnew token = {new_token}\tentropy = {token_entropy}")
 
 				atk_dict[f'{pert_key}_tokens'].append(new_token)
 

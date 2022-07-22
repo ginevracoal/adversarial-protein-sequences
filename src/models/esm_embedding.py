@@ -217,6 +217,9 @@ class EsmEmbedding(nn.Module):
 		return tokens_attention
 
 	def loss(self, method, output, target_token_idxs, true_residues_idxs):
+		
+		# todo: update methods
+		raise NotImplementedError
 
 		if method=='max_prob':
 			logits = output['logits'][:,0,1:-1, :]

@@ -95,3 +95,30 @@ def compute_cmaps_distance_df(model, alphabet, perturbed_sequences_dict, origina
 
     print(f"\n\ncmap_distances at k=0:\n\n{cmap_df[cmap_df['k']==0]}\n")
     return cmap_df
+
+
+def compute_tokens_entropy(msa, n_token_substitutions, residues_tokens):
+
+    msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
+
+    n_residues = len(residues_tokens)
+    n_sequences = msa_array.shape[0]
+    n_tokens = msa_array.shape[1]
+
+    ### count occurrence probs of residues in msa columns
+
+    occurrence_frequencies = torch.empty((n_tokens, n_residues))
+
+    for residue_idx, residue in enumerate(residues_tokens):
+        for token_idx in range(n_tokens):
+            column_string = "".join(msa_array[:,token_idx])
+            occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
+
+    occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
+
+    ### compute token idxs entropy
+
+    tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
+        for i in range(n_tokens)])
+
+    return tokens_entropy
