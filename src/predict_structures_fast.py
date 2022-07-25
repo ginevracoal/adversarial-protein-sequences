@@ -27,7 +27,7 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
     help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
     help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=100, type=eval, 
+parser.add_argument("--n_sequences", default=30, type=eval, 
     help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
@@ -60,7 +60,7 @@ out_dir = 'out/' if socket.gethostname()=="dmgdottorati" else args.out_dir
 out_structures_dir = os.path.join(out_dir, "structures/", filename)
 os.makedirs(os.path.dirname(out_structures_dir), exist_ok=True)
 
-perturbations_keys = ['min_dist','max_dist','max_cos','max_cmap_dist','max_entropy'] 
+perturbations_keys = ['max_dist','max_cmap_dist','max_entropy','max_cos']
 
 all_keys = ['original']+perturbations_keys
 atk_df_dir = "data/" if socket.gethostname()=="dmgdottorati" else os.path.join(args.data_dir, filename+"/data/")
@@ -119,7 +119,8 @@ for seq_idx, row in new_df.iterrows():
         plddt = args.plddt_ths
         same_pdb_length = True
 
-        if original_ptm>=args.ptm_ths and original_plddt>=args.plddt_ths:
+        # if original_ptm>=args.ptm_ths and original_plddt>=args.plddt_ths:
+        if original_plddt>=args.plddt_ths:
 
             original_coordinates = coordinates_dict['original_coordinates']
             original_filepath = os.path.join(out_structures_dir, f"original_{seq_idx}_unrelaxed_rank_1_model_1.pdb")
@@ -142,7 +143,6 @@ for seq_idx, row in new_df.iterrows():
                 plddt = np.mean(data['plddt'])
                 ptm = data['ptm']
 
-
                 # if plddt<args.plddt_ths:
 
                 #     print("\n\n\tLow confidence in structure prediction, discarding this sequence.")
@@ -159,12 +159,19 @@ for seq_idx, row in new_df.iterrows():
 
                 same_pdb_length = len(coordinates_dict[f'{key}_coordinates'])==len(row['original_sequence'])
 
-                if same_pdb_length is False:
-                    print("\n\tPart of the 3d structure is unknown, discarding this sequence.")
-                    out_df = out_df.drop(out_df[out_df.seq_idx==seq_idx].index)
-                    break
+                # if same_pdb_length is False:
+                #     print("\n\tPart of the 3d structure is unknown, discarding this sequence.")
+                #     out_df = out_df.drop(out_df[out_df.seq_idx==seq_idx].index)
+                #     break
+                #     # original_coordinates, pert_coordinates = \
+                #     #     get_available_residues_coordinates("original", original_filepath, key, pert_filepath)
 
-                else:
+                #     # corr_original_coordinates = original_coordinates
+                #     # corr_pert_coordinates = pert_coordinates
+
+                # else:
+
+                if same_pdb_length is True:
 
                     ##########
                     # scores #
@@ -178,8 +185,7 @@ for seq_idx, row in new_df.iterrows():
                     pert_dmap = get_dmap(cb_coordinates=pert_coordinates)
                     lddt = get_LDDT(true_dmap, pert_dmap)
 
-                    tm = get_TM_score(len(row['original_sequence']), corr_original_coordinates, 
-                        corr_pert_coordinates)
+                    tm = get_TM_score(len(row['original_sequence']), corr_original_coordinates, corr_pert_coordinates)
 
                     print(f"\t\tRMSD = {rmsd:.2f}\tLDDT = {lddt:.2f}\tTM-score = {tm:.2f}")
 
@@ -188,11 +194,11 @@ for seq_idx, row in new_df.iterrows():
                         'RMSD':rmsd}                  
                     out_df = out_df.append(row_dict, ignore_index=True)
 
-            if args.normalize:
-                from sklearn.preprocessing import minmax_scale
-                rows_idxs = out_df['seq_idx']==seq_idx
-                if rows_idxs.sum()>0:
-                    out_df.loc[rows_idxs, ['RMSD']] = minmax_scale(out_df[rows_idxs]['RMSD'])
+                # if args.normalize:
+                #     from sklearn.preprocessing import minmax_scale
+                #     rows_idxs = out_df['seq_idx']==seq_idx
+                #     if rows_idxs.sum()>0:
+                #         out_df.loc[rows_idxs, ['RMSD']] = minmax_scale(out_df[rows_idxs]['RMSD'])
 
         else:
 
@@ -208,12 +214,13 @@ out_df.to_csv(os.path.join(out_dir, filename+"_structure_prediction.csv"))
 # plot #
 ########
 
-print(f"\ndf size = {len(out_df)}\t n_sequences = {len(list(out_df['seq_idx'].unique()))}")
+print(f"\ndf size = {len(out_df)}\t max_n_sequences = {len(list(out_df['seq_idx'].unique()))}")
 
 matplotlib.rc('font', **{'size': 13})
 sns.set_style("darkgrid")
+sns.set_palette("rocket", len(perturbations_keys))
 keys = ['PTM','pLDDT','LDDT','RMSD','TM-score']
-hue_order = perturbations_keys  #['min_dist','max_dist','max_cmap_dist']#,'max_cos'] 
-plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, palette='rocket', hue_order=hue_order)
+hue_order = perturbations_keys
+plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, hue_order=hue_order)
 plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot.png"))
 plt.close()

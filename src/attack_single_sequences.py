@@ -22,8 +22,9 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam/', type=str, help="Datasets path.")
-parser.add_argument("--dataset", default='fastaPF00004', type=str, help="Dataset name.")
+# parser.add_argument("--data_dir", default='/scratch/external/gcarbone/pfam/', type=str, help="Datasets path.")
+parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/hhfiltered/', type=str, help="Datasets path.")
+parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name.")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
 
@@ -31,16 +32,18 @@ parser.add_argument("--max_tokens", default=200, type=eval,
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
 parser.add_argument("--n_sequences", default=100, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
+parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
+
 parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Only 'max_attention' is available on single sequence models.")
-parser.add_argument("--target_attention", default='last_layer', type=str, 
+parser.add_argument("--target_attention", default='all_layers', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 
-parser.add_argument("--loss_method", default='max_masked_ce', type=str, 
-	help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_prob' \
-	or 'max_tokens_repr'.")
+parser.add_argument("--loss_method", default='max_masked_prob', type=str, 
+    help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_masked_prob' \
+    or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
@@ -53,7 +56,9 @@ parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
-out_filename = f"single_seq_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}_{args.loss_method}"
+# out_filename = f"single_seq_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_{args.loss_method}"
+out_filename = f"single_seq_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}_{args.loss_method}_attn={args.target_attention}"
+
 out_path = os.path.join(args.out_dir, "single_sequence/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
@@ -80,7 +85,12 @@ else:
 
 	atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
-	data, max_tokens = load_pfam(filepath=args.data_dir, filename=args.dataset, 
+	# data, max_tokens = load_pfam(filepath=args.data_dir, filename=args.dataset, 
+	# 	max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
+
+	data, max_tokens = load_msa(
+		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
+		filename=f"{args.dataset}_top_{args.n_sequences}_seqs", 
 		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
 	### fill dataframes
@@ -89,17 +99,18 @@ else:
 	cmap_df = pd.DataFrame()
 	embeddings_distances = []
 
+
 	for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
 
 		name, original_sequence = single_sequence_data
-		batch_labels, batch_strs, batch_tokens = batch_converter([single_sequence_data])
-
+		original_sequence = original_sequence.replace('-','')
+		
+		batch_labels, batch_strs, batch_tokens = batch_converter([(name, original_sequence)])
 		batch_tokens = batch_tokens.to(args.device)
 
 		with torch.no_grad():
-			results = esm_model(batch_tokens, repr_layers=list(range(n_layers)), return_contacts=True)
-
-		first_embedding = results["representations"][0].to(args.device)
+			results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
+			first_embedding = results["representations"][0].to(args.device)
 
 		### sequence attacks
 
@@ -108,6 +119,7 @@ else:
 			target_attention=args.target_attention, verbose=args.verbose)
 
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
+			batch_tokens=batch_tokens,
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
 		df, emb_dist_single_seq = atk.incremental_attack(name=name, original_sequence=original_sequence, 
@@ -138,8 +150,10 @@ else:
 	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
 
 
-print("\n", atk_df.keys())
-print("\n", cmap_df.keys())
+### plots
+
+print("\natk_df:\n", atk_df.keys())
+print("\ncmap_df:\n", cmap_df.keys())
 
 plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
 plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
@@ -148,3 +162,6 @@ plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filena
 plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+
+
+

@@ -218,27 +218,33 @@ class EsmEmbedding(nn.Module):
 
 	def loss(self, method, output, target_token_idxs, true_residues_idxs):
 		
-		# todo: update methods
-		raise NotImplementedError
+		if method=='target_probs':
+			logits = output['logits'][:,1:-1, :]
+			probs = torch.softmax(logits, dim=-1)
+			loss = torch.sum(probs[:,target_token_idxs])
 
-		if method=='max_prob':
-			logits = output['logits'][:,0,1:-1, :]
-			probs = torch.mean(torch.softmax(logits, dim=1), dim=-1)
-			loss = torch.max(probs)
-
-		elif method=='max_tokens_repr':
-			output_representations = output['representations'][self.args.layers].squeeze()
+		elif method=='tokens_repr':
+			output_representations = output['representations'][self.args.layers][:].squeeze()
 			output_representations = output_representations[1:-1, :]
 			loss = torch.sum(torch.abs(output_representations[target_token_idxs,:]))
 
-		elif method=='max_masked_ce':
-			logits = output['logits'][:,0,1:-1, :] # heads logits
+		elif method=='max_masked_prob':
+			logits = output['logits'][:,1:-1, :]
 			probs = torch.softmax(logits, dim=-1)
 
 			target_probs = [probs[:,token_idx,residue_idx] 
 				for token_idx, residue_idx in zip(target_token_idxs, true_residues_idxs)]
 
-			loss = torch.mean(torch.log(torch.stack(target_probs))) # CE on token idxs masked preds
+			loss = torch.max(torch.stack(target_probs))
+
+		elif method=='sum_masked_prob':
+			logits = output['logits'][:,1:-1, :]
+			probs = torch.softmax(logits, dim=-1)
+
+			target_probs = [probs[:,token_idx,residue_idx] 
+				for token_idx, residue_idx in zip(target_token_idxs, true_residues_idxs)]
+
+			loss = torch.sum(torch.stack(target_probs))
 
 		else:
 			raise AttributeError

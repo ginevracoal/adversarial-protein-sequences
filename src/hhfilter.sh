@@ -2,7 +2,7 @@
 
 ### args
 
-DATASET="PF00240" # PF00533, PF00240, PF00627
+DATASET="PF00240" # PF00533, PF00627, PF00240
 N_SEQUENCES=100
 FILTER_SIZE=100
 
@@ -13,7 +13,7 @@ OUT_PATH="/scratch/external/gcarbone/msa/hhfiltered/hhfiltered_${DATASET}_seqs=$
 
 mkdir -p $OUT_PATH
 eval "$(conda shell.bash hook)"
-module load conda/4.9.2
+# module load conda/4.9.2
 conda activate esm
 
 ### select top N_SEQUENCES in the MSA 
@@ -32,6 +32,7 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	current_seq_name=$(sed -n ${seq_count}p "${OUT_PATH}names")
 	current_seq_filename=$(echo $current_seq_name | sed 's|[>,]||g' | sed 's/\//_/g')
+
 	OUT_NO_GAPS="${DATASET}_${current_seq_filename}_no_gaps"
 	cat "${OUT_PATH}full_sequences" > "${OUT_PATH}tmp"
 
@@ -43,7 +44,7 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 	printf "\n"
 
 	char_count=1
-	for char in $(sed 's/./&\n/g' <(printf "$current_seq")); do
+	for char in $(sed 's/./&\n/g' <(printf '%s\n' "$current_seq")); do
 
 		if [ "$char" = "-" ]; then
 
@@ -53,8 +54,6 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 			### DEBUG
 			# printf "\n"
 			# echo removing col $char_count with char $char
-			# printf "\n"
-			# cat "${OUT_PATH}tmp"
 
 			char_count=$((char_count-1))
 		fi
@@ -62,7 +61,7 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 		char_count=$((char_count+1))
 
 	done
-
+	
 	# printf "\n"
 	# cat "${OUT_PATH}tmp"
 
@@ -79,8 +78,8 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 	done
 
-	# printf "\n"
-	# cat $OUT_PATH$OUT_NO_GAPS
+	printf "\n"
+	cat $OUT_PATH$OUT_NO_GAPS
 
 	### select top FILTER_SIZE seqs in the new msa
 

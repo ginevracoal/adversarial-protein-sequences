@@ -5,7 +5,7 @@
 ###################
 
 #PBS -N full_test
-#PBS -l nodes=1:ppn=24
+#PBS -l nodes=1:ppn=12
 #PBS -l walltime=20:00:00
 #PBS -q gpu
 #PBS -j oe
@@ -15,14 +15,15 @@
 # script settings #
 ###################
 
-DATASET="PF00533" 
+DATASET="PF00533" # PF00533, PF00627, PF00240
 MAX_TOKENS=None
-N_SEQUENCES=100
+N_SEQUENCES=30
 MIN_FILTER=100
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
-LOSS_METHOD='max_masked_prob' # 'max_masked_ce', 'max_tokens_repr', 'max_masked_prob'
+LOSS_METHOD='avg_masked_prob' # 'max_masked_ce', 'max_tokens_repr', 'max_masked_prob'
 N_SUBSTITUTIONS=3
+PLDDT_THS=70
 DEVICE="cuda"
 LOAD=False
 
@@ -69,16 +70,16 @@ DATA_DIR="${OUT_DIR}msa/"
 
 for ((min=0; min<=$N_SEQUENCES; min+=1)); do
 
-	python predict_structures.py --min=$min --max=$min --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+	python predict_structures_fast.py --min=$min --max=$min --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
 		--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
 		--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
 		--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
 
 done
 
-python predict_structures.py --min=0 --max=$((N_SEQUENCES-1)) --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
+python predict_structures_fast.py --min=0 --max=$((N_SEQUENCES-1)) --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
 	--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
 	--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
-	--target_attention=$TARGET_ATTENTION >> $OUT 2>&1
+	--target_attention=$TARGET_ATTENTION --plddt_ths=$PLDDT_THS >> $OUT 2>&1
 
 conda deactivate

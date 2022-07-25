@@ -7,46 +7,52 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-FONT_SIZE=13
+
 TOP=0.92
+FONT_SIZE=13
+palette="rocket"
+sns.set_style("darkgrid")
+sns.set_palette(palette, 5)
+linestyles=['-', '--', '-.', ':', '-']
+matplotlib.rc('font', **{'size': FONT_SIZE})
+
 
 def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
-	fig, ax = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={'width_ratios': [1, 1]}, sharey=True)
-
+	fig, ax = plt.subplots(1, 1, figsize=(8, 5), sharey=True)
 
 	df = df.sort_values('original_token') 
-	sns.scatterplot(data=df, x='original_token', y='target_token_attention', ax=ax[0], hue='original_token', label='')
-	ax[0].set_xlabel('Target token')
-	ax[0].set_ylabel('Attention')
 
-	df['target_token_idx'] = df['target_token_idx'].astype(int)
-	sns.scatterplot(data=df, x='target_token_idx', y='target_token_attention', ax=ax[1], hue='target_token_idx', label='')
-	ax[1].set_xlabel('Target token idx')
-	ax[1].set_ylabel('')
-
-	if missense_df is not None:
-		missense_df['original_token'] = missense_df['original_token']
-		missense_df['target_token_idx'] = missense_df['target_token_idx'].astype(int)
-		sns.scatterplot(x=missense_df['original_token'], y=missense_df['target_token_attention'], ax=ax[0], 
-			marker='*', color='black', s=200, linewidths=3, label='')
-		sns.scatterplot(x=missense_df['target_token_idx'], y=missense_df['target_token_attention'], ax=ax[1], 
-			marker='*', color='black', s=200, linewidths=3, label='missense')
-
-	ax[0].get_legend().remove()
-	ax[1].get_legend().remove()
-	# ax[1].legend(['missense'])
-
-	plt.tight_layout()
-	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	sns.stripplot(data=df, x='original_token', y='target_token_attention', hue='original_token', label='',
+		palette=palette)
+	ax.set_xlabel('Target residue')
+	ax.set_ylabel('Attention')
+	ax.get_legend().remove()
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
-		fig.savefig(os.path.join(filepath, filename+"_attention_scores.png"))
+		fig.savefig(os.path.join(filepath, filename+"_residue_vs_attention.png"))
+		plt.close()
+
+	fig, ax = plt.subplots(1, 1, figsize=(8, 5), sharey=True)
+
+	df['target_token_idx'] = df['target_token_idx'].astype(int)
+	sns.scatterplot(data=df, x='target_token_idx', y='target_token_attention', hue='target_token_idx', label='')
+	ax.set_xlabel('Target token idx')
+	ax.set_ylabel('Attention')
+	ax.get_legend().remove()
+
+	plt.tight_layout()
+	plt.show()
+	
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
+
+	if filepath is not None and filename is not None:
+		os.makedirs(os.path.dirname(filepath), exist_ok=True)
+		fig.savefig(os.path.join(filepath, filename+"_token_idx_vs_attention.png"))
 		plt.close()
 
 	return fig
@@ -67,8 +73,9 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 		for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
 			df = df.sort_values(f'{key}_token') 
 			# sns.swarmplot(data=df, y="perc_token_idx", x=f"{key}_token", ax=axis)
-			sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter)
-			axis.set_ylabel('token idx percentile')
+			sns.stripplot(data=df, y="perc_token_idx", x=f"{key}_token", dodge=True, ax=axis, jitter=jitter,
+				palette=palette)
+			axis.set_ylabel('token idx percentile') # percentile in case of different lenghts
 
 	else:
 		### histogram of token idx percentiles
@@ -78,8 +85,8 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 
 	plt.tight_layout()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -104,8 +111,8 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 
 		plt.tight_layout()
 		plt.show()
-		fig.suptitle(filename, fontsize=FONT_SIZE)
-		plt.subplots_adjust(top=TOP) 
+		# fig.suptitle(filename, fontsize=FONT_SIZE)
+		# plt.subplots_adjust(top=TOP) 
 
 		if filepath is not None and filename is not None:
 			os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -116,20 +123,22 @@ def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None
 	matplotlib.rc('font', **{'size': FONT_SIZE})    
 	sns.set_style("darkgrid")
 
+	df = df[df['k']<10]
+
 	fig, ax = plt.subplots(figsize=(8, 5))
 	ax.set(xlabel=r'Upper triangular matrix index $k$ = len(sequence)-diag_idx', 
 		ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
-	for key in keys:
-		sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key)
+	for idx, key in enumerate(keys):
+		sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key, ls=linestyles[idx])
 
 	if missense_df is not None:
 		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
 
 	plt.tight_layout()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -158,8 +167,8 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	plt.tight_layout()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -170,7 +179,9 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=False)
+		hist=True if key=='masked_pred' else False
+		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=hist, 
+			kde_kws={'linestyle':linestyles[idx]})
 
 	plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x_{<i>})]]$')
 
@@ -184,8 +195,8 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -196,7 +207,10 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=False)
+		hist=True if key=='masked_pred' else False
+		sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=hist,
+			kde_kws={'linestyle':linestyles[idx]})
+
 	plt.xlabel(r'Evo velocity $\mathbb{E}_{i\in I}[ \log p(\tilde{x}_i|x_{<i>})-\log p(x_i|x_{<i>})]$')
 
 	if missense_df is not None:
@@ -209,8 +223,8 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -227,17 +241,22 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 	
 	### adversarial perturbations
 	for idx, key in enumerate(keys):
-		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=False)
-		
+		hist=True if key=='masked_pred' else False		
+		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key} embeddings', kde=True, hist=hist,
+			kde_kws={'linestyle':linestyles[idx]})
+
 	### all possible token choices and residues substitutions
-	sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
+	# sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
 
 	plt.xlabel(r'Distribution of embeddings distances dist($z,z_I(C_I)$) (varying $z$ and $C_I$)')
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# plt.yscale('log')
+
+
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -245,8 +264,6 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 		plt.close()
 
 def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
-	matplotlib.rc('font', **{'size': FONT_SIZE})
-	sns.set_style("darkgrid")
 
 	fig, ax = plt.subplots(figsize=(8, 5))
 	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
@@ -258,7 +275,9 @@ def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=No
 
 	elif plot_method=='distplot':
 		for idx, key in enumerate(keys):
-			sns.distplot(x=df[f"{key}_blosum_dist"], label=key, kde=True, hist=False)
+			hist=True if key=='masked_pred' else False
+			sns.distplot(x=df[f"{key}_blosum_dist"], label=key, kde=True, hist=hist,
+				kde_kws={'linestyle':linestyles[idx]})
 
 	else:
 		raise ValueError
@@ -274,8 +293,8 @@ def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=No
 	plt.legend()
 	plt.tight_layout()
 	plt.show()
-	fig.suptitle(filename, fontsize=FONT_SIZE)
-	plt.subplots_adjust(top=TOP) 
+	# fig.suptitle(filename, fontsize=FONT_SIZE)
+	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)

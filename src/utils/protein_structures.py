@@ -169,6 +169,29 @@ def get_corresponding_residues_coordinates(protein_name_1, pdb_filename_1, prote
     coordinates2 = np.array(coordinates2)
     return coordinates1, coordinates2
 
+def get_available_residues_coordinates(protein_name_1, pdb_filename_1, protein_name_2, pdb_filename_2):
+
+    p = PDBParser()
+    s1 = p.get_structure(protein_name_1, pdb_filename_1) 
+    s2 = p.get_structure(protein_name_2, pdb_filename_2) 
+
+    coordinates1 = []
+    coordinates2 = []
+
+    for chains1, chains2 in zip(s1,s2):
+        for chain1, chain2 in zip(chains1,chains2):
+            for residue1, residue2 in zip(chain1, chain2):
+                if residue1._id[1]==residue2._id[1]:
+                    for atom1,atom2 in zip(residue1,residue2):
+                        if atom1.name=="CA" and atom2.name=="CA":
+                            coordinates1.append(atom1.get_coord())
+                            coordinates2.append(atom2.get_coord())
+
+    coordinates1 = np.array(coordinates1)
+    coordinates2 = np.array(coordinates2)
+    assert coordinates1.shape == coordinates2.shape
+    return coordinates1, coordinates2
+
 def get_RMSD(coordinates_1, coordinates_2):
     d_i = np.linalg.norm(coordinates_1 - coordinates_2, axis=1)
     rmsd = np.sqrt((d_i**2).mean())

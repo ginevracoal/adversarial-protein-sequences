@@ -6,7 +6,6 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.protein_sequences import compute_tokens_entropy
 
 from esm.modules import (
 	TransformerLayer,
@@ -329,29 +328,50 @@ class MsaEsmEmbedding(nn.Module):
 
 		return batch_tokens
 
-
 	def compute_tokens_entropy(self, msa):
 
-	    msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
+		msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
 
-	    n_residues = len(self.residues_tokens)
-	    n_sequences = msa_array.shape[0]
-	    n_tokens = msa_array.shape[1]
+		n_residues = len(self.residues_tokens)
+		n_sequences = msa_array.shape[0]
+		n_tokens = msa_array.shape[1]
 
-	    ### count occurrence probs of residues in msa columns
+		### count occurrence probs of residues in msa columns
 
-	    occurrence_frequencies = torch.empty((n_tokens, n_residues))
+		occurrence_frequencies = torch.empty((n_tokens, n_residues))
 
-	    for residue_idx, residue in enumerate(self.residues_tokens):
-	        for token_idx in range(n_tokens):
-	            column_string = "".join(msa_array[:,token_idx])
-	            occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
+		for residue_idx, residue in enumerate(self.residues_tokens):
+			for token_idx in range(n_tokens):
+				column_string = "".join(msa_array[:,token_idx])
+				occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
 
-	    occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
+		occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
 
-	    ### compute token idxs entropy
+		### compute token idxs entropy
 
-	    tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
-	        for i in range(n_tokens)])
+		tokens_entropy = torch.tensor([torch.sum(torch.tensor([-p_ij*torch.log(p_ij) for p_ij in occurrence_probs[i,:]])) 
+			for i in range(n_tokens)])
 
-	    return tokens_entropy
+		return tokens_entropy
+
+	def get_frequencies(self, msa):
+
+		msa_array = np.array([list(sequence) for sequence in dict(msa).values()])
+
+		n_residues = len(self.alphabet.all_toks)
+		n_sequences = msa_array.shape[0]
+		n_tokens = msa_array.shape[1]
+
+		### count occurrence probs of residues in msa columns
+
+		occurrence_frequencies = torch.empty((n_tokens, n_residues))
+
+		for residue_idx, residue in enumerate(self.alphabet.all_toks):
+			for token_idx in range(n_tokens):
+				column_string = "".join(msa_array[:,token_idx])
+				occurrence_frequencies[token_idx,residue_idx] = column_string.count(residue)
+
+		occurrence_probs = torch.softmax(occurrence_frequencies, dim=1)
+
+		return occurrence_probs
+

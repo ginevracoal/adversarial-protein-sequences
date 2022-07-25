@@ -45,7 +45,7 @@ parser.add_argument("--loss_method", default='max_masked_prob', type=str,
 
 parser.add_argument("--min", default=0, type=int) 
 parser.add_argument("--max", default=100, type=int) 
-parser.add_argument("--plddt_ths", default=70, type=int) 
+parser.add_argument("--plddt_ths", default=60, type=int) 
 parser.add_argument("--ptm_ths", default=0.4, type=float) 
 
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")
@@ -59,7 +59,7 @@ out_dir = 'out/' if socket.gethostname()=="dmgdottorati" else args.out_dir
 out_structures_dir = os.path.join(out_dir, "structures/", filename)
 os.makedirs(os.path.dirname(out_structures_dir), exist_ok=True)
 
-perturbations_keys = ['min_dist','max_dist','max_cmap_dist','max_cos'] 
+perturbations_keys = ['max_dist','max_cmap_dist','max_entropy','max_cos']
 all_keys = ['original']+perturbations_keys
 atk_df_dir = "data/" if socket.gethostname()=="dmgdottorati" else os.path.join(args.data_dir, filename+"/data/")
 atk_df = pd.read_csv(os.path.join(atk_df_dir, filename+"_atk.csv"), index_col=[0])
@@ -164,7 +164,8 @@ for seq_idx, row in new_df.iterrows():
 
                 print(f"\t\tRMSD = {rmsd:.2f}\tLDDT = {lddt:.2f}\tTM-score = {tm:.2f}")
 
-                if original_ptm>=args.ptm_ths and original_plddt>=args.plddt_ths and plddt>=args.plddt_ths:
+                # if original_ptm>=args.ptm_ths and original_plddt>=args.plddt_ths:
+                if original_plddt>=args.plddt_ths:
 
                     row_dict = {'seq_idx':seq_idx, 'perturbation':key, 'target_token_idxs':target_token_idxs,
                         'pert_tokens':pert_tokens, 'pLDDT':plddt, 'PTM':ptm, 'LDDT':lddt, 'TM-score':tm, 'RMSD':rmsd}                  

@@ -6,7 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 import torch.nn as nn
 from Bio.SubsMat import MatrixInfo
-from utils.protein_sequences import * #compute_blosum_distance, compute_cmaps_distance, get_max_hamming_msa, get_blosum_score
+from utils.protein_sequences import *
 
 blosum = MatrixInfo.blosum62
 DEBUG=True
@@ -438,10 +438,6 @@ class SequenceAttack():
 		assert 'masked_pred' in perturbations_keys
 		adv_perturbations_keys.remove('masked_pred')
 		
-		if msa: 
-			first_embedding=first_embedding[:,0]
-			signed_gradient=signed_gradient[:,0]
-
 		batch_converter = self.embedding_model.alphabet.get_batch_converter()
 		batch_tokens_masked = original_batch_tokens.clone()
 
@@ -462,6 +458,11 @@ class SequenceAttack():
 				f'{pert_key}_evo_velocity':0.,
 				f'{pert_key}_blosum_dist':0.
 				})
+
+		if msa is not None:
+			first_embedding=first_embedding[:,0]
+			signed_gradient=signed_gradient[:,0]
+			msa_frequencies = self.embedding_model.get_frequencies(msa=msa)
 
 		embeddings_distances = []
 		
@@ -501,7 +502,6 @@ class SequenceAttack():
 				if pert_key=='max_entropy' and msa is not None:
 					atk_dict.update({pert_key:0})
 
-
 				### updating one token at a time
 				for j, token in enumerate(allowed_token_substitutions):
 					current_sequence_list = list(atk_dict[f'{pert_key}_sequence'])
@@ -510,17 +510,24 @@ class SequenceAttack():
 
 					with torch.no_grad():
 
-						if msa:
+						if msa is None: # single-seq attack
+							perturbed_batch = [("pert_seq", perturbed_sequence)]
+							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+
+							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+							zc = results["representations"][0]
+
+							assert zc.shape[1]==len(original_sequence)+2
+							assert first_embedding.shape[1]==len(original_sequence)+2
+
+						else: # msa attack
 							perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa[1:])
 							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
 							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
 							zc = results["representations"][0][:,0]
 
-						else:
-							perturbed_batch = [("pert_seq", perturbed_sequence)]
-							batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-							results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-							zc = results["representations"][0]
+							assert zc.shape[1]==len(original_sequence)+1
+							assert first_embedding.shape[1]==len(original_sequence)+1
 
 						zc_diff = zc-first_embedding
 
@@ -535,7 +542,10 @@ class SequenceAttack():
 							original_sequence=original_sequence, sequence_name=name, 
 							perturbed_sequence=perturbed_sequence)
 
-						token_entropy = self.embedding_model.compute_tokens_entropy(msa=msa)[target_token_idx]
+						if msa is not None:
+							residue_idx = self.alphabet.get_idx(token)
+							p = msa_frequencies[target_token_idx,residue_idx]
+							token_entropy = -p*torch.log(p)
 
 						### substitutions that maximize the distance bw original and perturbed contact maps
 

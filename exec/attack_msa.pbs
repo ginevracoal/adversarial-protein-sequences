@@ -17,7 +17,7 @@
 
 DATASET="PF00533" 
 MAX_TOKENS=None
-N_SEQUENCES=100
+N_SEQUENCES=30
 MIN_FILTER=100
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'

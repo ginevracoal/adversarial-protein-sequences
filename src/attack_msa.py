@@ -30,7 +30,7 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
 	help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=100, type=eval, 
+parser.add_argument("--n_sequences", default=30, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
@@ -64,7 +64,7 @@ out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','min_dist','max_dist','max_cos','max_cmap_dist','max_entropy'] 
+perturbations_keys = ['max_dist','max_cmap_dist','max_entropy','max_cos','masked_pred']
 
 if args.load:
 
@@ -113,17 +113,17 @@ else:
 
 		msa = dict(msa)
 		if name in msa.keys():
+			# original_sequence_padded = msa[name]
 			msa.pop(name)		
 		msa = tuple(msa.items())
 		msa = [(name, original_sequence)] + list(msa)
 
 		### compute continuous embedding
 
-		embedding_idx = n_layers
 		batch_labels, batch_strs, batch_tokens = batch_converter(msa)
+		batch_tokens = batch_tokens.to(args.device)
 
 		with torch.no_grad():
-			batch_tokens = batch_tokens.to(args.device)
 			results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
 			first_embedding = results["representations"][0].to(args.device)
 
