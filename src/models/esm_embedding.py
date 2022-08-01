@@ -237,15 +237,6 @@ class EsmEmbedding(nn.Module):
 
 			loss = torch.max(torch.stack(target_probs))
 
-		elif method=='sum_masked_prob':
-			logits = output['logits'][:,1:-1, :]
-			probs = torch.softmax(logits, dim=-1)
-
-			target_probs = [probs[:,token_idx,residue_idx] 
-				for token_idx, residue_idx in zip(target_token_idxs, true_residues_idxs)]
-
-			loss = torch.sum(torch.stack(target_probs))
-
 		else:
 			raise AttributeError
 

@@ -35,7 +35,7 @@ parser.add_argument("--n_substitutions", default=3, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
     help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='all_layers', type=str, 
+parser.add_argument("--target_attention", default='last_layer', type=str, 
     help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
     Used only when `token_selection`=`max_attention")
 
@@ -45,11 +45,12 @@ parser.add_argument("--loss_method", default='max_masked_prob', type=str,
 
 parser.add_argument("--min", default=0, type=int) 
 parser.add_argument("--max", default=100, type=int) 
-parser.add_argument("--plddt_ths", default=60, type=int) 
-parser.add_argument("--ptm_ths", default=0.4, type=float) 
+parser.add_argument("--plddt_ths", default=80, type=int) 
+# parser.add_argument("--ptm_ths", default=0.4, type=float) 
 
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute.')
+parser.add_argument("--plot", default=True, type=eval)
 parser.add_argument("--verbose", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
@@ -182,17 +183,18 @@ out_dir = os.path.join(out_dir, 'structures/')
 
 print(f"\nSaving: {out_dir}{filename}_structure_prediction.csv")
 out_df.to_csv(os.path.join(out_dir, filename+"_structure_prediction.csv"))
+print(f"\ndf size = {len(out_df)}\t n_sequences = {len(list(out_df['seq_idx'].unique()))}")
 
 ########
 # plot #
 ########
 
-print(f"\ndf size = {len(out_df)}\t n_sequences = {len(list(out_df['seq_idx'].unique()))}")
+if args.plot:
 
-matplotlib.rc('font', **{'size': 13})
-sns.set_style("darkgrid")
-keys = ['PTM','pLDDT','LDDT','RMSD','TM-score']
-plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, palette='rocket', 
-    hue_order=perturbations_keys)
-plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot.png"))
-plt.close()
+    matplotlib.rc('font', **{'size': 13})
+    sns.set_style("darkgrid")
+    keys = ['PTM','pLDDT','LDDT','RMSD','TM-score']
+    plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, palette='mako', 
+        hue_order=perturbations_keys)
+    plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot.png"))
+    plt.close()

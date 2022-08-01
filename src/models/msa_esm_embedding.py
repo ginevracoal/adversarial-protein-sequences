@@ -294,6 +294,8 @@ class MsaEsmEmbedding(nn.Module):
 
 	def loss(self, method, output, target_token_idxs, true_residues_idxs):
 
+		device = next(self.original_model.parameters()).device
+
 		if method=='target_probs':
 			logits = output['logits'][:,0,1:, :]
 			probs = torch.softmax(logits, dim=-1)
@@ -312,6 +314,13 @@ class MsaEsmEmbedding(nn.Module):
 				for token_idx, residue_idx in zip(target_token_idxs, true_residues_idxs)]
 
 			loss = torch.max(torch.stack(target_probs))
+
+		elif method=='max_masked_ce':
+			logits = output['logits'][:,0,1:, :].squeeze()
+			targets = torch.tensor(true_residues_idxs).to(device)
+			logits = logits[target_token_idxs]
+			ce_loss = torch.nn.CrossEntropyLoss()
+			loss = ce_loss(logits, targets)
 
 		else:
 			raise AttributeError

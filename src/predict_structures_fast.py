@@ -27,7 +27,7 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
     help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
     help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=30, type=eval, 
+parser.add_argument("--n_sequences", default=100, type=eval, 
     help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
@@ -35,7 +35,7 @@ parser.add_argument("--n_substitutions", default=3, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
     help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='all_layers', type=str, 
+parser.add_argument("--target_attention", default='last_layer', type=str, 
     help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
     Used only when `token_selection`=`max_attention")
 
@@ -45,13 +45,14 @@ parser.add_argument("--loss_method", default='max_masked_prob', type=str,
 
 parser.add_argument("--min", default=0, type=int) 
 parser.add_argument("--max", default=100, type=int) 
-parser.add_argument("--plddt_ths", default=60, type=int) 
+parser.add_argument("--plddt_ths", default=80, type=int) 
 parser.add_argument("--ptm_ths", default=0.4, type=float) 
 parser.add_argument("--normalize", default=False, type=eval)
 
 parser.add_argument("--device", default='cuda', type=str, help="Device: choose 'cpu' or 'cuda'.")
 parser.add_argument("--load", default=False, type=eval, help='If True load else compute.')
 parser.add_argument("--verbose", default=True, type=eval)
+parser.add_argument("--plot", default=True, type=eval)
 args = parser.parse_args()
 print("\n", args)
 
@@ -205,22 +206,29 @@ for seq_idx, row in new_df.iterrows():
             print("\n\n\tLow confidence in structure prediction, discarding this sequence.")
 
 
-out_dir = os.path.join(out_dir, 'structures/')
 
-print(f"\nSaving: {out_dir}{filename}_structure_prediction.csv")
-out_df.to_csv(os.path.join(out_dir, filename+"_structure_prediction.csv"))
+print(f"\nSaving: {out_structures_dir}{filename}_structure_prediction.csv")
+out_df.to_csv(os.path.join(out_structures_dir, filename+"_structure_prediction.csv"))
+print(f"\ndf size = {len(out_df)}\t max_n_sequences = {len(list(out_df['seq_idx'].unique()))}")
 
 ########
 # plot #
 ########
 
-print(f"\ndf size = {len(out_df)}\t max_n_sequences = {len(list(out_df['seq_idx'].unique()))}")
+out_dir = os.path.join(out_dir, 'structures/')
 
-matplotlib.rc('font', **{'size': 13})
-sns.set_style("darkgrid")
-sns.set_palette("rocket", len(perturbations_keys))
-keys = ['PTM','pLDDT','LDDT','RMSD','TM-score']
-hue_order = perturbations_keys
-plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, hue_order=hue_order)
-plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot.png"))
-plt.close()
+if args.plot:
+
+    matplotlib.rc('font', **{'size': 13})
+    sns.set_style("darkgrid")
+    sns.set_palette("mako", len(perturbations_keys))
+
+    keys = ['PTM','pLDDT']
+    plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, hue_order=perturbations_keys)
+    plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot.png"))
+    plt.close()    
+
+    keys = ['LDDT','RMSD','TM-score']
+    plot = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, hue_order=perturbations_keys)
+    plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot2.png"))
+    plt.close()

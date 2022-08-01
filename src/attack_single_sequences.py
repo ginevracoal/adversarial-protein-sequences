@@ -13,7 +13,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.esm_embedding import EsmEmbedding
-from utils.protein_sequences import compute_cmaps_distance, get_max_hamming_msa
+from utils.protein_sequences import compute_cmaps_distance_df, get_max_hamming_msa
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -38,7 +38,7 @@ parser.add_argument("--n_substitutions", default=3, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Only 'max_attention' is available on single sequence models.")
-parser.add_argument("--target_attention", default='all_layers', type=str, 
+parser.add_argument("--target_attention", default='last_layer', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'.")
 
 parser.add_argument("--loss_method", default='max_masked_prob', type=str, 
@@ -63,7 +63,7 @@ out_path = os.path.join(args.out_dir, "single_sequence/", out_filename+"/")
 out_plots_path = os.path.join(out_path, "plots/")
 out_data_path = os.path.join(out_path, "data/")
 
-perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['max_dist','max_entropy','max_cos','masked_pred']
 
 if args.load:
 

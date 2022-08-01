@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
+DPI=150
 TOP=0.92
 FONT_SIZE=13
-palette="rocket"
+palette="mako"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
 linestyles=['-', '--', '-.', ':', '-']
@@ -21,7 +22,7 @@ def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 
-	fig, ax = plt.subplots(1, 1, figsize=(8, 5), sharey=True)
+	fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=DPI, sharey=True)
 
 	df = df.sort_values('original_token') 
 
@@ -36,7 +37,7 @@ def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_residue_vs_attention.png"))
 		plt.close()
 
-	fig, ax = plt.subplots(1, 1, figsize=(8, 5), sharey=True)
+	fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=DPI, sharey=True)
 
 	df['target_token_idx'] = df['target_token_idx'].astype(int)
 	sns.scatterplot(data=df, x='target_token_idx', y='target_token_attention', hue='target_token_idx', label='')
@@ -67,7 +68,7 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 
 		### split by perturbations_keys
 		assert len(keys)>1
-		fig, ax = plt.subplots(figsize=(10, 7), nrows=2, ncols=2, sharey=True)
+		fig, ax = plt.subplots(figsize=(10, 7), dpi=DPI, nrows=2, ncols=2, sharey=True)
 		jitter = 0.1
 
 		for key, axis in ((keys[0],ax[0,0]), (keys[1],ax[1,0]), (keys[2],ax[0,1]), (keys[3],ax[1,1])):
@@ -101,7 +102,7 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 
 	for key in keys:
 
-		fig, ax = plt.subplots(figsize=(10, 7))
+		fig, ax = plt.subplots(figsize=(10, 7), dpi=DPI)
 
 		subst_counts = df.groupby(['original_token', f'{key}_token'], as_index=False).size()
 		subst_counts = subst_counts.rename(columns={"size": "n_substitutions"})
@@ -125,7 +126,7 @@ def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None
 
 	df = df[df['k']<10]
 
-	fig, ax = plt.subplots(figsize=(8, 5))
+	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$ = len(sequence)-diag_idx', 
 		ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
@@ -156,7 +157,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 	df["masked_pred_accuracy"] = df["masked_pred_accuracy"].apply(lambda x: format(float(x),".2f"))
 	df = df.sort_values(by=['masked_pred_accuracy'])
 
-	fig, ax = plt.subplots(2, 1, figsize=(8, 5), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
+	fig, ax = plt.subplots(2, 1, figsize=(8, 5), dpi=DPI, gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
 
 	# sns.stripplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", jitter=0.3, ax=ax[0])
 	sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", ax=ax[0], palette="Blues")
@@ -175,28 +176,37 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_accuracy_vs_likelihood.png"))
 		plt.close()
 
+	### perplexity
+
+	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+	for idx, key in enumerate(keys):
+		if key!='masked_pred':
+			g = sns.distplot(x=df[f"{key}_perplexity"], label=key, kde=True, hist=False, 
+				kde_kws={'linestyle':linestyles[idx]})
+			# g.set(xlim=(0, None))
+
+	plt.xlabel(r'Perplexity of predictions: $e^{H(p)}$')
+	plt.tight_layout()
+	plt.legend()
+	plt.show()
+
+	if filepath is not None and filename is not None:
+		os.makedirs(os.path.dirname(filepath), exist_ok=True)
+		fig.savefig(os.path.join(filepath, filename+"_perplexity.png"))
+		plt.close()
+
 	### pseudo-likelihood
 
-	fig, ax = plt.subplots(figsize=(8, 5))
+	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
 	for idx, key in enumerate(keys):
 		hist=True if key=='masked_pred' else False
 		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=hist, 
 			kde_kws={'linestyle':linestyles[idx]})
 
 	plt.xlabel(r'Pseudo likelihood of substitution: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x_{<i>})]]$')
-
-	if missense_df is not None:
-		ymax = ax.get_ylim()[1]
-
-		for idx, value in enumerate(missense_df['missense_pseudo_likelihood'].unique()):
-			label='missense' if idx==0 else ''
-			plt.plot([value,value], [0, ymax], ls='--', lw=1, color='black', label=label)
-
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -205,7 +215,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	### evo-velocity
 
-	fig, ax = plt.subplots(figsize=(8, 5))
+	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
 	for idx, key in enumerate(keys):
 		hist=True if key=='masked_pred' else False
 		sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=hist,
@@ -223,8 +233,6 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 	plt.tight_layout()
 	plt.legend()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -234,11 +242,8 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
-	fig, ax = plt.subplots(figsize=(8, 5))
+	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
 
-	# print(df[f'max_cos_embedding_distance'].describe())
-	# print(df[f'masked_pred_embedding_distance'].describe())
-	
 	### adversarial perturbations
 	for idx, key in enumerate(keys):
 		hist=True if key=='masked_pred' else False		
@@ -265,7 +270,7 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 
 def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
 
-	fig, ax = plt.subplots(figsize=(8, 5))
+	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
 	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
 
 	if plot_method=='histplot':
@@ -303,51 +308,91 @@ def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=No
 
 	return fig
 
-def plot_attention_grid(sequence, attentions, layer_idx, filepath=None, filename=None):
+def plot_attention_grid(sequence, attentions, layer_idx, target_token_idxs, filepath=None, filename=None):
 
-	layer_attention_scores = attentions[:,layer_idx-1,:,:,:].squeeze().detach().cpu().numpy()
+	# only for single sequence attacks
 
-	fig = plt.figure(figsize=(20, 20))
+	attention_scores = attentions[:,layer_idx-1,:,1:-1,1:-1].squeeze().detach().cpu().numpy()
+	assert len(sequence)==attention_scores.shape[1]
 
-	for idx, scores in enumerate(layer_attention_scores):
+	fig = plt.figure(figsize=(13, 9), dpi=DPI)
+
+	for idx, scores in enumerate(attention_scores):
 		scores_np = np.array(scores)
-		ax = fig.add_subplot(5, 4, idx+1)
-		im = ax.imshow(scores, cmap='viridis')
+		ax = fig.add_subplot(4, 5, idx+1)
+		im = ax.imshow(scores, cmap='mako_r')
 
-		ax.set_xticks(range(len(sequence)))
-		ax.set_yticks(range(len(sequence)))
+		ax.set_xticks([])
+		ax.set_yticks([])
 
 		fontdict = {'fontsize': 10}
-		ax.set_xticklabels(sequence, fontdict=fontdict)
-		ax.set_yticklabels(sequence, fontdict=fontdict, rotation=90)
 		ax.set_xlabel('{} {}'.format('Head', idx+1))
 
 		fig.colorbar(im, fraction=0.046, pad=0.04)
 
+	plt.grid(False)
 	plt.tight_layout()
 	plt.show()
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
-		fig.savefig(os.path.join(filepath, filename+"_attention_grid.png"))
+		fig.savefig(os.path.join(filepath, filename+"_grid.png"))
+		plt.close()
+
+	fig, ax = plt.subplots(figsize=(10, 9), dpi=DPI)
+	fontdict = {'fontsize': 9}
+	avg_attentions = np.array(attention_scores.mean(0).squeeze())
+	ax = sns.heatmap(avg_attentions, linewidth=0.01, cmap='mako_r')
+
+	ax.set_xticks(range(len(sequence)))
+	ax.set_yticks(range(len(sequence)))
+
+	ax.set_xticklabels(sequence, fontdict=fontdict, rotation=0)
+	ax.set_yticklabels(sequence, fontdict=fontdict, rotation=90)
+
+	for col_idx in target_token_idxs:
+		x, y, w, h = col_idx, 0, 1, len(sequence)
+		ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor='red', lw=2, clip_on=False))
+		ax.tick_params(length=0)
+
+	plt.grid(False)
+	plt.tight_layout()
+	plt.show()
+
+	if filepath is not None and filename is not None:
+		os.makedirs(os.path.dirname(filepath), exist_ok=True)
+		fig.savefig(os.path.join(filepath, filename+"_avg_attention.png"))
 		plt.close()
 
 	return fig
 
 
-def plot_cmaps(original_contacts, adversarial_contacts, filepath=None, filename=None):
+def plot_cmaps(original_contacts, adversarial_contacts, key, filepath=None, filename=None):
 
 	matplotlib.rc('font', **{'size': FONT_SIZE})
+	cmap="mako_r"
 
-	fig, ax = plt.subplots(figsize=(10, 4), ncols=3)
-	ax[0].imshow(original_contacts, cmap="Blues")
-	ax[1].imshow(adversarial_contacts, cmap="Blues")
-	ax[2].imshow(original_contacts-adversarial_contacts, cmap="Blues")
+	fig, ax = plt.subplots(figsize=(10, 4), dpi=DPI, ncols=3)
+
+	im = ax[0].imshow(original_contacts, cmap=cmap) 
+	plt.colorbar(im, ax=ax[0], fraction=0.046, pad=0.04)
+
+	im = ax[1].imshow(adversarial_contacts, cmap=cmap)
+	plt.colorbar(im, ax=ax[1], fraction=0.046, pad=0.04)
+
+	im = ax[2].imshow(original_contacts-adversarial_contacts, cmap=cmap)
+	plt.colorbar(im, ax=ax[2], fraction=0.046, pad=0.04)
+	
+	for idx in [0,1,2]:
+		ax[idx].set_xticks([])
+		ax[idx].set_yticks([])
 
 	ax[0].set_xlabel('original')
-	ax[1].set_xlabel('adversarial')
-	ax[2].set_xlabel('orig-adv')
+	ax[1].set_xlabel(f'{key} perturbation')
+	ax[2].set_xlabel('orig-pert')
 
+	plt.grid(False)
+	plt.tight_layout()
 	plt.show()
 
 	if filepath is not None and filename is not None:

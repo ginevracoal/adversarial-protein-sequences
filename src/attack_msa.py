@@ -25,12 +25,12 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/hhfiltered/', type=str, 
 	help="Datasets path. Choose `msa/` or `msa/hhfiltered/`.")
-parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
+parser.add_argument("--dataset", default='PF00627', type=str, help="Dataset name")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=30, type=eval, 
+parser.add_argument("--n_sequences", default=100, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
@@ -38,13 +38,13 @@ parser.add_argument("--n_substitutions", default=3, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='all_layers', type=str, 
+parser.add_argument("--target_attention", default='last_layer', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
 parser.add_argument("--loss_method", default='max_masked_prob', type=str, 
-    help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_masked_prob' \
-    or 'max_tokens_repr'.")
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_masked_prob' \
+	or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
@@ -124,8 +124,10 @@ else:
 		batch_tokens = batch_tokens.to(args.device)
 
 		with torch.no_grad():
-			results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
-			first_embedding = results["representations"][0].to(args.device)
+			repr_layer_idx = 0
+			results = esm_model(batch_tokens, repr_layers=[repr_layer_idx], return_contacts=True)
+			first_embedding = results["representations"][repr_layer_idx].to(args.device)
+
 
 		### sequence attacks
 
@@ -158,6 +160,24 @@ else:
 
 		cmap_df = pd.concat([cmap_df, df], ignore_index=True)
 
+		### plots 
+
+		if seq_idx==0:
+
+			plot_attention_grid(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
+				filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
+			
+			print(atk_df.keys())
+			exit()
+
+			original_contacts = get_contact_map(model=esm_model, alphabet=alphabet, sequence=original_sequence)
+			adversarial_contacts = get_contact_map(model=esm_model, alphabet=alphabet, sequence=adversarial_sequence)
+			plot_cmaps(original_contacts=original_contacts.detach().numpy(), 
+				adversarial_contacts=adversarial_contacts.detach().numpy(), 
+				filepath=out_plots_path, filename=f"{key}", key=key)
+
+			exit()
+
 	atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
 	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
 
@@ -178,4 +198,15 @@ plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, 
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 
 
+print(atk_df.keys())
+exit()
 
+if args.plot:
+
+	matplotlib.rc('font', **{'size': 13})
+	sns.set_style("darkgrid")
+	keys = ['PTM','pLDDT','LDDT','RMSD','TM-score']
+	plot = sns.pairplot(atk_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, palette='mako', 
+		hue_order=perturbations_keys)
+	plt.savefig(os.path.join(out_plots_path, out_filename+f"_msa_atk_pairplot.png"))
+	plt.close()

@@ -14,11 +14,12 @@ from sequence_attack import SequenceAttack
 out_plots_path = '/fast/external/gcarbone/adversarial-protein-sequences_out/toy_example/'
 
 esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
+
 batch_converter = alphabet.get_batch_converter()
 n_layers = esm1_model.args.layers
 
 data = [
-    ("original_sequence", "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"),
+    ("original_sequence", "TPEEFMLVYKFARKHHITLTNLITEETTHVVMKTDAEFVCERTLKYFLGIAGGKWVVSYFWVTQSI"),
 ]
 batch_labels, batch_strs, batch_tokens = batch_converter(data)
 
@@ -34,29 +35,28 @@ print("\nlogits.shape = (batch, seq_len, n_tokens) =", results['logits'].shape)
 
 first_embedding = results["representations"][0]
 
-# instantiate models
+# instantiate model
 
 model = EsmEmbedding(esm1_model, alphabet)
-
 atk = SequenceAttack(original_model=esm1_model, embedding_model=model, alphabet=alphabet)
-
-# attention scores
-
-plot_attention_grid(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
-    filepath=out_plots_path, filename=f"tokens_attention_layer={n_layers}")
 
 # target token idx
 
 target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
-    n_token_substitutions=3, target_attention='all_layers')
+    n_token_substitutions=3, target_attention='last_layer')
 print("\ntarget_token_idxs =", target_token_idxs)
+
+# attention scores
+
+plot_attention_grid(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
+    filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
 
 # attack
 
-signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
-            target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method='max_tokens_repr')
+signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, batch_tokens=batch_tokens, 
+            target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method='max_masked_prob')
 
-perturbations_keys = ['masked_pred','max_cos','min_dist','max_dist'] 
+perturbations_keys = ['masked_pred','max_cos','max_dist','max_cmap_dist'] 
 
 atk_df, _ = atk.incremental_attack(name='seq', original_sequence=original_sequence, original_batch_tokens=batch_tokens,
     target_token_idxs=target_token_idxs, target_tokens_attention=target_tokens_attention,
@@ -83,7 +83,7 @@ for key in perturbations_keys:
 
     fig = plot_cmaps(original_contacts=original_contacts.detach().numpy(), 
         adversarial_contacts=adversarial_contacts.detach().numpy(), 
-        filepath=out_plots_path, filename=f"{key}")
+        filepath=out_plots_path, filename=f"{key}", key=key)
 
 
 

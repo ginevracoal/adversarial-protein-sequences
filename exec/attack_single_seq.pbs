@@ -23,7 +23,7 @@ TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
 LOSS_METHOD="max_masked_prob"
 N_SUBSTITUTIONS=3
-DEVICE="cuda"
+DEVICE="cpu"
 LOAD=False
 
 ###########
