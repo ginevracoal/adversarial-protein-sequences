@@ -56,12 +56,12 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 
 for ((min=0; min<=$N_SEQUENCES; min+=1)); do
 
-	python predict_structures_fast.py --min=$min --max=$min --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
+	python predict_structures.py --min=$min --max=$min --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=$LOAD \
 		--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
 		--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
 		--target_attention=$TARGET_ATTENTION --plddt_ths=60 --plot=False >> $OUT 2>&1
 
-	python predict_structures_fast.py --min=0 --max=$min --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
+	python predict_structures.py --min=0 --max=$min --data_dir=$DATA_DIR --out_dir=$OUT_DIR --load=True \
 		--dataset=$DATASET --n_sequences=$N_SEQUENCES --min_filter=$MIN_FILTER  --loss_method=$LOSS_METHOD \
 		--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION --n_substitutions=$N_SUBSTITUTIONS \
 		--target_attention=$TARGET_ATTENTION --plddt_ths=$PLDDT_THS --plot=True >> $OUT 2>&1

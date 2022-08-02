@@ -190,7 +190,7 @@ class EsmEmbedding(nn.Module):
 
 			assert torch.all(torch.eq(orig_logits, emb_logits))
 
-	def compute_tokens_attention(self, batch_tokens, layers_idxs):
+	def compute_attention_matrix(self, batch_tokens, layers_idxs):
 
 		with torch.no_grad():
 			results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
@@ -202,18 +202,22 @@ class EsmEmbedding(nn.Module):
 			print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
 
 		assert batch_size==1 
-		attentions = attentions[0, layers_idxs]
-
-		### compute avg attention across all heads (1) and layers (0)
-		avg_attentions = attentions.mean(1).mean(0).squeeze()
-		assert avg_attentions.shape[0] == avg_attentions.shape[1]
+		attention_matrix = attentions[0, layers_idxs]
 
 		### remove start and end tokens attention
-		tokens_attention = avg_attentions[1:-1, 1:-1]
+		attention_matrix = attention_matrix[:,:,1:-1, 1:-1]
+
+		return attention_matrix
+
+	def compute_tokens_attention(self, batch_tokens, layers_idxs):
+
+		attentions = self.compute_attention_matrix(batch_tokens=batch_tokens, layers_idxs=layers_idxs)
+
+		### compute avg attention across all heads (1) and layers (0)
+		attentions = attentions.mean(1).mean(0).squeeze()
 
 		### compute l2 norm of attention vectors
-		tokens_attention = torch.norm(tokens_attention, dim=-1, p=2)
-
+		tokens_attention = torch.norm(attentions, dim=-1, p=2)
 		return tokens_attention
 
 	def loss(self, method, output, target_token_idxs, true_residues_idxs):

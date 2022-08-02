@@ -14,7 +14,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
-from utils.protein_sequences import compute_cmaps_distance_df, get_max_hamming_msa
+from utils.protein_sequences import compute_cmaps_distance_df, get_max_hamming_msa, get_contact_map
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -25,7 +25,7 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/hhfiltered/', type=str, 
 	help="Datasets path. Choose `msa/` or `msa/hhfiltered/`.")
-parser.add_argument("--dataset", default='PF00627', type=str, help="Dataset name")
+parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
@@ -160,23 +160,23 @@ else:
 
 		cmap_df = pd.concat([cmap_df, df], ignore_index=True)
 
-		### plots 
+		### plot attention
 
 		if seq_idx==0:
+			attentions = emb_model.compute_attention_matrix(batch_tokens=batch_tokens, 
+				layers_idxs=[n_layers-1])
+			attentions = attentions.squeeze().cpu().detach().numpy()
 
-			plot_attention_grid(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
+			plot_attention_grid(sequence=original_sequence, heads_attention=attentions, layer_idx=n_layers, 
 				filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
 			
-			print(atk_df.keys())
-			exit()
-
+			key='max_cmap_dist'
+			adversarial_sequence = atk_df[f'{key}_sequence'].iloc[0] 
 			original_contacts = get_contact_map(model=esm_model, alphabet=alphabet, sequence=original_sequence)
 			adversarial_contacts = get_contact_map(model=esm_model, alphabet=alphabet, sequence=adversarial_sequence)
-			plot_cmaps(original_contacts=original_contacts.detach().numpy(), 
-				adversarial_contacts=adversarial_contacts.detach().numpy(), 
+			plot_cmaps(original_contacts=original_contacts.cpu().detach().numpy(), 
+				adversarial_contacts=adversarial_contacts.cpu().detach().numpy(), 
 				filepath=out_plots_path, filename=f"{key}", key=key)
-
-			exit()
 
 	atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
 	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
@@ -196,17 +196,3 @@ plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filena
 plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-
-
-print(atk_df.keys())
-exit()
-
-if args.plot:
-
-	matplotlib.rc('font', **{'size': 13})
-	sns.set_style("darkgrid")
-	keys = ['PTM','pLDDT','LDDT','RMSD','TM-score']
-	plot = sns.pairplot(atk_df, x_vars=keys, y_vars=keys, hue="perturbation", corner=True, palette='mako', 
-		hue_order=perturbations_keys)
-	plt.savefig(os.path.join(out_plots_path, out_filename+f"_msa_atk_pairplot.png"))
-	plt.close()

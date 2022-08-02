@@ -48,7 +48,9 @@ print("\ntarget_token_idxs =", target_token_idxs)
 
 # attention scores
 
-plot_attention_grid(sequence=original_sequence, attentions=results['attentions'], layer_idx=n_layers, 
+attentions = model.compute_attention_matrix(batch_tokens=batch_tokens, layers_idxs=[n_layers-1])
+attentions = attentions.squeeze().cpu().detach().numpy()
+plot_attention_grid(sequence=original_sequence, heads_attention=attentions, layer_idx=n_layers, 
     filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
 
 # attack
