@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 
 from utils.data import *
 from utils.plot import *
-from utils.protein_sequences import compute_blosum_distance, get_contact_map
-from models.esm_embedding import EsmEmbedding
 from sequence_attack import SequenceAttack
+from models.esm_embedding import EsmEmbedding
+from utils.protein_sequences import compute_blosum_distance, get_contact_map
 
-out_plots_path = '/fast/external/gcarbone/adversarial-protein-sequences_out/toy_example/'
+out_plots_path = '/fast/external/gcarbone/adversarial-protein-sequences_out/plots/toy_example/'
 
 esm1_model, alphabet = esm.pretrained.esm1b_t33_650M_UR50S()
 

@@ -60,7 +60,7 @@ def get_contact_map(model, alphabet, sequence):
     contact_map = model.predict_contacts(batch_tokens.to(device))[0]
     return contact_map
 
-def compute_cmaps_distance(model, alphabet, sequence_name, original_sequence, perturbed_sequence, k=1, p=1):
+def compute_cmaps_distance(model, alphabet, sequence_name, original_sequence, perturbed_sequence, k=6, p=1):
     # k has to be > 0
     # k=1 computes the entire triu cmap
     # parameter k restricts the comptuation of submatrices to residues that are at least k positions apart
@@ -71,7 +71,7 @@ def compute_cmaps_distance(model, alphabet, sequence_name, original_sequence, pe
     topk_new_contacts = torch.triu(new_contact_map, diagonal=k)
     cmap_distance = torch.norm((topk_original_contacts-topk_new_contacts).flatten(), p=p).item()
 
-    return cmap_distance / k
+    return cmap_distance
 
 def compute_cmaps_distance_df(model, alphabet, perturbed_sequences_dict, original_sequence, sequence_name, 
     cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1, verbose=False):

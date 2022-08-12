@@ -15,15 +15,15 @@
 # script settings #
 ###################
 
-DATASET="PF00533" 
+DATASET="PF00533" # PF00533, PF00627, PF00240
 MAX_TOKENS=None
-N_SEQUENCES=30
+N_SEQUENCES=100
 MIN_FILTER=100
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
-TARGET_ATTENTION='all_layers' # 'all_layers' 'last_layer'
+TARGET_ATTENTION='last_layer' # 'all_layers' 'last_layer'
 LOSS_METHOD="max_masked_prob"
 N_SUBSTITUTIONS=3
-DEVICE="cpu"
+DEVICE="cuda"
 LOAD=False
 
 ###########

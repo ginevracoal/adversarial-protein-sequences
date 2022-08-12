@@ -11,7 +11,8 @@ IN_FILENAME="/scratch/external/gcarbone/msa/seqs${DATASET}"
 OUT_PATH="/scratch/external/gcarbone/missense/hhfiltered/hhfiltered_${DATASET}_filter=${FILTER_SIZE}/"
 
 mkdir -p $OUT_PATH
-module load conda/4.9.2
+eval "$(conda shell.bash hook)"
+# module load conda/4.9.2
 conda activate esm
 
 ### split names and sequences

@@ -20,7 +20,7 @@ random.seed(0)
 np.random.seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/msa/', type=str, 
+parser.add_argument("--data_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/data/msa/', type=str, 
     help="Datasets path. Choose `msa/` or `msa/hhfiltered/`.")
 parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
@@ -57,15 +57,17 @@ args = parser.parse_args()
 print("\n", args)
 
 filename = f"msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}_{args.loss_method}_attn={args.target_attention}"
-out_dir = 'out/' if socket.gethostname()=="dmgdottorati" else args.out_dir
-out_structures_dir = os.path.join(out_dir, "structures/", filename)
-os.makedirs(os.path.dirname(out_structures_dir), exist_ok=True)
+# out_dir = 'out/' if socket.gethostname()=="dmgdottorati" else args.out_dir 
+alphafold_dir = os.path.join(args.out_dir, "data/")
+out_data_path = os.path.join(args.out_dir, "data/structures/", filename)
+out_plots_path = os.path.join(args.out_dir, "plots/")
+os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
+os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 
 perturbations_keys = ['max_dist','max_cmap_dist','max_entropy','max_cos']
 
 all_keys = ['original']+perturbations_keys
-atk_df_dir = "data/" if socket.gethostname()=="dmgdottorati" else os.path.join(args.data_dir, filename+"/data/")
-atk_df = pd.read_csv(os.path.join(atk_df_dir, filename+"_atk.csv"), index_col=[0])
+atk_df = pd.read_csv(os.path.join(args.data_dir, filename+"/", filename+"_atk.csv"), index_col=[0])
 
 atk_df.rename(columns = {'orig_token':'original_token'}, inplace = True)
 
@@ -75,6 +77,8 @@ new_df = new_df.reset_index()
 
 out_df = pd.DataFrame(columns=['seq_idx','perturbation','target_token_idxs','pert_tokens',\
         'pLDDT','PTM','LDDT','TM-score','RMSD'])   
+
+key_counts = {key:0. for key in perturbations_keys}
 
 for seq_idx, row in new_df.iterrows():
 
@@ -96,13 +100,14 @@ for seq_idx, row in new_df.iterrows():
         key='original'
 
         if args.load is False:
-            predict_structure(f'{key}_{seq_idx}', row[f'{key}_sequence'], savedir=out_dir, filename=filename)
+            predict_structure(f'{key}_{seq_idx}', row[f'{key}_sequence'], savedir=alphafold_dir, filename=filename)
 
         structure_id = key+"_"+row['name']
-        filepath = os.path.join(out_structures_dir, f"{key}_{seq_idx}_unrelaxed_rank_1_model_1.pdb")
-        coordinates_dict[f'{key}_coordinates'], _ = get_coordinates(structure_id, filepath)
+        # filepath = os.path.join(out_data_path, f"{key}_{seq_idx}_relaxed_rank_1_model_1.pdb")
+        # coordinates_dict[f'{key}_coordinates'] = get_coordinates(structure_id, filepath)
+        # original_coordinates = get_coordinates(structure_id, filepath)
 
-        filepath = os.path.join(out_structures_dir, f'{key}_{seq_idx}_unrelaxed_rank_1_model_1_scores.json')
+        filepath = os.path.join(out_data_path, f'{key}_{seq_idx}_unrelaxed_rank_1_model_1_scores.json')
         f = open(filepath, "r")
         data = json.loads(f.read())
         original_plddt = np.mean(data['plddt'])
@@ -123,8 +128,8 @@ for seq_idx, row in new_df.iterrows():
         # if original_ptm>=args.ptm_ths and original_plddt>=args.plddt_ths:
         if original_plddt>=args.plddt_ths:
 
-            original_coordinates = coordinates_dict['original_coordinates']
-            original_filepath = os.path.join(out_structures_dir, f"original_{seq_idx}_unrelaxed_rank_1_model_1.pdb")
+            # original_coordinates = coordinates_dict['original_coordinates']
+            original_filepath = os.path.join(out_data_path, f"original_{seq_idx}_relaxed_rank_1_model_1.pdb")
 
             for key in perturbations_keys:
 
@@ -132,14 +137,14 @@ for seq_idx, row in new_df.iterrows():
                 print(f'\n{key}_sequence\ttokens = {pert_tokens}', end='\t')
 
                 if args.load is False:
-                    predict_structure(f'{key}_{seq_idx}', row[f'{key}_sequence'], savedir=out_dir, filename=filename)
+                    predict_structure(f'{key}_{seq_idx}', row[f'{key}_sequence'], savedir=alphafold_dir, filename=filename)
 
-                structure_id = key+"_"+row['name']
-                filepath = os.path.join(out_structures_dir, f"{key}_{seq_idx}_unrelaxed_rank_1_model_1.pdb")
-                coordinates_dict[f'{key}_coordinates'], _ = get_coordinates(structure_id, filepath)
+                # structure_id = key+"_"+row['name']
+                # filepath = os.path.join(out_data_path, f"{key}_{seq_idx}_relaxed_rank_1_model_1.pdb")
+                # coordinates_dict[f'{key}_coordinates'] = get_coordinates(structure_id, filepath)
                 
-                filepath = os.path.join(out_structures_dir, f'{key}_{seq_idx}_unrelaxed_rank_1_model_1_scores.json')
-                f = open(filepath, "r")
+                scores_filepath = os.path.join(out_data_path, f'{key}_{seq_idx}_unrelaxed_rank_1_model_1_scores.json')
+                f = open(scores_filepath, "r")
                 data = json.loads(f.read())
                 plddt = np.mean(data['plddt'])
                 ptm = data['ptm']
@@ -152,48 +157,50 @@ for seq_idx, row in new_df.iterrows():
 
                 # else:
 
-                pert_coordinates = coordinates_dict[f'{key}_coordinates']
-                pert_filepath = os.path.join(out_structures_dir, f"{key}_{seq_idx}_unrelaxed_rank_1_model_1.pdb")
+                # pert_coordinates = coordinates_dict[f'{key}_coordinates']
+                pert_filepath = os.path.join(out_data_path, f"{key}_{seq_idx}_relaxed_rank_1_model_1.pdb")
 
-                corr_original_coordinates, corr_pert_coordinates = \
+                # pert_coordinates = get_coordinates(key, pert_filepath)
+                # same_pdb_length = len(pert_coordinates)==len(original_coordinates)
+
+                original_coordinates, pert_coordinates = \
                     get_corresponding_residues_coordinates("original", original_filepath, key, pert_filepath)
 
-                same_pdb_length = len(coordinates_dict[f'{key}_coordinates'])==len(row['original_sequence'])
 
                 # if same_pdb_length is False:
-                #     print("\n\tPart of the 3d structure is unknown, discarding this sequence.")
+                #     exit()
+                    # print("\tPart of the 3d structure is unknown, discarding this sequence.")
                 #     out_df = out_df.drop(out_df[out_df.seq_idx==seq_idx].index)
                 #     break
                 #     # original_coordinates, pert_coordinates = \
                 #     #     get_available_residues_coordinates("original", original_filepath, key, pert_filepath)
 
-                #     # corr_original_coordinates = original_coordinates
-                #     # corr_pert_coordinates = pert_coordinates
-
                 # else:
 
-                if same_pdb_length is True:
+                # if same_pdb_length is True:
 
-                    ##########
-                    # scores #
-                    ##########
+                ##########
+                # scores #
+                ##########
 
-                    print(f"\tpTM = {ptm}\tpLDDT = {plddt:.2f}", end='\t')
+                print(f"\tpTM = {ptm}\tpLDDT = {plddt:.2f}", end='\t')
 
-                    rmsd = get_RMSD(original_coordinates, pert_coordinates)
+                rmsd = get_RMSD(original_coordinates, pert_coordinates)
 
-                    true_dmap = get_dmap(cb_coordinates=original_coordinates)
-                    pert_dmap = get_dmap(cb_coordinates=pert_coordinates)
-                    lddt = get_LDDT(true_dmap, pert_dmap)
+                true_dmap = get_dmap(cb_coordinates=original_coordinates)
+                pert_dmap = get_dmap(cb_coordinates=pert_coordinates)
+                lddt = get_LDDT(true_dmap, pert_dmap)
 
-                    tm = get_TM_score(len(row['original_sequence']), corr_original_coordinates, corr_pert_coordinates)
+                tm = get_TM_score(len(row['original_sequence']), original_coordinates, pert_coordinates)
 
-                    print(f"\t\tRMSD = {rmsd:.2f}\tLDDT = {lddt:.2f}\tTM-score = {tm:.2f}")
+                print(f"\t\tRMSD = {rmsd:.2f}\tLDDT = {lddt:.2f}\tTM-score = {tm:.2f}")
 
-                    row_dict = {'seq_idx':seq_idx, 'perturbation':key, 'target_token_idxs':target_token_idxs,
-                        'pert_tokens':pert_tokens, 'pLDDT':plddt, 'pTM':ptm, 'LDDT':lddt, 'TM-score':tm, 
-                        'RMSD':rmsd}                  
-                    out_df = out_df.append(row_dict, ignore_index=True)
+                row_dict = {'seq_idx':seq_idx, 'perturbation':key, 'target_token_idxs':target_token_idxs,
+                    'pert_tokens':pert_tokens, 'pLDDT':plddt, 'pTM':ptm, 'LDDT':lddt, 'TM-score':tm, 
+                    'RMSD':rmsd}                  
+                out_df = out_df.append(row_dict, ignore_index=True)
+
+                key_counts[key] += 1
 
                 # if args.normalize:
                 #     from sklearn.preprocessing import minmax_scale
@@ -207,15 +214,16 @@ for seq_idx, row in new_df.iterrows():
 
 
 
-print(f"\nSaving: {out_structures_dir}{filename}_structure_prediction.csv")
-out_df.to_csv(os.path.join(out_structures_dir, filename+"_structure_prediction.csv"))
+print(f"\nSaving: {out_data_path}{filename}_structure_prediction.csv")
+out_df.to_csv(os.path.join(out_data_path, filename+"_structure_prediction.csv"))
 print(f"\ndf size = {len(out_df)}\t max_n_sequences = {len(list(out_df['seq_idx'].unique()))}")
+
+print(key_counts.items())
 
 ########
 # plot #
 ########
 
-out_dir = os.path.join(out_dir, 'structures/')
 linestyles=[':','-.','--','-']
 
 if args.plot:
@@ -232,10 +240,10 @@ if args.plot:
         for line, ls in zip(ax.lines, linestyles):
             line.set_linestyle(ls)    
 
-    plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot.png"))
+    plt.savefig(os.path.join(out_plots_path, filename+f"_structure_prediction_pairplot.png"))
     plt.close()    
 
-    keys = ['LDDT','RMSD','TM-score']
+    keys = ['LDDT','TM-score','RMSD']
     g = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", diag_kws={'fill': False}, corner=True, 
         hue_order=perturbations_keys)
     diag = g.diag_axes
@@ -243,5 +251,5 @@ if args.plot:
         for line, ls in zip(ax.lines, linestyles):
             line.set_linestyle(ls)    
 
-    plt.savefig(os.path.join(out_dir, filename+f"_structure_prediction_pairplot2.png"))
+    plt.savefig(os.path.join(out_plots_path, filename+f"_structure_prediction_pairplot2.png"))
     plt.close()

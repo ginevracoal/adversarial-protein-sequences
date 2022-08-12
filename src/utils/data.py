@@ -25,6 +25,9 @@ def load_msa(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=
 	file_contents = file.read().split('>')[0:-1]
 
 	data = []
+	n_sequences = 0
+	avg_seq_length = 0
+
 	for row in file_contents:
 		if row!='':
 			name = row.split('\n')[0]
@@ -34,13 +37,19 @@ def load_msa(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=
 			data.append((name, sequence))
 			assert len(sequence)<=max_tokens
 
+			n_sequences += 1
+			avg_seq_length += len(sequence)
+
+	avg_seq_length = avg_seq_length/n_sequences
+	print(f"\navg_seq_length = {avg_seq_length}")
+
 	if len(sequence)<max_tokens:
 		max_tokens = len(sequence)
 
-	print(f"\nmax tokens = {max_tokens}")
+	print(f"\nn_tokens = {max_tokens}")
 
-	if n_sequences is not None:
-		data = random.sample(data, n_sequences)
+	# if n_sequences is not None:
+	# 	data = random.sample(data, n_sequences)
 
 	return data, max_tokens
 

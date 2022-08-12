@@ -59,12 +59,12 @@ print("\n", args)
 
 
 out_filename = f"msa_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}_{args.loss_method}_attn={args.target_attention}"
-out_path = os.path.join(args.out_dir, "msa/", out_filename+"/")
-out_plots_path = os.path.join(out_path, "plots/")
-out_data_path = os.path.join(out_path, "data/")
+out_plots_path = os.path.join(args.out_dir, "plots/", out_filename+"/")
+out_data_path =  os.path.join(args.out_dir, "data/msa/", out_filename+"/")
+os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['max_dist','max_cmap_dist','max_entropy','max_cos','masked_pred']
+perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist','max_entropy']
 
 if args.load:
 

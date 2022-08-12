@@ -74,7 +74,7 @@ def predict_structure(name, query_sequence, savedir, filename, alphafold_dir="al
     ### settings
 
     model_type = "AlphaFold2-ptm" #@param ["auto", "AlphaFold2-ptm", "AlphaFold2-multimer-v1", "AlphaFold2-multimer-v2"]
-    num_recycles = 3 #@param [1,3,6,12,24,48] {type:"raw"}
+    num_recycles = 12 #@param [1,3,6,12,24,48] {type:"raw"}
     dpi = 200 #@param {type:"integer"}
 
     ### run prediction
@@ -122,30 +122,25 @@ def get_coordinates(protein_name, pdb_filename):
     p = PDBParser()
     s = p.get_structure(protein_name, pdb_filename) 
 
-    coordinates = []
-
-    count = 1
-    residue_offset = 0
+    count = 0
     missing_residues = []
+    coordinates = []
 
     for chains in s:
         for chain in chains:
-            for residue in chain:    
-                for atom in residue:
+            for residue in chain:   
+                residue_atoms = {atom.name:atom.get_coord() for atom in residue}
 
-                    if atom.name=="CA":
-                        residue_idx = residue._id[1]-residue_offset
+                if "CA" in residue_atoms.keys():
+                    coordinates.append(residue_atoms["CA"])
+                    count += 1
 
-                        if residue_idx!=count:
-                            print(f"\n\t{protein_name} missing {count}-th Ca atom")
-                            residue_offset += 1
-                            missing_residues.append(count)
-
-                        coordinates.append(atom.get_coord())
-                        count += 1
+                else:
+                    print(f"\n\t{protein_name} missing {residue._id[1]}-th Ca atom")
+                    missing_residues.append(residue._id[1])
 
     coordinates = np.array(coordinates)
-    return coordinates, missing_residues
+    return coordinates #, missing_residues
 
 def get_corresponding_residues_coordinates(protein_name_1, pdb_filename_1, protein_name_2, pdb_filename_2):
 
@@ -159,7 +154,8 @@ def get_corresponding_residues_coordinates(protein_name_1, pdb_filename_1, prote
     for chains1, chains2 in zip(s1,s2):
         for chain1, chain2 in zip(chains1,chains2):
             for residue1, residue2 in zip(chain1, chain2):
-                if residue1.resname==residue2.resname:
+                # if residue1.resname==residue2.resname:
+                if residue1._id[1]==residue2._id[1]:
                     for atom1,atom2 in zip(residue1,residue2):
                         if atom1.name=="CA" and atom2.name=="CA":
                             coordinates1.append(atom1.get_coord())

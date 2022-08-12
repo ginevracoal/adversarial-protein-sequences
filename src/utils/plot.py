@@ -119,7 +119,8 @@ def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None
 	matplotlib.rc('font', **{'size': FONT_SIZE})    
 	sns.set_style("darkgrid")
 
-	df = df[df['k']<10]
+	df = df[df['k']>=5]
+	df = df[df['k']<=20]
 
 	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 

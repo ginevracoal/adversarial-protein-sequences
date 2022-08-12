@@ -1,31 +1,40 @@
 #!/bin/bash
 
+# 1. Filter the MSA from the chosen protein family and select N_SEQUENCES by minimum sequence identity.
+# 2. For each selected sequence build and MSA of size FILTER_SIZE by minimum sequence identity.
+
 ### args
 
-DATASET="PF00240" # PF00533, PF00627, PF00240
+DATASET=$1 # PF00533, PF00627, PF00240
 N_SEQUENCES=100
 FILTER_SIZE=100
 
 ### set paths
 
-IN_FILENAME="/scratch/external/gcarbone/msa/seqs${DATASET}"
-OUT_PATH="/scratch/external/gcarbone/msa/hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
+MSA_PATH="/scratch/external/gcarbone/msa/"
+INP_FILE="${MSA_PATH}${DATASET}_full.txt"
+OUT_PATH="${MSA_PATH}hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
 
 mkdir -p $OUT_PATH
 eval "$(conda shell.bash hook)"
 # module load conda/4.9.2
 conda activate esm
 
-### select top N_SEQUENCES in the MSA 
+### MSA to single line
+
+MSA_ONELINE="${MSA_PATH}seqs${DATASET}"
+cat $INP_FILE | awk 'BEGIN{FS=""}{if($1==">"){if(NR==1)print $0; else {printf "\n";print $0;}}else printf toupper($0)}' > $MSA_ONELINE
+
+### Select N_SEQUENCES in the MSA 
 
 OUT_NAME="${DATASET}_top_${N_SEQUENCES}_seqs"
 
-hhfilter -diff $N_SEQUENCES -i $IN_FILENAME -o $OUT_PATH$OUT_NAME
+hhfilter -diff $N_SEQUENCES -i $MSA_ONELINE -o $OUT_PATH$OUT_NAME
 
 cat $OUT_PATH$OUT_NAME | awk 'NR % 2 == 1' > "${OUT_PATH}names"
 cat $OUT_PATH$OUT_NAME | awk 'NR % 2 == 0' > "${OUT_PATH}full_sequences"
 
-### for each sequence select columns without gaps and build a filtered MSA of minimum size FILTER_SIZE
+### For each sequence select columns without gaps and build a filtered MSA of minimum size FILTER_SIZE
 
 seq_count=1
 for current_seq in $(cat "${OUT_PATH}full_sequences"); do

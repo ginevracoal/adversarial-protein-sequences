@@ -28,7 +28,7 @@ parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
 
-parser.add_argument("--max_tokens", default=200, type=eval, 
+parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
 parser.add_argument("--n_sequences", default=100, type=eval, 
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
@@ -59,11 +59,12 @@ print("\n", args)
 # out_filename = f"single_seq_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_{args.loss_method}"
 out_filename = f"single_seq_{args.dataset}_seqs={args.n_sequences}_max_toks={args.max_tokens}_{args.token_selection}_subst={args.n_substitutions}_minFilter={args.min_filter}_{args.loss_method}_attn={args.target_attention}"
 
-out_path = os.path.join(args.out_dir, "single_sequence/", out_filename+"/")
-out_plots_path = os.path.join(out_path, "plots/")
-out_data_path = os.path.join(out_path, "data/")
+out_plots_path = os.path.join(args.out_dir, "plots/", out_filename+"/")
+out_data_path =  os.path.join(args.out_dir, "data/single_sequence/", out_filename+"/")
+os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
+os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['max_dist','max_entropy','max_cos','masked_pred']
+perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist']
 
 if args.load:
 
@@ -156,7 +157,7 @@ print("\natk_df:\n", atk_df.keys())
 print("\ncmap_df:\n", cmap_df.keys())
 
 plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
-plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+# plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_token_substitutions(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)

@@ -159,8 +159,10 @@ class SequenceAttack():
 		if verbose:
 			print("\n-- Building adversarial sequences --")
 
+		if msa is None:
+			assert 'max_entropy' not in perturbations_keys
+			
 		adv_perturbations_keys = perturbations_keys.copy()
-
 		assert 'masked_pred' in perturbations_keys
 		adv_perturbations_keys.remove('masked_pred')
 		
@@ -227,7 +229,7 @@ class SequenceAttack():
 				if pert_key=='max_dist':
 					atk_dict.update({pert_key:0})
 
-				if pert_key=='max_entropy' and msa is not None:
+				if pert_key=='max_entropy':
 					atk_dict.update({pert_key:0})
 
 				### updating one token at a time
@@ -332,15 +334,14 @@ class SequenceAttack():
 							if DEBUG:
 								print(f"\t\tnew token = {new_token}\tdistance = {embedding_distance}")
 
-						if msa is not None:
-							if pert_key=='max_entropy' and token_entropy > atk_dict[pert_key]:
-								atk_dict[pert_key] = token_entropy.item()
-								atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
-								atk_dict[f'{pert_key}_embedding_distance'] = embedding_distance.item()
-								new_token = token
+						if pert_key=='max_entropy' and token_entropy > atk_dict[pert_key]:
+							atk_dict[pert_key] = token_entropy.item()
+							atk_dict[f'{pert_key}_sequence'] = perturbed_sequence
+							atk_dict[f'{pert_key}_embedding_distance'] = embedding_distance.item()
+							new_token = token
 
-								if DEBUG:
-									print(f"\t\tnew token = {new_token}\tentropy = {token_entropy}")
+							if DEBUG:
+								print(f"\t\tnew token = {new_token}\tentropy = {token_entropy}")
 
 				atk_dict[f'{pert_key}_tokens'].append(new_token)
 
