@@ -42,3 +42,19 @@ while read -r family_name; do
    echo $OUT_PATH$family_name".sto"
 
 done < $OUT_PFAM
+
+### Stockholm to fasta
+
+eval "$(conda shell.bash hook)"
+conda activate esm
+python stockholm_to_fasta.py
+
+### Protherm hhfilter
+
+PFAM_IDS="${FILEPATH}pfam_ids.txt"
+
+while read -r pfam_id; do
+
+   ./hhfilter.sh $pfam_id
+
+done < $PFAM_IDS

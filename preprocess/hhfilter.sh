@@ -12,7 +12,7 @@ FILTER_SIZE=100
 ### set paths
 
 MSA_PATH="/scratch/external/gcarbone/msa/"
-INP_FILE="${MSA_PATH}${DATASET}_full.txt"
+INP_FILE="${MSA_PATH}fasta/${DATASET}.fasta"
 OUT_PATH="${MSA_PATH}hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
 
 mkdir -p $OUT_PATH
@@ -106,5 +106,6 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 done
 
+rm $MSA_ONELINE
 rm "${OUT_PATH}names"
 rm "${OUT_PATH}full_sequences"
