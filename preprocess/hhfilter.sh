@@ -22,7 +22,7 @@ conda activate esm
 
 ### MSA to single line
 
-MSA_ONELINE="${MSA_PATH}seqs${DATASET}"
+MSA_ONELINE="${MSA_PATH}oneline_seqs${DATASET}"
 cat $INP_FILE | awk 'BEGIN{FS=""}{if($1==">"){if(NR==1)print $0; else {printf "\n";print $0;}}else printf toupper($0)}' > $MSA_ONELINE
 
 ### Select N_SEQUENCES in the MSA 
@@ -33,6 +33,8 @@ hhfilter -diff $N_SEQUENCES -i $MSA_ONELINE -o $OUT_PATH$OUT_NAME
 
 cat $OUT_PATH$OUT_NAME | awk 'NR % 2 == 1' > "${OUT_PATH}names"
 cat $OUT_PATH$OUT_NAME | awk 'NR % 2 == 0' > "${OUT_PATH}full_sequences"
+
+rm $MSA_ONELINE
 
 ### For each sequence select columns without gaps and build a filtered MSA of minimum size FILTER_SIZE
 
@@ -106,6 +108,5 @@ for current_seq in $(cat "${OUT_PATH}full_sequences"); do
 
 done
 
-rm $MSA_ONELINE
 rm "${OUT_PATH}names"
 rm "${OUT_PATH}full_sequences"

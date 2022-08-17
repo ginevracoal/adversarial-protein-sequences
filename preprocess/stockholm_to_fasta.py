@@ -1,15 +1,25 @@
 import os
 from Bio import SeqIO
 
-PFAM_IDS_FILE="/scratch/external/gcarbone/ProTherm/pfam_ids.txt"
-MSA_PATH='/scratch/external/gcarbone/msa/'
-OUT_PATH=MSA_PATH+'fasta/'
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--pfam_ids_filepath')
+parser.add_argument('--msa_folder')
+args = parser.parse_args()
+
+OUT_PATH=args.msa_folder+'fasta/'
 os.makedirs(OUT_PATH, exist_ok=True)
 
-with open(PFAM_IDS_FILE) as pfam_ids:
+with open(args.pfam_ids_filepath) as pfam_ids:
     for line in pfam_ids:
 
-        family_name = line.rstrip('\n')
-        records = SeqIO.parse(MSA_PATH+'stockholm/'+family_name+".sto", "stockholm")
-        count = SeqIO.write(records, OUT_PATH+family_name+".fasta", "fasta")
-        print(f"Converted {count} records from family {family_name}")
+        try:
+            family_name = line.rstrip('\n')
+            records = SeqIO.parse(args.msa_folder+'stockholm/'+family_name+".sto", "stockholm")
+            count = SeqIO.write(records, OUT_PATH+family_name+".fasta", "fasta")
+            print(f"Converted {count} records from family {family_name}")
+
+        except:
+            print(f"File not found for {family_name}")
+            pass
+
