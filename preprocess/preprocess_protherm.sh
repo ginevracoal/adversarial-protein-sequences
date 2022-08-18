@@ -11,45 +11,13 @@ PFAM_IDS="${FILEPATH}ProTherm/pfam_ids.txt"
 PDB_IDS="${FILEPATH}ProTherm/pdb_ids.txt"
 UNIPROT_IDS="${FILEPATH}ProTherm/uniprot_ids.txt"
 OUT_PDB="${FILEPATH}pdb/"
-OUT_STOCK="${FILEPATH}msa/stockholm/"
+MSA_PATH="${FILEPATH}msa/"
 
-### Get unique PDB IDs from ProTherm database
 
-cat $PROTHERM | grep "pdb" | awk '{sub(/.pdb/, " "); print $1}' | uniq > $PDB_IDS
-
-### Get PDBs
-
-mkdir -p $OUT_PDB
-OLD_WDIR=$(pwd)
-cd $OUT_PDB
-
-while read -r pdb_id; do
-
-   pdb=$( echo $pdb_id | sed 's/.$//' | sed 's/.*/\L&/g' )
-   pdb_folder=${pdb:1:2}
-
-   file=$INP_PDB$pdb_folder'/pdb'$pdb'.ent.gz'
-   cp $file $OUT_PDB
-   target='pdb'$pdb'.ent'
-   if [ -f "$target" ]; then
-      ok=1
-   else
-      gunzip 'pdb'$pdb'.ent.gz'
-   fi
-
-   echo $target
-
-done < $PDB_IDS
-rm *.gz
-
-cd $OLD_WDIR
-
-### Build new ProThem csv
+printf "\n=== Build new ProTherm csv ===\n\n"
 
 rm $OUT_CSV
 echo "PDB;CHAIN;POSITION;WILD_TYPE;MUTANT;PFAM;PDB_START;PDB_END;UNIPROT" >> $OUT_CSV
-
-printf "\nNew ProTherm csv:\n\n"
 head $OUT_CSV
 
 sed 1d $PROTHERM | while read -r line; do
@@ -85,16 +53,33 @@ sed 1d $PROTHERM | while read -r line; do
 
 done
 
-### Get PFAM alignments in stockholm format
+exit 0
 
+
+printf "\n=== Get PFAM alignments ===\n\n"
+
+eval "$(conda shell.bash hook)"
+conda activate esm
+
+cat $OUT_CSV | sed 1d | awk -F ";" '{print $6}' | uniq > $PFAM_IDS
+
+OUT_STOCK="${MSA_PATH}stockholm/"
+OUT_FASTA="${MSA_PATH}fasta/"
 mkdir -p $OUT_STOCK
+mkdir -p $OUT_FASTA
 
 while read -r pfam_id; do
 
+   ### Get alignments in stockholm format
+
+   echo $pfam_id
    line=$(grep -m 1 $pfam_id -B 2 -n $FULL_PFAM | grep 'STOCKHOLM')
    line="${line%-*}"
+   printf "\n$line"
+
    awk -v l=$line '{if(NR>=l)if($1!="//")print $0; else {print $0; exit}}' $FULL_PFAM > $OUT_STOCK$pfam_id".sto"
    echo $pfam_id".sto"
+   head $OUT_STOCK$pfam_id".sto"
 
    ### Check sto file exists
 
@@ -103,10 +88,47 @@ while read -r pfam_id; do
        echo "File $pfam_id".sto" does not exist"
    fi
 
+   ### Convert stockholm alignments to fasta format
+
+   seqmagick convert $OUT_STOCK$pfam_id".sto" $OUT_FASTA$pfam_id".fasta"
+   echo
+   echo $pfam_id".fasta"
+   head $OUT_FASTA$pfam_id".fasta"
+
 done < $PFAM_IDS
 
-### Convert stockholm to fasta
+# printf "\n=== Convert stockholm alignments to fasta format ===\n\n"
 
-eval "$(conda shell.bash hook)"
-conda activate esm
-python stockholm_to_fasta.py --pfam_ids_filepath=$PFAM_IDS --msa_folder="${FILEPATH}msa/"
+# eval "$(conda shell.bash hook)"
+# conda activate esm
+
+# python stockholm_to_fasta.py --pfam_ids_filepath=$PFAM_IDS --msa_path="${FILEPATH}msa/"
+
+printf "\n=== Get ProTherm PDBs ===\n\n"
+
+cat $PROTHERM | grep "pdb" | awk '{sub(/.pdb/, " "); print $1}' | uniq > $PDB_IDS
+
+mkdir -p $OUT_PDB
+OLD_WDIR=$(pwd)
+cd $OUT_PDB
+
+while read -r pdb_id; do
+
+   pdb=$( echo $pdb_id | sed 's/.$//' | sed 's/.*/\L&/g' )
+   pdb_folder=${pdb:1:2}
+
+   file=$INP_PDB$pdb_folder'/pdb'$pdb'.ent.gz'
+   cp $file $OUT_PDB
+   target='pdb'$pdb'.ent'
+   if [ -f "$target" ]; then
+      ok=1
+   else
+      gunzip 'pdb'$pdb'.ent.gz'
+   fi
+
+   echo $target
+
+done < $PDB_IDS
+rm *.gz
+
+cd $OLD_WDIR
