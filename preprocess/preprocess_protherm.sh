@@ -12,13 +12,20 @@ PDB_IDS="${FILEPATH}ProTherm/pdb_ids.txt"
 UNIPROT_IDS="${FILEPATH}ProTherm/uniprot_ids.txt"
 OUT_PDB="${FILEPATH}pdb/"
 MSA_PATH="${FILEPATH}msa/"
+OUT_LOGS="/fast/external/gcarbone/adversarial-protein-sequences_out/logs/"
 
+eval "$(conda shell.bash hook)"
+conda activate esm
 
-printf "\n=== Build new ProTherm csv ===\n\n"
+mkdir -p $OUT_PDB
+mkdir -p $OUT_LOGS
 
-rm $OUT_CSV
-echo "PDB;CHAIN;POSITION;WILD_TYPE;MUTANT;PFAM;PDB_START;PDB_END;UNIPROT" >> $OUT_CSV
+printf "\n=== Build processed ProTherm csv ===\n\n"
+
+echo "PDB;CHAIN;POSITION;WILD_TYPE;MUTANT;PFAM;PDB_START;PDB_END;UNIPROT" > $OUT_CSV
 head $OUT_CSV
+
+echo "" > "${OUT_LOGS}missing_pdb_pfam_match.txt"
 
 sed 1d $PROTHERM | while read -r line; do
 
@@ -30,7 +37,8 @@ sed 1d $PROTHERM | while read -r line; do
    position=$(echo $line | awk -F ";" '{print $4}')
    mutant=$(echo $line | awk -F ";" '{print $5}')
 
-   cat $PDB_PFAM_MAPPING | grep "$pdb,$chain" > "pfam_matches"
+   cat $PDB_PFAM_MAPPING | grep "$pdb,$chain" > "${OUT_LOGS}pfam_matches"
+
    pfam=""
    while read -r match; do
       pdb_start=$(echo $match | awk -F "," '{print $3}')
@@ -40,26 +48,31 @@ sed 1d $PROTHERM | while read -r line; do
          # echo $match
          pfam=$(echo $match | grep "$pdb,$chain" | awk -F, '{print $5}')         
       fi
-   done < "pfam_matches"
-   rm "pfam_matches"
+   done < "${OUT_LOGS}pfam_matches"
+   rm "${OUT_LOGS}pfam_matches"
 
    uniprot=$(cat $PDB_UNIPROT_MAPPING | grep "$pdb,$chain" | awk -F, '{print $3}')
+   uniprot=$(echo $uniprot | awk -F " " '{print $1}')
 
    if [[ $pfam != "" ]]; then
+
       new_line=$(echo "$pdb;$chain;$position;$wild_type;$mutant;$pfam;$pdb_start;$pdb_end;$uniprot")
       echo $new_line
       echo $new_line >> $OUT_CSV
+
+   else 
+
+      echo "missing pfam match for pdb ${pdb} chain ${chain} $pdb_start-$pdb_end"
+      echo "missing pfam match for pdb ${pdb} chain ${chain} $pdb_start-$pdb_end" >> "${OUT_LOGS}missing_pdb_pfam_match.txt"
+
    fi
 
 done
 
-exit 0
+cat "${OUT_LOGS}missing_pdb_pfam_match.txt" | uniq > "${OUT_LOGS}missing_pdb_pfam_match.txt"
 
 
 printf "\n=== Get PFAM alignments ===\n\n"
-
-eval "$(conda shell.bash hook)"
-conda activate esm
 
 cat $OUT_CSV | sed 1d | awk -F ";" '{print $6}' | uniq > $PFAM_IDS
 
@@ -67,6 +80,8 @@ OUT_STOCK="${MSA_PATH}stockholm/"
 OUT_FASTA="${MSA_PATH}fasta/"
 mkdir -p $OUT_STOCK
 mkdir -p $OUT_FASTA
+
+echo "" > "${OUT_LOGS}missing_stockholm.txt"
 
 while read -r pfam_id; do
 
@@ -85,7 +100,8 @@ while read -r pfam_id; do
 
    if [ ! -f $OUT_STOCK$pfam_id".sto" ]
    then
-       echo "File $pfam_id".sto" does not exist"
+       echo "missing $pfam_id.sto"
+       echo "missing $pfam_id.sto" >> "${OUT_LOGS}missing_stockholm.txt"
    fi
 
    ### Convert stockholm alignments to fasta format
