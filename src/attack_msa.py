@@ -87,7 +87,7 @@ else:
 	atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
 	data, max_tokens = load_msa(
-		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
+		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_filter={args.min_filter}", 
 		filename=f"{args.dataset}_top_{args.n_sequences}_seqs", 
 		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
@@ -105,7 +105,7 @@ else:
 		original_sequence = original_sequence.replace('-','')
 
 		msa, max_tokens = load_msa(
-			filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
+			filepath=f"{args.data_dir}hhfiltered_{args.dataset}_filter={args.min_filter}", 
 			filename=f"{args.dataset}_{seq_filename}_no_gaps_filter={args.min_filter}", 
 			max_model_tokens=esm_model.args.max_tokens, max_tokens=args.max_tokens)
 

@@ -90,7 +90,7 @@ else:
 	# 	max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
 	data, max_tokens = load_msa(
-		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_seqs={args.n_sequences}_filter={args.min_filter}", 
+		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_filter={args.min_filter}", 
 		filename=f"{args.dataset}_top_{args.n_sequences}_seqs", 
 		max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
 
