@@ -2,6 +2,7 @@
 
 FILEPATH="/scratch/external/gcarbone/"
 PROTHERM="${FILEPATH}ProTherm/single_mutation.csv"
+DESTABILIZING_PROTHERM="${FILEPATH}ProTherm/destabilizing_single_mutation.csv"
 OUT_CSV="${FILEPATH}ProTherm/processed_single_mutation.csv"
 FULL_PFAM="${FILEPATH}Pfam-A.full"
 INP_PDB='/scratch/area/cuturellof/proteins_databases/pdb/'
@@ -26,8 +27,9 @@ echo "PDB;CHAIN;POSITION;WILD_TYPE;MUTANT;PFAM;PDB_START;PDB_END;UNIPROT" > $OUT
 head $OUT_CSV
 
 echo "" > "${OUT_LOGS}missing_pdb_pfam_match.txt"
+cat $PROTHERM | awk -F ";" '$8 < 0' > $DESTABILIZING_PROTHERM
 
-sed 1d $PROTHERM | while read -r line; do
+sed 1d $DESTABILIZING_PROTHERM | while read -r line; do
 
    pdb_chain=$(echo $line | grep "pdb" | awk '{sub(/.pdb/, " "); print $1}') 
 
@@ -113,12 +115,6 @@ while read -r pfam_id; do
 
 done < $PFAM_IDS
 
-# printf "\n=== Convert stockholm alignments to fasta format ===\n\n"
-
-# eval "$(conda shell.bash hook)"
-# conda activate esm
-
-# python stockholm_to_fasta.py --pfam_ids_filepath=$PFAM_IDS --msa_path="${FILEPATH}msa/"
 
 printf "\n=== Get ProTherm PDBs ===\n\n"
 

@@ -14,7 +14,7 @@ FILTER_SIZE=100
 MSA_PATH="/scratch/external/gcarbone/msa/"
 FASTA="${MSA_PATH}fasta/${DATASET}.fasta"
 FASTA_ONELINE="${MSA_PATH}fasta_oneline/oneline_${DATASET}.fasta"
-OUT_PATH="${MSA_PATH}hhfiltered/hhfiltered_${DATASET}_seqs=${N_SEQUENCES}_filter=${FILTER_SIZE}/"
+OUT_PATH="${MSA_PATH}hhfiltered/hhfiltered_${DATASET}_filter=${FILTER_SIZE}/"
 
 mkdir -p "${MSA_PATH}fasta_oneline/"
 mkdir -p $OUT_PATH
