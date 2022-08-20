@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# TODO: filter before removing columns
+
 # 1. Filter the MSA from the chosen protein family and select N_SEQUENCES by minimum sequence identity.
 # 2. For each selected sequence build and MSA of size FILTER_SIZE by minimum sequence identity.
+
 
 ### args
 

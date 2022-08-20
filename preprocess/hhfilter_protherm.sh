@@ -2,8 +2,7 @@
 
 ### args
 
-FILTER_SIZE=100
-PREFILTER_SIZE=1000
+FILTER_SIZE=50
 
 ### set paths
 
@@ -11,7 +10,6 @@ FILEPATH="/scratch/external/gcarbone/"
 MSA_PATH="${FILEPATH}msa/"
 PROCESSED_PROTHERM="${FILEPATH}ProTherm/processed_single_mutation.csv"
 PROTHERM_SEQUENCES="${FILEPATH}ProTherm/sequences_single_mutation.csv"
-# FULL_PROTHERM="${FILEPATH}ProTherm/full_single_mutation.csv"
 OUT_LOGS="/fast/external/gcarbone/adversarial-protein-sequences_out/logs/"
 
 mkdir -p "${MSA_PATH}fasta_oneline/"
@@ -19,54 +17,54 @@ mkdir -p $OUT_LOGS
 eval "$(conda shell.bash hook)"
 conda activate esm
 
-# printf "\n=== Build ProTherm sequences csv ===\n\n"
+printf "\n=== Build ProTherm sequences csv ===\n\n"
 
-# ### select unique pfam_id, uniprot_id couples
+### select unique pfam_id, uniprot_id couples
 
-# cat $PROCESSED_PROTHERM | awk -F ";" '{print $6";"$9}' | uniq > "${FILEPATH}ProTherm/tmp.csv"
-# echo $(head -n 1 $PROCESSED_PROTHERM | awk -F ";" '{print $6";"$9}' )";FASTA;SEQUENCE;PFAM_SEQUENCE" > $PROTHERM_SEQUENCES
-# cat $PROTHERM_SEQUENCES
+cat $PROCESSED_PROTHERM | awk -F ";" '{print $6";"$9}' | uniq > "${FILEPATH}ProTherm/tmp.csv"
+echo $(head -n 1 $PROCESSED_PROTHERM | awk -F ";" '{print $6";"$9}' )";FASTA;SEQUENCE;PFAM_SEQUENCE" > $PROTHERM_SEQUENCES
+cat $PROTHERM_SEQUENCES
 
-# sed 1d "${FILEPATH}ProTherm/tmp.csv" | while read -r line; do
+sed 1d "${FILEPATH}ProTherm/tmp.csv" | while read -r line; do
 
-#    pfam_id=$(echo $line | awk -F ";" '{print $1}')
-#    uniprot_id=$(echo $line | awk -F ";" '{print $2}')
+   pfam_id=$(echo $line | awk -F ";" '{print $1}')
+   uniprot_id=$(echo $line | awk -F ";" '{print $2}')
 
-#    ### Search fasta id from uniprot id
+   ### Search fasta id from uniprot id
 
-#    fasta_id=$(grep $uniprot_id $MSA_PATH"stockholm/"$pfam_id".sto" | tail -n 1 | awk -F " " '{print $2}')
+   fasta_id=$(grep $uniprot_id $MSA_PATH"stockholm/"$pfam_id".sto" | tail -n 1 | awk -F " " '{print $2}')
 
-#    if [[ $fasta_id != "" ]]; then
+   if [[ $fasta_id != "" ]]; then
 
-#       ### MSA to single line
+      ### MSA to single line
 
-#       FASTA_ONELINE="${MSA_PATH}fasta_oneline/oneline_${pfam_id}.fasta"
+      FASTA_ONELINE="${MSA_PATH}fasta_oneline/oneline_${pfam_id}.fasta"
 
-#       cat $MSA_PATH"fasta/"$pfam_id".fasta" | awk 'BEGIN{FS=""}{if($1==">"){if(NR==1)print $0; else {printf "\n";print $0;}}else printf toupper($0)}' > $FASTA_ONELINE
+      cat $MSA_PATH"fasta/"$pfam_id".fasta" | awk 'BEGIN{FS=""}{if($1==">"){if(NR==1)print $0; else {printf "\n";print $0;}}else printf toupper($0)}' > $FASTA_ONELINE
 
-#       ### Search sequence in the MSA 
+      ### Search sequence in the MSA 
 
-#       pfam_sequence=$(grep $fasta_id -A 1 $FASTA_ONELINE | sed 1d)
-#       sequence=$(echo "${pfam_sequence//-}")
+      pfam_sequence=$(grep $fasta_id -A 1 $FASTA_ONELINE | sed 1d)
+      sequence=$(echo "${pfam_sequence//-}")
 
-#       new_line=$(echo "${line};${fasta_id};${sequence};${pfam_sequence}")
-#       echo
-#       echo $new_line
-#       echo $new_line >> $PROTHERM_SEQUENCES
+      new_line=$(echo "${line};${fasta_id};${sequence};${pfam_sequence}")
+      echo
+      echo $new_line
+      echo $new_line >> $PROTHERM_SEQUENCES
 
-#    else
+   else
 
-#       echo "missing uniprot ID ${uniprot_id} in ${pfam_id}.sto"
-#       echo "missing uniprot ID ${uniprot_id} in ${pfam_id}.sto" >> "${OUT_LOGS}missing_uniprot_stockholm.txt"
+      echo "missing uniprot ID ${uniprot_id} in ${pfam_id}.sto"
+      echo "missing uniprot ID ${uniprot_id} in ${pfam_id}.sto" >> "${OUT_LOGS}missing_uniprot_stockholm.txt"
 
-#    fi
+   fi
 
-# done
+done
 
-# rm "${FILEPATH}ProTherm/tmp.csv"
+rm "${FILEPATH}ProTherm/tmp.csv"
 
 
-printf "\n=== Filter MSA ===\n\n"
+printf "\n=== Filter MSA for ProTherm sequences ===\n\n"
 
 sed 1d $PROTHERM_SEQUENCES | while read -r line; do
 
@@ -85,7 +83,7 @@ sed 1d $PROTHERM_SEQUENCES | while read -r line; do
    OUT_NO_GAPS_FILTERED="${pfam_id}_${current_seq_filename}_no_gaps_filter=${FILTER_SIZE}"
    mkdir -p $OUT_PATH
 
-   echo "Select top FILTER_SIZE seqs in the MSA"
+   printf "\nSelect top ${FILTER_SIZE} seqs in ${pfam_id}"
 
    FASTA_ONELINE="${MSA_PATH}fasta_oneline/oneline_${pfam_id}.fasta"
    FASTA_ONELINE_FILTERED="${MSA_PATH}fasta_oneline/oneline_${pfam_id}_filter=${FILTER_SIZE}.fasta"
@@ -94,7 +92,7 @@ sed 1d $PROTHERM_SEQUENCES | while read -r line; do
    echo
    head -n 2 $FASTA_ONELINE_FILTERED
 
-   echo "Remove columns from the MSA where current sequence has gaps"
+   printf "\nRemove columns from the MSA where sequence ${fasta_name} has gaps"
 
    cat $FASTA_ONELINE_FILTERED | awk 'NR % 2 == 1' > "${OUT_PATH}tmp_names"
    cat $FASTA_ONELINE_FILTERED | awk 'NR % 2 == 0' > "${OUT_PATH}tmp_msa"
