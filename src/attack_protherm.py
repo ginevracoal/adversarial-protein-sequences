@@ -62,7 +62,14 @@ out_data_path =  os.path.join(args.out_dir, "data/msa/", out_filename+"/")
 os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist','max_entropy']
+if args.model=='ESM':
+    perturbations_keys = ['max_dist','max_cos','max_cmap_dist'] 
+
+elif args.model=='ESM_MSA':
+    perturbations_keys = ['max_dist','max_cos','max_cmap_dist','max_entropy']
+
+else:
+    raise NotImplementedError
 
 if args.load:
 
@@ -92,13 +99,6 @@ else:
     print("\nsequences_df:\n\n", sequences_df.head())
     print(f"\n{len(sequences_df)} ProTherm sequences")
 
-    ### Dataframes
-
-    # tokens_df = pd.DataFrame()
-    atk_df = pd.DataFrame()
-    cmap_df = pd.DataFrame()
-    embeddings_distances = []
-
     if args.model=='ESM':
         pretrained_model=esm.pretrained.esm1b_t33_650M_UR50S
         embedding_model=EsmEmbedding
@@ -120,6 +120,12 @@ else:
 
     atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
+    ### Dataframes
+
+    atk_df = pd.DataFrame()
+    cmap_df = pd.DataFrame()
+    embeddings_distances = []
+
     for row_idx, row in sequences_df.iterrows():
 
         original_sequence=row.SEQUENCE[:args.max_tokens]
@@ -130,116 +136,97 @@ else:
         mutations_df = protherm_df[(protherm_df.PFAM==row.PFAM) & (protherm_df.UNIPROT==row.UNIPROT)]
         print(mutations_df.head())
 
-        name = row.FASTA
-        seq_filename = row.FASTA.replace('/','_')
-        
-        ### compute first continuous embedding
+        if not mutations_df.empty:
 
-        if args.model=='ESM_MSA':
-
-            msa, max_tokens = load_msa(
-                filepath=f"{args.data_dir}msa/hhfiltered/hhfiltered_{row.PFAM}_filter={args.min_filter}", 
-                filename=f"{row.PFAM}_{seq_filename}_no_gaps_filter={args.min_filter}", 
-                max_model_tokens=esm_model.args.max_tokens, max_tokens=args.max_tokens)
-
-            ### put current sequence on top of the msa
-            msa = dict(msa)
-            if name in msa.keys():
-                msa.pop(name)       
-            msa = tuple(msa.items())
-            msa = [(name, original_sequence)] + list(msa)
-
-
-            batch_labels, batch_strs, batch_tokens = batch_converter(msa)
-            batch_tokens = batch_tokens.to(args.device)
-
-            with torch.no_grad():
-                repr_layer_idx = 0
-                results = esm_model(batch_tokens, repr_layers=[repr_layer_idx], return_contacts=True)
-                first_embedding = results["representations"][repr_layer_idx].to(args.device)
-
-        else:
-
-            msa=None
+            name = row.FASTA
+            seq_filename = row.FASTA.replace('/','_')
             
-            batch_labels, batch_strs, batch_tokens = batch_converter([(name, original_sequence)])
-            batch_tokens = batch_tokens.to(args.device)
+            ### compute first continuous embedding
 
-            with torch.no_grad():
-                results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
-                first_embedding = results["representations"][0].to(args.device)
+            if args.model=='ESM_MSA':
 
-        ### choose target positions
+                msa, max_tokens = load_msa(
+                    filepath=f"{args.data_dir}msa/hhfiltered/hhfiltered_{row.PFAM}_filter={args.min_filter}", 
+                    filename=f"{row.PFAM}_{seq_filename}_no_gaps_filter={args.min_filter}", 
+                    max_model_tokens=esm_model.args.max_tokens, max_tokens=args.max_tokens)
 
-        target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(token_selection=args.token_selection, 
-            n_token_substitutions=args.n_substitutions, msa=msa, batch_tokens=batch_tokens, 
-            target_attention=args.target_attention, verbose=False)
+                ### put current sequence on top of the msa
+                msa = dict(msa)
+                if name in msa.keys():
+                    msa.pop(name)       
+                msa = tuple(msa.items())
+                msa = [(name, original_sequence)] + list(msa)
 
-        pdb_start = mutations_df.PDB_START.unique().item()
-        target_token_idxs_full_pdb = [idx+pdb_start for idx in target_token_idxs]
-        protherm_token_idxs = list(mutations_df.POSITION.unique())
-        perc_matching_idxs = len([x for x in protherm_token_idxs if x in target_token_idxs_full_pdb])/len(protherm_token_idxs)
-        print(f"\ntarget_token_idxs = {target_token_idxs_full_pdb}")
-        print(f"protherm_token_idxs = {protherm_token_idxs}")
-        print(f"perc_matching_idxs = {perc_matching_idxs}")
+                batch_labels, batch_strs, batch_tokens = batch_converter(msa)
+                batch_tokens = batch_tokens.to(args.device)
 
-        ### attack sequence 
+                with torch.no_grad():
+                    repr_layer_idx = 0
+                    results = esm_model(batch_tokens, repr_layers=[repr_layer_idx], return_contacts=True)
+                    first_embedding = results["representations"][repr_layer_idx].to(args.device)
 
-        signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence,
-            batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
-            loss_method=args.loss_method)
+            else:
 
-        target_token_idx = mutations_df.POSITION-pdb_start
+                msa=None
+                
+                batch_labels, batch_strs, batch_tokens = batch_converter([(name, original_sequence)])
+                batch_tokens = batch_tokens.to(args.device)
 
-        for pert_key in perturbations_keys
+                with torch.no_grad():
+                    results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
+                    first_embedding = results["representations"][0].to(args.device)
 
-        df, emb_dist_single_seq = atk.attack_position(name=name, original_sequence=original_sequence, 
-            original_batch_tokens=batch_tokens, msa=msa, target_token_idx=target_token_idx, 
-            first_embedding=first_embedding, signed_gradient=signed_gradient, 
-            perturbation_key=perturbation_key, verbose=args.verbose)
+            ### choose target positions
 
-        exit()
+            target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(token_selection=args.token_selection, 
+                n_token_substitutions=args.n_substitutions, msa=msa, batch_tokens=batch_tokens, 
+                target_attention=args.target_attention, verbose=False)
 
-    #     ### update sequence row in the df
+            pdb_start = mutations_df.PDB_START.unique().item()
+            target_token_idxs_full_pdb = [idx+pdb_start for idx in target_token_idxs]
+            protherm_token_idxs = list(mutations_df.POSITION.unique())
+            perc_matching_idxs = len([x for x in protherm_token_idxs if x in target_token_idxs_full_pdb])/len(protherm_token_idxs)
+            print(f"\ntarget_token_idxs = {target_token_idxs_full_pdb}")
+            print(f"protherm_token_idxs = {protherm_token_idxs}")
+            print(f"perc_matching_idxs = {perc_matching_idxs}")
 
-    #     atk_df = pd.concat([atk_df, df], ignore_index=True)
-    #     embeddings_distances.append(emb_dist_single_seq)
+            ### attack sequence 
 
-    #     ### contact maps distances
+            signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence,
+                batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
+                loss_method=args.loss_method)
 
-    #     perturbed_sequences_dict = {key:df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
+            # add mutation to atk df
 
-    #     df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
-    #             sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose,
-    #             cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+            for _, mutation_row in mutations_df.iterrows():
+                for perturbation in perturbations_keys:
 
-    #     cmap_df = pd.concat([cmap_df, df], ignore_index=True)
+                    row_dict, emb_dist_single_seq = atk.attack_single_position(name=name, original_sequence=original_sequence, 
+                        original_batch_tokens=batch_tokens, msa=msa, position=mutation_row.POSITION, pdb_start=pdb_start,
+                        first_embedding=first_embedding, signed_gradient=signed_gradient, 
+                        perturbation=perturbation, verbose=args.verbose)
 
-    #     ### plot attention
+                    row_dict['DDG'] = mutation_row.DDG
 
-    #     if seq_idx==0:
-    #         attentions = emb_model.compute_attention_matrix(batch_tokens=batch_tokens, 
-    #             layers_idxs=[n_layers-1])
-    #         attentions = attentions.squeeze().cpu().detach().numpy()
+                    atk_df = atk_df.append(row_dict, ignore_index=True)
+                    embeddings_distances.append(emb_dist_single_seq)
 
-    #         plot_attention_grid(sequence=original_sequence, heads_attention=attentions, layer_idx=n_layers, 
-    #             filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
-            
-    #         key='max_cmap_dist'
-    #         adversarial_sequence = atk_df[f'{key}_sequence'].iloc[0] 
-    #         original_contacts = get_contact_map(model=esm_model, alphabet=alphabet, sequence=original_sequence)
-    #         adversarial_contacts = get_contact_map(model=esm_model, alphabet=alphabet, sequence=adversarial_sequence)
-    #         plot_cmaps(original_contacts=original_contacts.cpu().detach().numpy(), 
-    #             adversarial_contacts=adversarial_contacts.cpu().detach().numpy(), 
-    #             filepath=out_plots_path, filename=f"{key}", key=key)
+                    ### contact maps distances
 
-    # atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
-    # cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
+                    perturbed_sequences_dict = {perturbation:row_dict['perturbed_sequence']}
 
-    # embeddings_distances = torch.stack(embeddings_distances)
-    # save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
+                    df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
+                            sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose,
+                            cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
-exit()
+                    cmap_df = pd.concat([cmap_df, df], ignore_index=True)
+
+    atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
+    cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
+
+    embeddings_distances = torch.stack(embeddings_distances)
+    save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
+
 ### plots
 
 print("\natk_df:\n", atk_df.keys())
