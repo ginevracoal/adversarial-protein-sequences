@@ -23,15 +23,17 @@ mkdir -p $OUT_LOGS
 
 printf "\n=== Build processed ProTherm csv ===\n\n"
 
-echo "PDB;CHAIN;POSITION;WILD_TYPE;MUTANT;DDG;PFAM;PDB_START;PDB_END;UNIPROT" > $OUT_CSV
+echo "PDB;CHAIN;POSITION;WILD_TYPE;MUTANT;PFAM;PDB_START;PDB_END;UNIPROT;DDG;PDB_BEG" > $OUT_CSV
 head $OUT_CSV
 
 echo "" > "${OUT_LOGS}missing_pdb_pfam_match.txt"
 
-# cat $PROTHERM | awk -F ";" '$8 < 0' > $DESTABILIZING_PROTHERM
-# sed 1d $DESTABILIZING_PROTHERM | while read -r line; do
+## cat $PROTHERM | awk -F ";" '$8 < 0' > $DESTABILIZING_PROTHERM
+## sed 1d $DESTABILIZING_PROTHERM | while read -r line; do
+
 sed 1d $PROTHERM | while read -r line; do
 
+   echo
    pdb_chain=$(echo $line | grep "pdb" | awk '{sub(/.pdb/, " "); print $1}') 
 
    pdb=$( echo $pdb_chain | sed 's/.$//' | sed 's/.*/\L&/g' )
@@ -45,22 +47,26 @@ sed 1d $PROTHERM | while read -r line; do
 
    pfam=""
    while read -r match; do
-      pdb_start=$(echo $match | awk -F "," '{print $3}')
-      pdb_end=$(echo $match |  awk -F "," '{print $4}')
+      tmp_pdb_start=$(echo $match | awk -F "," '{print $3}')
+      tmp_pdb_end=$(echo $match |  awk -F "," '{print $4}')
 
-      if (($pdb_start <= $position && $position <= $pdb_end)); then
-         # echo $match
+      if (($tmp_pdb_start <= $position && $position <= $tmp_pdb_end)); then
+         echo $match
+         pdb_start=$tmp_pdb_start
+         pdb_end=$tmp_pdb_end
          pfam=$(echo $match | grep "$pdb,$chain" | awk -F, '{print $5}')         
       fi
    done < "${OUT_LOGS}pfam_matches"
    rm "${OUT_LOGS}pfam_matches"
 
-   uniprot=$(cat $PDB_UNIPROT_MAPPING | grep "$pdb,$chain" | awk -F, '{print $3}')
-   uniprot=$(echo $uniprot | awk -F " " '{print $1}')
-
    if [[ $pfam != "" ]]; then
 
-      new_line=$(echo "$pdb;$chain;$position;$wild_type;$mutant;$ddg;$pfam;$pdb_start;$pdb_end;$uniprot")
+      uniprot=$(cat $PDB_UNIPROT_MAPPING | grep "$pdb,$chain" | awk -F, '{print $3}')
+      uniprot=$(echo $uniprot | awk -F " " '{print $1}')
+
+      pdb_beg=$(cat $PDB_UNIPROT_MAPPING | grep "$pdb,$chain" | awk -F, '{print $6}')
+
+      new_line=$(echo "$pdb;$chain;$position;$wild_type;$mutant;$pfam;$pdb_start;$pdb_end;$uniprot;$ddg;$pdb_beg")
       echo $new_line
       echo $new_line >> $OUT_CSV
 

@@ -63,19 +63,18 @@ os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
 if args.model=='ESM':
-    perturbations_keys = ['max_dist','max_cos','max_cmap_dist'] 
+    perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist'] 
 
 elif args.model=='ESM_MSA':
-    perturbations_keys = ['max_dist','max_cos','max_cmap_dist','max_entropy']
+    perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist','max_entropy']
 
 else:
     raise NotImplementedError
 
 if args.load:
 
-    raise NotImplementedError
-    # atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
-    # cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
+    atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
+    cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
     # embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
 
 else:
@@ -183,10 +182,10 @@ else:
                 target_attention=args.target_attention, verbose=False)
 
             pdb_start = mutations_df.PDB_START.unique().item()
-            target_token_idxs_full_pdb = [idx+pdb_start for idx in target_token_idxs]
+            target_pdb_idxs = [idx+pdb_start for idx in target_token_idxs]
             protherm_token_idxs = list(mutations_df.POSITION.unique())
-            perc_matching_idxs = len([x for x in protherm_token_idxs if x in target_token_idxs_full_pdb])/len(protherm_token_idxs)
-            print(f"\ntarget_token_idxs = {target_token_idxs_full_pdb}")
+            perc_matching_idxs = len([x for x in protherm_token_idxs if x in target_pdb_idxs])/len(protherm_token_idxs)
+            print(f"\ntarget_pdb_idxs = {target_pdb_idxs}")
             print(f"protherm_token_idxs = {protherm_token_idxs}")
             print(f"perc_matching_idxs = {perc_matching_idxs}")
 
@@ -201,31 +200,36 @@ else:
             for _, mutation_row in mutations_df.iterrows():
                 for perturbation in perturbations_keys:
 
-                    row_dict, emb_dist_single_seq = atk.attack_single_position(name=name, original_sequence=original_sequence, 
-                        original_batch_tokens=batch_tokens, msa=msa, position=mutation_row.POSITION, pdb_start=pdb_start,
-                        first_embedding=first_embedding, signed_gradient=signed_gradient, 
-                        perturbation=perturbation, verbose=args.verbose)
+                    mutant_token=mutation_row.MUTANT if perturbation=='protherm' else None
 
-                    row_dict['DDG'] = mutation_row.DDG
+                    target_token_idx=mutation_row.POSITION-pdb_start
+                    if mutation_row.WILD_TYPE==original_sequence[target_token_idx]:
 
-                    atk_df = atk_df.append(row_dict, ignore_index=True)
-                    embeddings_distances.append(emb_dist_single_seq)
+                        row_dict = atk.attack_single_position(name=name, original_sequence=original_sequence, 
+                            original_batch_tokens=batch_tokens, msa=msa, position=mutation_row.POSITION, pdb_start=pdb_start,
+                            target_token_idx=target_token_idx, first_embedding=first_embedding, signed_gradient=signed_gradient, 
+                            perturbation=perturbation, verbose=args.verbose, mutant_token=mutant_token)
 
-                    ### contact maps distances
+                        row_dict['DDG'] = mutation_row.DDG
 
-                    perturbed_sequences_dict = {perturbation:row_dict['perturbed_sequence']}
+                        atk_df = atk_df.append(row_dict, ignore_index=True)
+                        # embeddings_distances.append(emb_dist_single_seq)
 
-                    df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
-                            sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose,
-                            cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+                        ### contact maps distances
 
-                    cmap_df = pd.concat([cmap_df, df], ignore_index=True)
+                        perturbed_sequences_dict = {perturbation:row_dict['perturbed_sequence']}
+
+                        df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
+                                sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose,
+                                cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+
+                        cmap_df = pd.concat([cmap_df, df], ignore_index=True)
 
     atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
     cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
 
-    embeddings_distances = torch.stack(embeddings_distances)
-    save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
+    # embeddings_distances = torch.stack(embeddings_distances)
+    # save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
 
 ### plots
 

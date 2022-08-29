@@ -5,9 +5,9 @@
 ################
 
 #PBS -N ProTherm_attack
-#PBS -l nodes=1:ppn=24
+#PBS -l nodes=1:ppn=12
 #PBS -l walltime=10:00:00
-#PBS -q fat
+#PBS -q thin
 #PBS -j oe
 #PBS -o pbs.out
 
@@ -52,8 +52,8 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 # run #
 #######
 
-python attack_msa.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --model=$MODEL --loss_method=$LOSS_METHOD \
-	--dataset=$DATASET --max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
+python attack_protherm.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --model=$MODEL --loss_method=$LOSS_METHOD \
+	--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
 	--n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
 	--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1
 

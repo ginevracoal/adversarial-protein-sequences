@@ -41,12 +41,11 @@ def load_msa(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=
 			avg_seq_length += len(sequence)
 
 	avg_seq_length = avg_seq_length/n_sequences
-	print(f"\navg_seq_length = {avg_seq_length}")
 
 	if len(sequence)<max_tokens:
 		max_tokens = len(sequence)
 
-	print(f"\nn_tokens = {max_tokens}")
+	print(f"\navg_seq_length = {avg_seq_length}\tmax_tokens = {max_tokens}")
 
 	# if n_sequences is not None:
 	# 	data = random.sample(data, n_sequences)

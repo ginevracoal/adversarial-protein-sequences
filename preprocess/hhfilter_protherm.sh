@@ -2,7 +2,7 @@
 
 ### args
 
-FILTER_SIZE=50
+FILTER_SIZE=100
 
 ### set paths
 

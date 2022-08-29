@@ -457,8 +457,82 @@ class SequenceAttack():
 		return atk_df, torch.tensor(embeddings_distances)
 
 
-	def attack_single_position(self, name, original_sequence, original_batch_tokens, position, pdb_start,
-		first_embedding, perturbation, signed_gradient, msa=None, verbose=False, p_norm=1):
+	def evaluate_substitution(self, original_sequence, first_embedding, target_token_idx, mutant_token, signed_gradient,
+		target, msa, atk_dict, p_norm=1):
+
+		ce_loss = torch.nn.CrossEntropyLoss(ignore_index=1)
+		# bleu = BLEUScore()
+
+		batch_converter = self.embedding_model.alphabet.get_batch_converter()
+
+		current_sequence_list = list(original_sequence)
+		current_sequence_list[target_token_idx] = mutant_token
+		perturbed_sequence = "".join(current_sequence_list)
+		atk_dict['perturbed_sequence'] = perturbed_sequence
+		atk_dict['mutant_token'] = mutant_token
+
+		with torch.no_grad():
+
+			if msa is None: # single-seq attack
+				perturbed_batch = [("pert_seq", perturbed_sequence)]
+				batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+
+				results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+				logits = results['logits'][:,1:-1, :].squeeze()[target_token_idx]
+				zc = results["representations"][0]
+
+				assert zc.shape[1]==len(original_sequence)+2
+				assert first_embedding.shape[1]==len(original_sequence)+2
+
+			else: # msa attack
+				perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa[1:])
+				batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
+				results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+				logits = results['logits'][:,0,1:, :].squeeze()[target_token_idx]
+				zc = results["representations"][0][:,0]
+
+				assert zc.shape[1]==len(original_sequence)+1
+				assert first_embedding.shape[1]==len(original_sequence)+1
+
+			zc_diff = zc-first_embedding
+
+			n_diff_components = len(torch.nonzero(zc_diff.flatten()))
+			assert n_diff_components > 0
+
+			cosine_similarity = nn.CosineSimilarity(dim=-1)(signed_gradient.flatten(), zc_diff.flatten())
+			atk_dict['cosine_similarity'] = cosine_similarity.item()
+
+			embedding_distance = torch.norm(zc_diff, p=p_norm)
+			atk_dict['embedding_distance'] = embedding_distance.item()
+
+			cmaps_distance = compute_cmaps_distance(model=self.original_model, alphabet=self.alphabet, 
+				original_sequence=original_sequence, sequence_name="mutation", 
+				perturbed_sequence=perturbed_sequence)
+			atk_dict['cmaps_distance'] = cmaps_distance
+
+			### perplexity and bleu score
+
+			loss = ce_loss(logits.unsqueeze(0), target)
+			atk_dict['perplexity'] = torch.exp(loss).item()
+			assert atk_dict['perplexity'] >= 1
+
+			# atk_dict[f'bleu'] = bleu([original_sequence], [perturbed_sequence])
+
+			original_residues = list(original_sequence)
+			pert_residues = list(perturbed_sequence)
+			atk_dict['bleu']  = sentence_bleu([original_residues], pert_residues)
+			assert atk_dict['bleu'] >=0 and atk_dict['bleu'] <= 1
+			
+			if msa is not None:
+				residue_idx = self.alphabet.get_idx(mutant_token)
+				p = msa_frequencies[target_token_idx,residue_idx]
+				token_entropy = -p*torch.log(p)
+				atk_dict['entropy'] = token_entropy
+
+		return atk_dict
+
+	def attack_single_position(self, name, original_sequence, original_batch_tokens, position, pdb_start, target_token_idx,
+		first_embedding, perturbation, signed_gradient, mutant_token=None, msa=None, verbose=False):
 		""" Compute perturbations of the original sequence at target token idxs based on the chosen perturbation methods.
 		Evaluate perturbed sequences against the original one.
 		"""
@@ -466,13 +540,9 @@ class SequenceAttack():
 		self.original_model.eval()
 		self.embedding_model.eval()
 
-		target_token_idx=position-pdb_start
 		true_residue_idx = self.alphabet.get_idx(original_sequence[target_token_idx])
 		target = torch.tensor([true_residue_idx]).to(signed_gradient.device)
 		target.requires_grad = False
-
-		ce_loss = torch.nn.CrossEntropyLoss(ignore_index=1)
-		# bleu = BLEUScore()
 
 		if verbose:
 			print(f"\n-- {perturbation} attack --")
@@ -484,9 +554,7 @@ class SequenceAttack():
 		# assert 'masked_pred' in perturbations_keys
 		# adv_perturbations_keys.remove('masked_pred')
 		
-		batch_converter = self.embedding_model.alphabet.get_batch_converter()
 		batch_tokens_masked = original_batch_tokens.clone()
-
 		original_token = original_sequence[target_token_idx]
 
 		### init dictionary
@@ -496,11 +564,14 @@ class SequenceAttack():
 			'original_token':original_token,
 			'position':position,
 			'target_token_idx':target_token_idx,
+			'perturbed_sequence':original_sequence,
 			'perturbation':perturbation,
 			'attack_metric':None,
-			'mutated_sequence':original_sequence,
 			'mutant_token':None,
-			'embedding_distance':0.,
+			'cmap_distance':None,
+			'cosine_similarity':None,
+			'embedding_distance':None,
+			'entropy':None,
 			'pseudo_likelihood':0.,
 			'evo_velocity':0.,
 			'blosum_dist':0.,
@@ -516,137 +587,88 @@ class SequenceAttack():
 		batch_tokens_masked = self.embedding_model.mask_batch_tokens(batch_tokens_masked, 
 			target_token_idxs=[target_token_idx])
 
-		### allowed substitutions at target_token_idx 
-		allowed_token_substitutions = self.get_allowed_token_substitutions(original_token)
-
-		if DEBUG:
-			print(f"\nallowed_token_substitutions at idx {target_token_idx} = {allowed_token_substitutions}")
-
 		if DEBUG:
 			print("\n\tperturbation_key =", perturbation)
 			print(f"\t\toriginal token = {original_token}")
 
+		if mutant_token is None:
 
-		if perturbation=='max_cmap_dist':
-			atk_dict.update({'attack_metric':0})
+			### allowed substitutions at target_token_idx 
+			allowed_token_substitutions = self.get_allowed_token_substitutions(original_token)
 
-		if perturbation=='max_cos':
-			atk_dict.update({'attack_metric':-1})
+			if DEBUG:
+				print(f"\nallowed_token_substitutions at idx {target_token_idx} = {allowed_token_substitutions}")
 
-		if perturbation=='min_dist':
-			atk_dict.update({'attack_metric':10e10})
+			if perturbation=='max_cmap_dist':
+				atk_dict.update({'attack_metric':0})
 
-		if perturbation=='max_dist':
-			atk_dict.update({'attack_metric':0})
+			if perturbation=='max_cos':
+				atk_dict.update({'attack_metric':-1})
 
-		if perturbation=='max_entropy':
-			atk_dict.update({'attack_metric':0})
+			if perturbation=='min_dist':
+				atk_dict.update({'attack_metric':10e10})
 
-		for j, token in enumerate(allowed_token_substitutions):
-			current_sequence_list = list(atk_dict['mutated_sequence'])
-			current_sequence_list[target_token_idx] = token
-			perturbed_sequence = "".join(current_sequence_list)
+			if perturbation=='max_dist':
+				atk_dict.update({'attack_metric':0})
 
-			with torch.no_grad():
+			if perturbation=='max_entropy':
+				atk_dict.update({'attack_metric':0})
 
-				if msa is None: # single-seq attack
-					perturbed_batch = [("pert_seq", perturbed_sequence)]
-					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-
-					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-					logits = results['logits'][:,1:-1, :].squeeze()[target_token_idx]
-					zc = results["representations"][0]
-
-					assert zc.shape[1]==len(original_sequence)+2
-					assert first_embedding.shape[1]==len(original_sequence)+2
-
-				else: # msa attack
-					perturbed_batch = [("pert_seq", perturbed_sequence)] + list(msa[1:])
-					batch_labels, batch_strs, batch_tokens = batch_converter(perturbed_batch)
-					results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-					logits = results['logits'][:,0,1:, :].squeeze()[target_token_idx]
-					zc = results["representations"][0][:,0]
-
-					assert zc.shape[1]==len(original_sequence)+1
-					assert first_embedding.shape[1]==len(original_sequence)+1
-
-				zc_diff = zc-first_embedding
-
-				n_diff_components = len(torch.nonzero(zc_diff.flatten()))
-				assert n_diff_components > 0
-
-				cosine_similarity = nn.CosineSimilarity(dim=-1)(signed_gradient.flatten(), zc_diff.flatten())
-				embedding_distance = torch.norm(zc_diff, p=p_norm)
-
-				cmaps_distance = compute_cmaps_distance(model=self.original_model, alphabet=self.alphabet, 
-					original_sequence=original_sequence, sequence_name=name, 
-					perturbed_sequence=perturbed_sequence)
-
-				### perplexity and bleu score
-
-				loss = ce_loss(logits.unsqueeze(0), target)
-				atk_dict['perplexity'] = torch.exp(loss).item()
-				assert atk_dict['perplexity'] >= 1
-
-				# atk_dict[f'bleu'] = bleu([original_sequence], [perturbed_sequence])
-
-				original_residues = list(original_sequence)
-				pert_residues = list(perturbed_sequence)
-				atk_dict['bleu']  = sentence_bleu([original_residues], pert_residues)
-				assert atk_dict['bleu'] >=0 and atk_dict['bleu'] <= 1
-				
-				if msa is not None:
-					residue_idx = self.alphabet.get_idx(token)
-					p = msa_frequencies[target_token_idx,residue_idx]
-					token_entropy = -p*torch.log(p)
+			for j, token in enumerate(allowed_token_substitutions):
+ 
+				new_atk_dict = self.evaluate_substitution(original_sequence=original_sequence, 
+					first_embedding=first_embedding, target_token_idx=target_token_idx, target=target,
+					mutant_token=token, msa=msa, signed_gradient=signed_gradient, atk_dict=atk_dict)
 
 				### substitutions that maximize the distance bw original and perturbed contact maps
 
-				if perturbation=='max_cmap_dist' and cmaps_distance > atk_dict['attack_metric']:
-					atk_dict['attack_metric'] = cmaps_distance
-					atk_dict['perturbed_sequence'] = perturbed_sequence
-					atk_dict['embedding_distance'] = embedding_distance.item()
-					atk_dict['mutant_token'] = token
+				if perturbation=='max_cmap_dist' and atk_dict['cmaps_distance'] > atk_dict['attack_metric']:
+					atk_dict = new_atk_dict
+					atk_dict['attack_metric'] = atk_dict['cmaps_distance']
 					
 					if DEBUG:
-						print(f"\t\tnew token = {token}\tcmaps_distance = {cmaps_distance}")
+						print(f"\t\tnew token = {token}\tcmaps_distance = {atk_dict['cmaps_distance']}")
 
 				### substitutions that maximize cosine similarity w.r.t. gradient direction
 
-				if perturbation=='max_cos' and cosine_similarity > atk_dict['attack_metric']:
-					atk_dict['attack_metric'] = cosine_similarity.item()
-					atk_dict['perturbed_sequence'] = perturbed_sequence
-					atk_dict['embedding_distance'] = embedding_distance.item()
-					atk_dict['mutant_token'] = token
+				if perturbation=='max_cos' and atk_dict['cosine_similarity'] > atk_dict['attack_metric']:
+					atk_dict = new_atk_dict
+					atk_dict['attack_metric'] = atk_dict['cosine_similarity']
 					
 					if DEBUG:
-						print(f"\t\tnew token = {token}\tcos_similarity = {cosine_similarity}")
+						print(f"\t\tnew token = {token}\tcos_similarity = {atk_dict['cosine_similarity']}")
 
-				if perturbation=='min_dist' and embedding_distance < atk_dict['attack_metric']:
-					atk_dict['attack_metric'] = embedding_distance.item()
-					atk_dict['perturbed_sequence'] = perturbed_sequence
-					atk_dict['embedding_distance'] = embedding_distance.item()
-					atk_dict['mutant_token'] = token
+				### substitutions that minimize/maximize embeddings distance
 
-					if DEBUG:
-						print(f"\t\tnew token = {token}\tdistance = {embedding_distance}")
-
-				if perturbation=='max_dist' and embedding_distance > atk_dict['attack_metric']:
-					atk_dict['attack_metric'] = embedding_distance.item()
-					atk_dict['perturbed_sequence'] = perturbed_sequence
-					atk_dict['embedding_distance'] = embedding_distance.item()
-					atk_dict['mutant_token'] = token
+				if perturbation=='min_dist' and atk_dict['embedding_distance'] < atk_dict['attack_metric']:
+					atk_dict = new_atk_dict
+					atk_dict['attack_metric'] = atk_dict['embedding_distance']
 
 					if DEBUG:
-						print(f"\t\tnew token = {token}\tdistance = {embedding_distance}")
+						print(f"\t\tnew token = {token}\tdistance = {atk_dict['embedding_distance']}")
 
-				if perturbation=='max_entropy' and token_entropy > atk_dict['attack_metric']:
-					atk_dict['attack_metric'] = token_entropy.item()
-					atk_dict['embedding_distance'] = embedding_distance.item()
-					atk_dict['mutant_token'] = token
+				if perturbation=='max_dist' and atk_dict['embedding_distance'] > atk_dict['attack_metric']:
+					atk_dict = new_atk_dict
+					atk_dict['attack_metric'] = atk_dict['embedding_distance']
 
 					if DEBUG:
-						print(f"\t\tnew token = {token}\tentropy = {token_entropy}")
+						print(f"\t\tnew token = {token}\tdistance = {atk_dict['embedding_distance']}")
+
+				### substitutions that maximize entropy
+
+				if perturbation=='max_entropy' and atk_dict['entropy'] > atk_dict['attack_metric']:
+					atk_dict = new_atk_dict
+					atk_dict['attack_metric'] = atk_dict['entropy']
+
+					if DEBUG:
+						print(f"\t\tnew token = {token}\tentropy = {atk_dict['entropy']}")
+
+		else:
+			print(f"\t\tnew token = {mutant_token}")
+
+			atk_dict = self.evaluate_substitution(original_sequence=original_sequence, 
+				first_embedding=first_embedding, target_token_idx=target_token_idx, target=target,
+				mutant_token=mutant_token, msa=msa, signed_gradient=signed_gradient, atk_dict=atk_dict)
 
 		masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
 		predicted_sequence_list = list(original_sequence)
@@ -664,44 +686,44 @@ class SequenceAttack():
 
 			raise NotImplementedError
 
-			predicted_residue_idx = probs[target_token_idx, :].argmax()
-			pred_token = self.alphabet.all_toks[predicted_residue_idx]
-			predicted_sequence_list[target_token_idx] = pred_token
+			# predicted_residue_idx = probs[target_token_idx, :].argmax()
+			# pred_token = self.alphabet.all_toks[predicted_residue_idx]
+			# predicted_sequence_list[target_token_idx] = pred_token
 
-			atk_dict['attack_metric'] = int(pred_token==original_sequence[target_token_idx]) # masked_pred correct or not
-			atk_dict['mutant_token'] = pred_token
+			# atk_dict['attack_metric'] = int(pred_token==original_sequence[target_token_idx]) # masked_pred correct or not
+			# atk_dict['mutant_token'] = pred_token
 
-			predicted_sequence = "".join(predicted_sequence_list)
+			# predicted_sequence = "".join(predicted_sequence_list)
 
-			if msa:
-				predicted_batch = [("pred_seq", predicted_sequence)] + list(msa[1:])
-			else:
-				predicted_batch = [("pred_seq", predicted_sequence)]
+			# if msa:
+			# 	predicted_batch = [("pred_seq", predicted_sequence)] + list(msa[1:])
+			# else:
+			# 	predicted_batch = [("pred_seq", predicted_sequence)]
 
-			batch_labels, batch_strs, batch_tokens = batch_converter(predicted_batch)
-			results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
-			z_c = results["representations"][0]
+			# batch_labels, batch_strs, batch_tokens = batch_converter(predicted_batch)
+			# results = self.original_model(batch_tokens.to(signed_gradient.device), repr_layers=[0])
+			# z_c = results["representations"][0]
 
-			if msa:
-				z_c = z_c[:,0]
+			# if msa:
+			# 	z_c = z_c[:,0]
 
-			embedding_distance = torch.norm(z_c-first_embedding, p=p_norm)
-			atk_dict['perturbed_sequence'] = predicted_sequence
-			atk_dict['embedding_distance'] = embedding_distance.item()
+			# embedding_distance = torch.norm(z_c-first_embedding, p=p_norm)
+			# atk_dict['perturbed_sequence'] = predicted_sequence
+			# atk_dict['embedding_distance'] = embedding_distance.item()
 
-			embedding_distance = torch.norm(zc-first_embedding, p=p_norm)
-			atk_dict['embedding_distance'] = embedding_distance.item()
+			# embedding_distance = torch.norm(zc-first_embedding, p=p_norm)
+			# atk_dict['embedding_distance'] = embedding_distance.item()
 
-			### perplexity and bleu score
+			# ### perplexity and bleu score
 
-			loss = ce_loss(logits.unsqueeze(0), target)
-			atk_dict['perplexity'] = torch.exp(loss).item()
-			assert atk_dict['perplexity'] >= 1
+			# loss = ce_loss(logits.unsqueeze(0), target)
+			# atk_dict['perplexity'] = torch.exp(loss).item()
+			# assert atk_dict['perplexity'] >= 1
 
-			original_residues = list(original_sequence)
-			pert_residues = list(perturbed_sequence)
-			atk_dict['bleu']  = sentence_bleu([original_residues], pert_residues)
-			assert atk_dict['bleu'] >=0 and atk_dict['bleu'] <= 1
+			# original_residues = list(original_sequence)
+			# pert_residues = list(perturbed_sequence)
+			# atk_dict['bleu']  = sentence_bleu([original_residues], pert_residues)
+			# assert atk_dict['bleu'] >=0 and atk_dict['bleu'] <= 1
 
 		original_residue_idx = self.alphabet.get_idx(original_sequence[target_token_idx])
 		new_residue_idx = self.alphabet.get_idx(atk_dict['mutant_token'])
@@ -722,10 +744,11 @@ class SequenceAttack():
 
 		if verbose:
 			print(f"\n{perturbation}")
-			for dict_key in ['pseudo_likelihood','evo_velocity','blosum_dist','perplexity','bleu']:
+			for dict_key in ['embedding_distance','cosine_similarity','cmap_distance','entropy',
+							'pseudo_likelihood','evo_velocity','blosum_dist','perplexity','bleu']:
 				print(f"\t{dict_key} = {atk_dict[f'{dict_key}']}")
 
-		return atk_dict, embedding_distance
+		return atk_dict#, atk_dict['embedding_distance']
 
 	def evaluate_missense(self, missense_row, msa, original_embedding, signed_gradient, adversarial_df, perturbations_keys, 
 		p_norm=1, verbose=False):

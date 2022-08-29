@@ -20,7 +20,7 @@ from esm.modules import (
 from esm.axial_attention import RowSelfAttention, ColumnSelfAttention
 
 DEBUG=False
-
+GAMMA=0.
 
 class MsaEsmEmbedding(nn.Module):
 	@classmethod
@@ -257,7 +257,7 @@ class MsaEsmEmbedding(nn.Module):
 
 			assert torch.all(torch.eq(orig_logits, emb_logits))
 
-	def compute_attention_matrix(self, batch_tokens, layers_idxs, gamma=0.5):
+	def compute_attention_matrix(self, batch_tokens, layers_idxs, gamma=GAMMA):
 
 		with torch.no_grad():
 			results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
@@ -286,7 +286,7 @@ class MsaEsmEmbedding(nn.Module):
 		attention_matrix = gamma*row_attentions+(1-gamma)*col_attentions
 		return attention_matrix
 
-	def compute_tokens_attention(self, batch_tokens, layers_idxs, gamma=0.5):
+	def compute_tokens_attention(self, batch_tokens, layers_idxs, gamma=GAMMA):
 
 		attention_matrix = self.compute_attention_matrix(batch_tokens=batch_tokens, layers_idxs=layers_idxs, gamma=gamma)
 
