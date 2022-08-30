@@ -34,7 +34,7 @@ parser.add_argument("--n_sequences", default=100, type=eval,
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")

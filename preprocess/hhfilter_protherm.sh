@@ -2,7 +2,7 @@
 
 ### args
 
-FILTER_SIZE=100
+FILTER_SIZE=30
 
 ### set paths
 
@@ -16,52 +16,6 @@ mkdir -p "${MSA_PATH}fasta_oneline/"
 mkdir -p $OUT_LOGS
 eval "$(conda shell.bash hook)"
 conda activate esm
-
-printf "\n=== Build ProTherm sequences csv ===\n\n"
-
-### select unique pfam_id, uniprot_id couples
-
-cat $PROCESSED_PROTHERM | awk -F ";" '{print $6";"$9}' | uniq > "${FILEPATH}ProTherm/tmp.csv"
-echo $(head -n 1 $PROCESSED_PROTHERM | awk -F ";" '{print $6";"$9}' )";FASTA;SEQUENCE;PFAM_SEQUENCE" > $PROTHERM_SEQUENCES
-cat $PROTHERM_SEQUENCES
-
-sed 1d "${FILEPATH}ProTherm/tmp.csv" | while read -r line; do
-
-   pfam_id=$(echo $line | awk -F ";" '{print $1}')
-   uniprot_id=$(echo $line | awk -F ";" '{print $2}')
-
-   ### Search fasta id from uniprot id
-
-   fasta_id=$(grep $uniprot_id $MSA_PATH"stockholm/"$pfam_id".sto" | tail -n 1 | awk -F " " '{print $2}')
-
-   if [[ $fasta_id != "" ]]; then
-
-      ### MSA to single line
-
-      FASTA_ONELINE="${MSA_PATH}fasta_oneline/oneline_${pfam_id}.fasta"
-
-      cat $MSA_PATH"fasta/"$pfam_id".fasta" | awk 'BEGIN{FS=""}{if($1==">"){if(NR==1)print $0; else {printf "\n";print $0;}}else printf toupper($0)}' > $FASTA_ONELINE
-
-      ### Search sequence in the MSA 
-
-      pfam_sequence=$(grep $fasta_id -A 1 $FASTA_ONELINE | sed 1d)
-      sequence=$(echo "${pfam_sequence//-}")
-
-      new_line=$(echo "${line};${fasta_id};${sequence};${pfam_sequence}")
-      echo
-      echo $new_line
-      echo $new_line >> $PROTHERM_SEQUENCES
-
-   else
-
-      echo "missing uniprot ID ${uniprot_id} in ${pfam_id}.sto"
-      echo "missing uniprot ID ${uniprot_id} in ${pfam_id}.sto" >> "${OUT_LOGS}missing_uniprot_stockholm.txt"
-
-   fi
-
-done
-
-rm "${FILEPATH}ProTherm/tmp.csv"
 
 
 printf "\n=== Filter MSA for ProTherm sequences ===\n\n"

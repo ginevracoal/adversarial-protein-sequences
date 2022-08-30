@@ -11,7 +11,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from utils.data import *
-from utils.plot import *
+from utils.plot_protherm import *
 from sequence_attack import SequenceAttack
 from models.esm_embedding import EsmEmbedding
 from models.msa_esm_embedding import MsaEsmEmbedding
@@ -28,10 +28,9 @@ parser.add_argument("--data_dir", default='/scratch/external/gcarbone/', type=st
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
     help="Output data path.")
 parser.add_argument("--model", default='ESM', type=str, help="Choose 'ESM' or 'ESM_MSA'")
-parser.add_argument("--max_tokens", default=1024, type=eval, 
+parser.add_argument("--max_tokens", default=None, type=eval, 
     help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--min_filter", default=50, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
-
+parser.add_argument("--min_filter", default=50, type=int, help="Minimum number of sequences selected for the filtered MSA.")
 parser.add_argument("--n_substitutions", default=10, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
@@ -66,7 +65,7 @@ if args.model=='ESM':
     perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist'] 
 
 elif args.model=='ESM_MSA':
-    perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist','max_entropy']
+    perturbations_keys = ['protherm']#,'max_dist','max_cos','max_cmap_dist','max_entropy']
 
 else:
     raise NotImplementedError
@@ -75,7 +74,6 @@ if args.load:
 
     atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
     cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
-    # embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
 
 else:
 
@@ -85,10 +83,6 @@ else:
 
     ### select rows with top DDG values
 
-    # top_dgg_df_perc = int(len(df)*0.5)
-    # highest_ddg = df[df['DDG']>0].sort_values('DDG').tail(top_dgg_df_perc)
-    # lowest_ddg = df[df['DDG']<0].sort_values('DDG').head(top_dgg_df_perc)
-    # top_dgg_df =pd.concat([lowest_ddg, highest_ddg], ignore_index=True)
     stabilization_ths=2.
     protherm_df = protherm_df[(protherm_df['DDG']>stabilization_ths) | (protherm_df['DDG']<-stabilization_ths)]
     print("\nDDG>0\n", protherm_df[protherm_df['DDG']>0]['DDG'].describe())
@@ -125,7 +119,8 @@ else:
     cmap_df = pd.DataFrame()
     embeddings_distances = []
 
-    for row_idx, row in sequences_df.iterrows():
+    # for row_idx, row in sequences_df.iterrows():
+    for row_idx, row in tqdm(sequences_df.iterrows(), total=len(sequences_df)):
 
         original_sequence=row.SEQUENCE[:args.max_tokens]
 
@@ -181,39 +176,39 @@ else:
                 n_token_substitutions=args.n_substitutions, msa=msa, batch_tokens=batch_tokens, 
                 target_attention=args.target_attention, verbose=False)
 
-            pdb_start = mutations_df.PDB_START.unique().item()
-            target_pdb_idxs = [idx+pdb_start for idx in target_token_idxs]
-            protherm_token_idxs = list(mutations_df.POSITION.unique())
-            perc_matching_idxs = len([x for x in protherm_token_idxs if x in target_pdb_idxs])/len(protherm_token_idxs)
-            print(f"\ntarget_pdb_idxs = {target_pdb_idxs}")
-            print(f"protherm_token_idxs = {protherm_token_idxs}")
-            print(f"perc_matching_idxs = {perc_matching_idxs}")
-
-            ### attack sequence 
-
-            signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence,
-                batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
-                loss_method=args.loss_method)
-
-            # add mutation to atk df
-
             for _, mutation_row in mutations_df.iterrows():
+
+                pdb_start = mutation_row.PDB_START
+                target_pdb_idxs = [idx+pdb_start for idx in target_token_idxs]
+                protherm_token_idx = mutation_row.POSITION
+                token_idx_found = bool(protherm_token_idx in target_pdb_idxs)
+                print(f"target_pdb_idxs = {target_pdb_idxs}")
+                print(f"protherm_token_idx = {protherm_token_idx}")
+                print(f"token_idx_found = {token_idx_found}")
+
+                ### attack sequence at ProTherm mutant position
+
                 for perturbation in perturbations_keys:
 
-                    mutant_token=mutation_row.MUTANT if perturbation=='protherm' else None
+                    target_token=mutation_row.MUTANT if perturbation=='protherm' else None
 
-                    target_token_idx=mutation_row.POSITION-pdb_start
+                    target_token_idx=protherm_token_idx-pdb_start
                     if mutation_row.WILD_TYPE==original_sequence[target_token_idx]:
 
+                        signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence,
+                            batch_tokens=batch_tokens, target_token_idxs=[target_token_idx], first_embedding=first_embedding, 
+                            loss_method=args.loss_method)
+
                         row_dict = atk.attack_single_position(name=name, original_sequence=original_sequence, 
-                            original_batch_tokens=batch_tokens, msa=msa, position=mutation_row.POSITION, pdb_start=pdb_start,
+                            original_batch_tokens=batch_tokens, msa=msa, position=protherm_token_idx, pdb_start=pdb_start,
                             target_token_idx=target_token_idx, first_embedding=first_embedding, signed_gradient=signed_gradient, 
-                            perturbation=perturbation, verbose=args.verbose, mutant_token=mutant_token)
+                            perturbation=perturbation, verbose=args.verbose, target_token=target_token)
 
                         row_dict['DDG'] = mutation_row.DDG
+                        row_dict['token_idx_found'] = token_idx_found
+                        row_dict['chose_mutant_token'] = bool(row_dict['target_token']==mutation_row.MUTANT)
 
                         atk_df = atk_df.append(row_dict, ignore_index=True)
-                        # embeddings_distances.append(emb_dist_single_seq)
 
                         ### contact maps distances
 
@@ -228,18 +223,12 @@ else:
     atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
     cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
 
-    # embeddings_distances = torch.stack(embeddings_distances)
-    # save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
-
 ### plots
 
 print("\natk_df:\n", atk_df.keys())
 print("\ncmap_df:\n", cmap_df.keys())
 
-plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
-plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_token_substitutions(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)

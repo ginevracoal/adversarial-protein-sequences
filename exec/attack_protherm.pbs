@@ -6,7 +6,7 @@
 
 #PBS -N ProTherm_attack
 #PBS -l nodes=1:ppn=12
-#PBS -l walltime=10:00:00
+#PBS -l walltime=20:00:00
 #PBS -q thin
 #PBS -j oe
 #PBS -o pbs.out
