@@ -346,7 +346,7 @@ class SequenceAttack():
 				atk_dict[f'{pert_key}_tokens'].append(new_token)
 
 		assert len(atk_dict[f'{pert_key}_tokens'])==len(target_token_idxs)
-		
+
 		### prediction on sequence masked at target_token_idxs
 
 		masked_prediction = self.original_model(batch_tokens_masked.to(signed_gradient.device))
@@ -517,7 +517,7 @@ class SequenceAttack():
 
 			original_residues = list(original_sequence)
 			pert_residues = list(perturbed_sequence)
-			atk_dict['bleu']  = sentence_bleu([original_residues], pert_residues)
+			atk_dict[f'bleu']  = sentence_bleu([original_residues], pert_residues)
 			assert atk_dict['bleu'] >=0 and atk_dict['bleu'] <= 1
 			
 			if msa is not None:
@@ -734,7 +734,7 @@ class SequenceAttack():
 			for dict_key in ['embedding_distance','cosine_similarity','cmaps_distance','entropy',
 							'pseudo_likelihood','evo_velocity','blosum_dist','perplexity','bleu']:
 				print(f"\t{dict_key} = {atk_dict[f'{dict_key}']}")
-
+		exit()
 		return atk_dict
 
 	def evaluate_missense(self, missense_row, msa, original_embedding, signed_gradient, adversarial_df, perturbations_keys, 

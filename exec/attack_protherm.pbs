@@ -6,8 +6,8 @@
 
 #PBS -N ProTherm_attack
 #PBS -l nodes=1:ppn=12
-#PBS -l walltime=20:00:00
-#PBS -q thin
+#PBS -l walltime=10:00:00
+#PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
 
@@ -15,14 +15,12 @@
 # script settings #
 ###################
 
-MAX_TOKENS=None
-MIN_FILTER=50
-N_SUBSTITUTIONS=10
-MODEL="ESM_MSA" # "ESM", "ESM_MSA"
+MIN_FILTER=30
+MODEL="ESM" # "ESM", "ESM_MSA"
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='last_layer' # 'all_layers' 'last_layer'
 LOSS_METHOD="max_masked_prob"
-DEVICE="cpu"
+DEVICE="cuda"
 LOAD=False
 
 ###########
@@ -53,8 +51,7 @@ OUT="${LOGS_DIR}${DATE}_${TIME}_out.txt"
 #######
 
 python attack_protherm.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --model=$MODEL --loss_method=$LOSS_METHOD \
-	--max_tokens=$MAX_TOKENS --token_selection=$TOKEN_SELECTION \
-	--n_substitutions=$N_SUBSTITUTIONS --device=$DEVICE --load=$LOAD \
+	--token_selection=$TOKEN_SELECTION --device=$DEVICE --load=$LOAD \
 	--target_attention=$TARGET_ATTENTION --min_filter=$MIN_FILTER >> $OUT 2>&1
 
 conda deactivate

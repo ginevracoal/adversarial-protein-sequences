@@ -97,4 +97,26 @@ def compute_cmaps_distance_df(model, alphabet, perturbed_sequences_dict, origina
     print(f"\n\ncmap_distances at k=0:\n\n{cmap_df[cmap_df['k']==0]}\n")
     return cmap_df
 
+def compute_cmaps_distance_df_protherm(model, alphabet, perturbation, perturbed_sequences_dict, original_sequence, sequence_name, 
+    ddg, cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1, verbose=False):
 
+    # original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
+    cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
+    cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
+    min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
+
+    cmap_df = pd.DataFrame()
+
+    for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
+
+        row_list = [['name', sequence_name],['k',k_idx],['perturbation',perturbation],['ddg',ddg]]
+        for key, perturbed_sequence in perturbed_sequences_dict.items():
+
+            cmap_distance = compute_cmaps_distance(model=model, alphabet=alphabet, sequence_name=sequence_name, 
+                original_sequence=original_sequence, perturbed_sequence=perturbed_sequence, k=k, p=p)
+            row_list.append([f'cmaps_distance', cmap_distance])
+
+        cmap_df = cmap_df.append(dict(row_list), ignore_index=True)
+
+    print(f"\n\ncmap_distances at k=0:\n\n{cmap_df[cmap_df['k']==0]}\n")
+    return cmap_df

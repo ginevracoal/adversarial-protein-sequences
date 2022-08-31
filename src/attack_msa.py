@@ -14,7 +14,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
-from utils.protein_sequences import compute_cmaps_distance_df, get_max_hamming_msa, get_contact_map
+from utils.protein_sequences import compute_cmaps_distance_df, get_contact_map
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -98,6 +98,8 @@ else:
 	embeddings_distances = []
 
 	for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
+
+        torch.cuda.empty_cache()
 
 		name, original_sequence = single_sequence_data
 

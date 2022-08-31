@@ -18,28 +18,38 @@ linestyles=['-', '--', '-.', ':', '-']
 matplotlib.rc('font', **{'size': FONT_SIZE})
 
 
-def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None):
-    matplotlib.rc('font', **{'size': FONT_SIZE})    
-    sns.set_style("darkgrid")
+def plot_hist_position_ranks(df, keys, filepath=None, filename=None):
+
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
+    for idx, key in enumerate(keys):
+        tmp_df = df[df['perturbation']==key]
+        sns.histplot(x=tmp_df["protherm_idx_rank"], label=key)
+
+    plt.tight_layout()
+    plt.show()
+    if filepath is not None and filename is not None:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        fig.savefig(os.path.join(filepath, filename+"_position_ranks.png"))
+        plt.close()
+
+    return fig
+
+
+def plot_cmap_distances(df, keys, filepath=None, filename=None):
 
     df = df[df['k']>=5]
     df = df[df['k']<=20]
 
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
     ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
         ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
     for idx, key in enumerate(keys):
-        sns.lineplot(x=df['k'], y=df[f'{key}_cmap_dist'], label=key, ls=linestyles[idx])
-
-    if missense_df is not None:
-        sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
+        tmp_df = df[df['perturbation']==key]
+        sns.lineplot(x=tmp_df['k'], y=tmp_df[f'cmaps_distance'], label=key, ls=linestyles[idx])
 
     plt.tight_layout()
     plt.show()
-    # fig.suptitle(filename, fontsize=FONT_SIZE)
-    # plt.subplots_adjust(top=TOP) 
-
     if filepath is not None and filename is not None:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         fig.savefig(os.path.join(filepath, filename+"_cmap_distances.png"))
@@ -47,9 +57,7 @@ def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None
 
     return fig
 
-def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
-    matplotlib.rc('font', **{'size': FONT_SIZE})
-    sns.set_style("darkgrid")
+def plot_confidence(df, keys, filepath=None, filename=None):
 
     ### perplexity
 
@@ -93,7 +101,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
     ### pseudo-likelihood
 
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
     for idx, key in enumerate(keys):
         hist=True if key=='masked_pred' else False
         tmp_df = df[df['perturbation']==key]
@@ -110,35 +118,9 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
         fig.savefig(os.path.join(filepath, filename+"_pseudo_likelihood.png"))
         plt.close()
 
-    # ### perp vs pseudo likelihood
-
-    # temp_df = pd.DataFrame()
-    # for index, row in df.iterrows():
-    #     new_row = {}
-    #     key = row['perturbation']
-    #     if key!='masked_pred':          
-    #         new_row['key'] = key
-    #         new_row['perplexity'] = row[f"perplexity"]
-    #         new_row['pseudo_likelihood'] = row[f"pseudo_likelihood"]
-    #         temp_df = temp_df.append(new_row, ignore_index=True)
-
-    # fig = plt.figure(figsize=(6, 5), dpi=DPI)
-    # g = sns.jointplot(data=temp_df, x="pseudo_likelihood", y="perplexity", hue="key", kind='kde')
-    # plt.xlabel(r'Pseudo likelihood of substitutions: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x^M_i)]$')
-    # plt.ylabel(r'Perplexity of predictions: $e^{H(p)}$')
-
-    # plt.tight_layout()
-    # plt.legend()
-    # plt.show()
-
-    # if filepath is not None and filename is not None:
-    #     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    #     plt.savefig(os.path.join(filepath, filename+"_perplexity_vs_likelihood.png"))
-    #     plt.close()
-
     ### evo-velocity
 
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
     for idx, key in enumerate(keys):
         hist=True if key=='masked_pred' else False
         tmp_df = df[df['perturbation']==key]

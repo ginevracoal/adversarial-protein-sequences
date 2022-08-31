@@ -11,7 +11,7 @@ from matplotlib.patches import Rectangle
 DPI=150
 TOP=0.92
 FONT_SIZE=13
-palette="mako"
+palette="mako_r"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
 linestyles=['-', '--', '-.', ':', '-']

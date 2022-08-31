@@ -16,7 +16,7 @@ from utils.data import *
 from utils.plot import *
 from sequence_attack import SequenceAttack
 from models.msa_esm_embedding import MsaEsmEmbedding
-from utils.protein_sequences import compute_cmaps_distance, get_max_hamming_msa, get_blosum_score
+from utils.protein_sequences import compute_cmaps_distance_df, get_blosum_score
 
 print("\ntorch.cuda.is_available() =", torch.cuda.is_available(), "\ttorch version =", torch.version.cuda)
 
@@ -33,11 +33,10 @@ parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-pr
 	help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
 	help="Optionally cut sequences to maximum number of tokens. None does not cut sequences.")
-parser.add_argument("--n_sequences", default=30, type=eval, 
-	help="Number of sequences from the chosen dataset. None loads all sequences.")
+
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
@@ -46,8 +45,8 @@ parser.add_argument("--target_attention", default='all_layers', type=str,
 	Used only when `token_selection`=`max_attention")
 
 parser.add_argument("--loss_method", default='max_masked_prob', type=str, 
-    help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_masked_prob' \
-    or 'max_tokens_repr'.")
+	help="Loss function used to compute gradients in the first embedding space. Choose 'max_masked_ce', max_masked_prob' \
+	or 'max_tokens_repr'.")
 
 parser.add_argument("--cmap_dist_lbound", default=0.2, type=int, 
 	help='Lower bound for upper triangular matrix of long range contacts.')
@@ -69,7 +68,7 @@ print("\n", args)
 # os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 # os.makedirs(os.path.dirname(out_missense_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','max_entropy','min_dist','max_dist'] 
+perturbations_keys = ['masked_pred','max_dist']#,'max_cos','max_cmap_dist','max_entropy',]
 
 if args.load:
 
@@ -139,49 +138,44 @@ else:
 		### attack sequence
 
 		target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(token_selection=args.token_selection, 
-			n_token_substitutions=args.n_substitutions, msa=msa, batch_tokens=batch_tokens, 
+			n_token_substitutions=len(original_sequence), msa=msa, batch_tokens=batch_tokens, 
 			target_attention=args.target_attention, verbose=args.verbose)
 
-		target_idx_accuracy = np.sum([idx in target_token_idxs for idx in mutated_idxs])/len(mutated_idxs)
+		target_token_idx = target_token_idxs[0]
+		mutant_idx_rank = target_token_idxs.tolist().index(row['mutation_idx'])/len(target_token_idxs)
 
-		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, batch_tokens=batch_tokens,
-			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
+		print("\nmutant_idx_rank =", mutant_idx_rank)
 
-		atk_df, _ = atk.incremental_attack(name=name, original_sequence=original_sequence, 
-			original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
-			target_tokens_attention=target_tokens_attention,
-			first_embedding=first_embedding, signed_gradient=signed_gradient, 
-			perturbations_keys=perturbations_keys, verbose=args.verbose)
+		# target_idx_accuracy = np.sum([idx in target_token_idxs for idx in mutated_idxs])/len(mutated_idxs)
 
-		### evaluate against missense mutations
+		# signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, batch_tokens=batch_tokens,
+		# 	target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		missense_row = atk.evaluate_missense(missense_row=row,  msa=msa, original_embedding=first_embedding, 
-			signed_gradient=signed_gradient, adversarial_df=atk_df, perturbations_keys=perturbations_keys, 
-			verbose=args.verbose)
+		# atk_df, _ = atk.incremental_attack(name=name, original_sequence=original_sequence, 
+		# 	original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
+		# 	target_tokens_attention=target_tokens_attention,
+		# 	first_embedding=first_embedding, signed_gradient=signed_gradient, 
+		# 	perturbations_keys=perturbations_keys, verbose=args.verbose)
 
-		# print('original_sequence', missense_row['original_sequence'])
-		# print('mutated_sequence', missense_row['mutated_sequence'])
-		# print('masked_pred_sequence', atk_df['masked_pred_sequence'])
-		# print('max_cos_sequence', atk_df['max_cos_sequence'])
-		# print('min_dist_sequence', atk_df['min_dist_sequence'])
-		# print('max_dist_sequence', atk_df['max_dist_sequence'])
+		# ### evaluate against missense mutations
 
-		missense_row['target_idx_accuracy'] = target_idx_accuracy.item()
-		missense_evaluation_df = missense_evaluation_df.append(missense_row, ignore_index=True)
+		# missense_row = atk.evaluate_missense(missense_row=row,  msa=msa, original_embedding=first_embedding, 
+		# 	signed_gradient=signed_gradient, adversarial_df=atk_df, perturbations_keys=perturbations_keys, 
+		# 	verbose=args.verbose)
 
-		### compute cmaps distances against missense mutations
+		# missense_row['target_idx_accuracy'] = target_idx_accuracy.item()
+		# missense_evaluation_df = missense_evaluation_df.append(missense_row, ignore_index=True)
 
-		perturbed_sequences_dict = {key:atk_df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
+		# ### compute cmaps distances against missense mutations
 
-		cmap_df = compute_cmaps_distance(model=esm_model, alphabet=alphabet, 
-			original_sequence=row['mutated_sequence'], sequence_name=row['mutation_name'], 
-			perturbed_sequences_dict=perturbed_sequences_dict,
-			cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+		# perturbed_sequences_dict = {key:atk_df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
 
-		missense_cmap_df = pd.concat([missense_cmap_df, cmap_df], ignore_index=True)
+		# cmap_df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, 
+		# 	original_sequence=row['mutated_sequence'], sequence_name=row['mutation_name'], 
+		# 	perturbed_sequences_dict=perturbed_sequences_dict,
+		# 	cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
 
-	# missense_evaluation_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_eval.csv"))
-	# missense_cmap_df.to_csv(os.path.join(out_missense_path, out_missense_filename+"_missense_cmaps.csv"))
+		# missense_cmap_df = pd.concat([missense_cmap_df, cmap_df], ignore_index=True)
 
 print("\nmissense_evaluation_df:\n", missense_evaluation_df.keys())
 print("\nmissense_cmap_df:\n", missense_cmap_df.keys())
