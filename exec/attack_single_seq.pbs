@@ -17,12 +17,12 @@
 
 DATASET="PF00627" # PF00533, PF00627, PF00240
 MAX_TOKENS=None
+N_SUBSTITUTIONS=3
 N_SEQUENCES=100
 MIN_FILTER=100
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='last_layer' # 'all_layers' 'last_layer'
 LOSS_METHOD="max_masked_prob"
-N_SUBSTITUTIONS=1
 DEVICE="cpu"
 LOAD=False
 

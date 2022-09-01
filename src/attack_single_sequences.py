@@ -64,13 +64,13 @@ out_data_path =  os.path.join(args.out_dir, "data/single_sequence/", out_filenam
 os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist']
+perturbations_keys = ['max_dist','max_cos','max_cmap_dist'] # 'masked_pred'
 
 if args.load:
 
 	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
+	distances_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_all_distances.csv"))
 	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
-	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
 
 else:
 
@@ -86,9 +86,6 @@ else:
 
 	atk = SequenceAttack(original_model=esm_model, embedding_model=emb_model, alphabet=alphabet)
 
-	# data, max_tokens = load_pfam(filepath=args.data_dir, filename=args.dataset, 
-	# 	max_model_tokens=esm_model.args.max_tokens, n_sequences=args.n_sequences, max_tokens=args.max_tokens)
-
 	data, max_tokens = load_msa(
 		filepath=f"{args.data_dir}hhfiltered_{args.dataset}_filter={args.min_filter}", 
 		filename=f"{args.dataset}_top_{args.n_sequences}_seqs", 
@@ -97,9 +94,8 @@ else:
 	### fill dataframes
 
 	atk_df = pd.DataFrame()
+	distances_df = pd.DataFrame()
 	cmap_df = pd.DataFrame()
-	embeddings_distances = []
-
 
 	for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
 
@@ -113,17 +109,26 @@ else:
 			results = esm_model(batch_tokens, repr_layers=[0], return_contacts=True)
 			first_embedding = results["representations"][0].to(args.device)
 
-		### sequence attacks
-
 		target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(batch_tokens=batch_tokens, 
 			n_token_substitutions=args.n_substitutions, token_selection=args.token_selection,
 			target_attention=args.target_attention, verbose=args.verbose)
+
+		### plot attention matrix
+
+		if seq_idx==0 and args.target_attention=='last_layer':
+			layers_idxs = atk._get_attention_layers_idxs(args.target_attention)
+			attentions = emb_model.compute_attention_matrix(batch_tokens=batch_tokens, layers_idxs=layers_idxs)
+			attentions = attentions.squeeze().cpu().detach().numpy()
+			plot_attention_grid(sequence=original_sequence, heads_attention=attentions, layer_idx=n_layers, 
+			    filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
+
+		### sequence attacks
 
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, 
 			batch_tokens=batch_tokens,
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		df, emb_dist_single_seq = atk.incremental_attack(name=name, original_sequence=original_sequence, 
+		df, dist_df = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, 
 			target_tokens_attention=target_tokens_attention, first_embedding=first_embedding, 
 			signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, verbose=args.verbose)
@@ -131,7 +136,7 @@ else:
 		### update sequence row in the df
 
 		atk_df = pd.concat([atk_df, df], ignore_index=True)
-		embeddings_distances.append(emb_dist_single_seq)
+		distances_df = pd.concat([distances_df, dist_df], ignore_index=True)
 
 		### contact maps distances
 
@@ -145,11 +150,8 @@ else:
 
 	os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 	atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
+	distances_df.to_csv(os.path.join(out_data_path,  out_filename+"_all_distances.csv"))
 	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
-
-	embeddings_distances = torch.stack(embeddings_distances)
-	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
-
 
 ### plots
 

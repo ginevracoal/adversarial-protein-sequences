@@ -271,56 +271,63 @@ class MsaEsmEmbedding(nn.Module):
 			print("\nrow_attentions.shape =", row_attentions.shape)
 			print("col_attentions.shape =", col_attentions.shape)
 
-		row_attentions = row_attentions[0, layers_idxs]
-		col_attentions = col_attentions[0, layers_idxs].mean(-1).mean(-1)
-
-		# col_attentions = col_attentions.flatten(start_dim=3)
-		# col_attentions = torch.norm(col_attentions.mean(-1), dim=-1, p=2)
+		row_attentions = row_attentions[0, layers_idxs, :, 1:, 1:]
+		col_attentions = col_attentions[0, layers_idxs, :, 1:,].mean(-1).mean(-1)
 
 		### remove start tokens attention
-		row_attentions = row_attentions[:,:,1:,1:]
-		col_attentions = col_attentions[:,:,1:]
 		col_attentions = col_attentions.unsqueeze(-1).repeat(1, 1, 1, row_attentions.shape[-1])
 		assert row_attentions.shape == col_attentions.shape
 
 		attention_matrix = gamma*row_attentions+(1-gamma)*col_attentions
+		print("\nattention_matrix shape = (head, layers, tokens, tokens)", attention_matrix.shape)
 		return attention_matrix
 
 	def compute_tokens_attention(self, batch_tokens, layers_idxs, gamma=GAMMA):
 
-		with torch.no_grad():
-			results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
+		attention_matrix = self.compute_attention_matrix(batch_tokens=batch_tokens, layers_idxs=layers_idxs, gamma=gamma)
 
-		row_attentions = results["row_attentions"]
-		col_attentions = results["col_attentions"]
-		batch_size = col_attentions.shape[-1]
-		_, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
-
-		if DEBUG:
-			print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
-			print("\nrow_attentions.shape =", row_attentions.shape)
-			print("col_attentions.shape =", col_attentions.shape)
-
-		row_attentions = row_attentions[0, layers_idxs]
-		col_attentions = col_attentions[0, layers_idxs]
-
-		row_attentions = torch.swapaxes(row_attentions, 2, 0)
-		col_attentions = torch.swapaxes(col_attentions, 2, 0)
-
-		### remove start tokens attention
-		row_attentions = row_attentions[1:, 1:].flatten(start_dim=1)
-		col_attentions = col_attentions[1:].flatten(start_dim=1)
+		## compute avg attention across all heads (1) and layers (0)
+		tokens_attention = attention_matrix.mean(1).mean(0).squeeze()
 
 		### compute l2 norm of attention vectors
-		row_attentions = torch.norm(row_attentions, dim=-1, p=2)
-		col_attentions = torch.norm(col_attentions, dim=-1, p=2)
-
-		softmax = torch.nn.Softmax(dim=0)
-		row_attentions = softmax(row_attentions)
-		col_attentions = softmax(col_attentions)
-
-		tokens_attention = gamma*row_attentions + (1-gamma)*col_attentions
+		tokens_attention = torch.norm(tokens_attention, dim=-1, p=2)
 		return tokens_attention
+
+	# def compute_tokens_attention(self, batch_tokens, layers_idxs, gamma=GAMMA):
+
+	# 	with torch.no_grad():
+	# 		results = self.original_model(batch_tokens, repr_layers=layers_idxs, return_contacts=True)
+
+	# 	row_attentions = results["row_attentions"]
+	# 	col_attentions = results["col_attentions"]
+	# 	batch_size = col_attentions.shape[-1]
+	# 	_, n_layers, n_heads, n_tokens = row_attentions.shape[:4]
+
+	# 	if DEBUG:
+	# 		print(f"\nbatch_size = {batch_size}\tn_layers = {n_layers}\tn_heads = {n_heads}")
+	# 		print("\nrow_attentions.shape =", row_attentions.shape)
+	# 		print("col_attentions.shape =", col_attentions.shape)
+
+	# 	row_attentions = row_attentions[0, layers_idxs]
+	# 	col_attentions = col_attentions[0, layers_idxs]
+
+	# 	row_attentions = torch.swapaxes(row_attentions, 2, 0)
+	# 	col_attentions = torch.swapaxes(col_attentions, 2, 0)
+
+	# 	### remove start tokens attention
+	# 	row_attentions = row_attentions[1:, 1:].flatten(start_dim=1)
+	# 	col_attentions = col_attentions[1:].flatten(start_dim=1)
+
+	# 	### compute l2 norm of attention vectors
+	# 	row_attentions = torch.norm(row_attentions, dim=-1, p=2)
+	# 	col_attentions = torch.norm(col_attentions, dim=-1, p=2)
+
+	# 	softmax = torch.nn.Softmax(dim=0)
+	# 	row_attentions = softmax(row_attentions)
+	# 	col_attentions = softmax(col_attentions)
+
+	# 	tokens_attention = gamma*row_attentions + (1-gamma)*col_attentions
+	# 	return tokens_attention
 
 	def loss(self, method, output, target_token_idxs, true_residues_idxs):
 

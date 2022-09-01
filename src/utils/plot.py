@@ -115,14 +115,14 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 			fig.savefig(os.path.join(filepath, filename+f"_substitutions_{key}_token.png"))
 			plt.close()
 
-def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None):
+def plot_cmap_distances(df, keys, distances_df, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})    
 	sns.set_style("darkgrid")
 
 	df = df[df['k']>=5]
 	df = df[df['k']<=20]
 
-	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
 		ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
@@ -131,6 +131,8 @@ def plot_cmap_distances(df, keys, missense_df=None, filepath=None, filename=None
 
 	if missense_df is not None:
 		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
+
+	sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label=key, ls=linestyles[idx+1], ci=None)
 
 	plt.tight_layout()
 	plt.show()
@@ -153,7 +155,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 	df["masked_pred_accuracy"] = df["masked_pred_accuracy"].apply(lambda x: format(float(x),".2f"))
 	df = df.sort_values(by=['masked_pred_accuracy'])
 
-	fig, ax = plt.subplots(2, 1, figsize=(8, 5), dpi=DPI, gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
+	fig, ax = plt.subplots(2, 1, figsize=(6, 5), dpi=DPI, gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
 
 	# sns.stripplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", jitter=0.3, ax=ax[0])
 	sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", ax=ax[0], palette="Blues")
@@ -212,7 +214,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	### pseudo-likelihood
 
-	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	for idx, key in enumerate(keys):
 		hist=True if key=='masked_pred' else False
 		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=hist, 
@@ -256,7 +258,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	### evo-velocity
 
-	fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	for idx, key in enumerate(keys):
 		hist=True if key=='masked_pred' else False
 		sns.distplot(x=df[f"{key}_evo_velocity"], label=key, kde=True, hist=hist,
@@ -280,7 +282,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_evo_velocity.png"))
 		plt.close()
 
-def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename):
+def plot_embeddings_distances(df, keys, distances_df, filepath, filename):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
@@ -290,6 +292,9 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 		hist=True if key=='masked_pred' else False		
 		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key}', kde=True, hist=hist,
 			kde_kws={'linestyle':linestyles[idx]})
+
+	sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=hist,
+		kde_kws={'linestyle':linestyles[idx+1]})
 
 	### all possible token choices and residues substitutions
 	# sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
@@ -308,7 +313,7 @@ def plot_embeddings_distances(df, keys, embeddings_distances, filepath, filename
 		fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
 		plt.close()
 
-def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
+def plot_blosum_distances(df, keys, distances_df, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
 
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
@@ -323,6 +328,9 @@ def plot_blosum_distances(df, keys, missense_df=None, filepath=None, filename=No
 			hist=True if key=='masked_pred' else False
 			sns.distplot(x=df[f"{key}_blosum_dist"], label=key, kde=True, hist=hist,
 				kde_kws={'linestyle':linestyles[idx]})
+
+		sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=hist,
+			kde_kws={'linestyle':linestyles[idx+1]})
 
 	else:
 		raise ValueError

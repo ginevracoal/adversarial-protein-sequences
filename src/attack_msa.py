@@ -25,7 +25,7 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default='/scratch/external/gcarbone/msa/hhfiltered/', type=str, 
 	help="Datasets path. Choose `msa/` or `msa/hhfiltered/`.")
-parser.add_argument("--dataset", default='PF00533', type=str, help="Dataset name")
+parser.add_argument("--dataset", default='PF00627', type=str, help="Dataset name: PF00533, PF00627")
 parser.add_argument("--out_dir", default='/fast/external/gcarbone/adversarial-protein-sequences_out/', type=str, 
 	help="Output data path.")
 parser.add_argument("--max_tokens", default=None, type=eval, 
@@ -34,7 +34,7 @@ parser.add_argument("--n_sequences", default=100, type=eval,
 	help="Number of sequences from the chosen dataset. None loads all sequences.")
 parser.add_argument("--min_filter", default=100, type=eval, help="Minimum number of sequences selected for the filtered MSA.")
 
-parser.add_argument("--n_substitutions", default=1, type=int, help="Number of token substitutions in the original sequence.")
+parser.add_argument("--n_substitutions", default=3, type=int, help="Number of token substitutions in the original sequence.")
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
@@ -64,13 +64,13 @@ out_data_path =  os.path.join(args.out_dir, "data/msa/", out_filename+"/")
 os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist','max_entropy']
+perturbations_keys = ['max_dist','max_cos','max_cmap_dist','max_entropy'] # 'masked_pred'
 
 if args.load:
 
 	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
+	distances_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_all_distances.csv"))
 	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
-	embeddings_distances = load_from_pickle(filepath=out_data_path, filename=out_filename)
 
 else:
 
@@ -94,12 +94,12 @@ else:
 	### fill dataframes
 
 	atk_df = pd.DataFrame()
+	distances_df = pd.DataFrame()
 	cmap_df = pd.DataFrame()
-	embeddings_distances = []
 
 	for seq_idx, single_sequence_data in tqdm(enumerate(data), total=len(data)):
 
-        torch.cuda.empty_cache()
+		torch.cuda.empty_cache()
 
 		name, original_sequence = single_sequence_data
 
@@ -130,27 +130,39 @@ else:
 			results = esm_model(batch_tokens, repr_layers=[repr_layer_idx], return_contacts=True)
 			first_embedding = results["representations"][repr_layer_idx].to(args.device)
 
-
-		### sequence attacks
+		### choose target idxs
 
 		target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(token_selection=args.token_selection, 
 			n_token_substitutions=args.n_substitutions, msa=msa, batch_tokens=batch_tokens, 
 			target_attention=args.target_attention, verbose=args.verbose)
 
+		### plot attention matrix
+
+		if seq_idx==0 and args.target_attention=='last_layer':
+			layers_idxs = atk._get_attention_layers_idxs(args.target_attention)
+			attentions = emb_model.compute_attention_matrix(batch_tokens=batch_tokens, layers_idxs=layers_idxs)
+			attentions = attentions.squeeze().cpu().detach().numpy()
+			plot_attention_grid(sequence=original_sequence, heads_attention=attentions, layer_idx=n_layers, 
+			    filepath=out_plots_path, target_token_idxs=target_token_idxs, filename=f"tokens_attention_layer={n_layers}")
+
+		### sequence attacks
+
 		signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence,
 			batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
 			loss_method=args.loss_method)
 
-		df, emb_dist_single_seq = atk.incremental_attack(name=name, original_sequence=original_sequence, 
+		df = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
 			target_tokens_attention=target_tokens_attention,
 			first_embedding=first_embedding, signed_gradient=signed_gradient, 
 			perturbations_keys=perturbations_keys, verbose=args.verbose)
 
-		### update sequence row in the df
-
 		atk_df = pd.concat([atk_df, df], ignore_index=True)
-		embeddings_distances.append(emb_dist_single_seq)
+
+		dist_df = atk.build_distances_df(name=name, original_sequence=original_sequence, original_batch_tokens=batch_tokens, 
+			msa=msa, first_embedding=first_embedding, signed_gradient=signed_gradient, verbose=args.verbose)
+
+		distances_df = pd.concat([distances_df, dist_df], ignore_index=True)
 
 		### contact maps distances
 
@@ -181,10 +193,8 @@ else:
 				filepath=out_plots_path, filename=f"{key}", key=key)
 
 	atk_df.to_csv(os.path.join(out_data_path,  out_filename+"_atk.csv"))
+	distances_df.to_csv(os.path.join(out_data_path,  out_filename+"_all_distances.csv"))
 	cmap_df.to_csv(os.path.join(out_data_path,  out_filename+"_cmaps.csv"))
-
-	embeddings_distances = torch.stack(embeddings_distances)
-	save_to_pickle(data=embeddings_distances, filepath=out_data_path, filename=out_filename)
 
 ### plots
 
@@ -195,6 +205,8 @@ plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
 plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_token_substitutions(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
-plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(atk_df, keys=perturbations_keys, distances_df=distances_df, filepath=out_plots_path, filename=out_filename)
+plot_blosum_distances(atk_df, keys=perturbations_keys, distances_df=distances_df, filepath=out_plots_path, filename=out_filename)
+plot_cmap_distances(cmap_df, keys=perturbations_keys, distances_df=distances_df, filepath=out_plots_path, filename=out_filename)
+
+print("\nplots saved in:", out_plots_path)
