@@ -216,6 +216,7 @@ else:
 
 						dist_df = atk.build_distances_df(name=name, original_sequence=original_sequence, 
 							original_batch_tokens=batch_tokens, msa=msa, first_embedding=first_embedding, 
+							target_token_idxs=[target_token_idx],
 							signed_gradient=signed_gradient, verbose=args.verbose)
 
 						distances_df = pd.concat([distances_df, dist_df], ignore_index=True)
@@ -237,12 +238,11 @@ else:
 
 
 print("\natk_df:\n", atk_df.keys(), "len =", len(atk_df))
-print("\ndistances_df:\n", distances_df.keys(), "len =", len(distances_df))
 print("\ncmap_df:\n", cmap_df.keys(), "len =", len(cmap_df))
 
 ### select rows with top DDG values
 
-stabilization_ths=0.
+stabilization_ths=1.
 atk_df = atk_df[(atk_df['DDG']>stabilization_ths) | (atk_df['DDG']<-stabilization_ths)]
 cmap_df = cmap_df[(cmap_df['ddg']>stabilization_ths) | (cmap_df['ddg']<-stabilization_ths)]
 

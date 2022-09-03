@@ -64,12 +64,12 @@ out_data_path =  os.path.join(args.out_dir, "data/msa/", out_filename+"/")
 os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['max_dist','max_cos','max_cmap_dist','max_entropy'] # 'masked_pred'
+perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist','max_entropy']
 
 if args.load:
 
 	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
-	distances_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_all_distances.csv"))
+	distances_df = None#pd.read_csv(os.path.join(out_data_path, out_filename+"_all_distances.csv"))
 	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
 
 else:
@@ -159,8 +159,9 @@ else:
 
 		atk_df = pd.concat([atk_df, df], ignore_index=True)
 
-		dist_df = atk.build_distances_df(name=name, original_sequence=original_sequence, original_batch_tokens=batch_tokens, 
-			msa=msa, first_embedding=first_embedding, signed_gradient=signed_gradient, verbose=args.verbose)
+		dist_df = atk.build_distances_df(name=name, original_sequence=original_sequence, original_batch_tokens=batch_tokens,
+			target_token_idxs=target_token_idxs, msa=msa, first_embedding=first_embedding, 
+			signed_gradient=signed_gradient, verbose=args.verbose)
 
 		distances_df = pd.concat([distances_df, dist_df], ignore_index=True)
 

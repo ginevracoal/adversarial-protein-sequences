@@ -115,7 +115,7 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 			fig.savefig(os.path.join(filepath, filename+f"_substitutions_{key}_token.png"))
 			plt.close()
 
-def plot_cmap_distances(df, keys, distances_df, missense_df=None, filepath=None, filename=None):
+def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})    
 	sns.set_style("darkgrid")
 
@@ -132,7 +132,8 @@ def plot_cmap_distances(df, keys, distances_df, missense_df=None, filepath=None,
 	if missense_df is not None:
 		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
 
-	sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label=key, ls=linestyles[idx+1], ci=None)
+	if distances_df is not None:
+		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label=key, ls=linestyles[idx+1], ci=None)
 
 	plt.tight_layout()
 	plt.show()
@@ -282,7 +283,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_evo_velocity.png"))
 		plt.close()
 
-def plot_embeddings_distances(df, keys, distances_df, filepath, filename):
+def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
@@ -293,8 +294,9 @@ def plot_embeddings_distances(df, keys, distances_df, filepath, filename):
 		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key}', kde=True, hist=hist,
 			kde_kws={'linestyle':linestyles[idx]})
 
-	sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=hist,
-		kde_kws={'linestyle':linestyles[idx+1]})
+	if distances_df is not None:
+		sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=hist,
+			kde_kws={'linestyle':linestyles[idx+1]})
 
 	### all possible token choices and residues substitutions
 	# sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
@@ -313,7 +315,7 @@ def plot_embeddings_distances(df, keys, distances_df, filepath, filename):
 		fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
 		plt.close()
 
-def plot_blosum_distances(df, keys, distances_df, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
+def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
 
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
@@ -329,8 +331,9 @@ def plot_blosum_distances(df, keys, distances_df, missense_df=None, filepath=Non
 			sns.distplot(x=df[f"{key}_blosum_dist"], label=key, kde=True, hist=hist,
 				kde_kws={'linestyle':linestyles[idx]})
 
-		sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=hist,
-			kde_kws={'linestyle':linestyles[idx+1]})
+		if distances_df is not None:
+			sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=hist,
+				kde_kws={'linestyle':linestyles[idx+1]})
 
 	else:
 		raise ValueError

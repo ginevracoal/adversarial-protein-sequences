@@ -140,7 +140,7 @@ class SequenceAttack():
 		return allowed_token_substitutions
 
 	def build_distances_df(self, name, original_sequence, original_batch_tokens, first_embedding, signed_gradient, 
-		msa=None, verbose=False, p_norm=1):
+		target_token_idxs, msa=None, verbose=False, p_norm=1):
 
 		self.original_model.eval()
 		self.embedding_model.eval()
@@ -154,7 +154,7 @@ class SequenceAttack():
 			first_embedding=first_embedding[:,0]
 			signed_gradient=signed_gradient[:,0]
 
-		for target_token_idx in range(0, len(original_sequence)):
+		for target_token_idx in target_token_idxs:
 
 			original_token = original_sequence[target_token_idx]
 
@@ -173,6 +173,8 @@ class SequenceAttack():
 				current_sequence_list = list(original_sequence)
 				current_sequence_list[target_token_idx] = token
 				perturbed_sequence = "".join(current_sequence_list)
+
+				torch.cuda.empty_cache()
 
 				with torch.no_grad():
 
@@ -216,14 +218,13 @@ class SequenceAttack():
 							sequence_name=name, 
 							original_sequence=original_sequence, perturbed_sequence=perturbed_sequence, k=k, p=p_norm)
 
-						distances_df.append({
+						distances_df = distances_df.append({
 							'embedding_distance':embedding_distance.item(),
 							'blosum_distance':blosum_distance,
 							'k':k,'cmaps_distance':cmaps_distance,
 							}, ignore_index=True)
 
 		print("\ndistances_df:\n", distances_df.describe())
-
 		return distances_df
 
 	def incremental_attack(self, name, original_sequence, original_batch_tokens, target_token_idxs, target_tokens_attention,
