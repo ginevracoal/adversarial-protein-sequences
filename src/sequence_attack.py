@@ -212,11 +212,11 @@ class SequenceAttack():
 					cmap_dist_ubound = int(len(original_sequence)*0.8)
 					min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
 
-					for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
+					for k_idx, k in enumerate(np.arange(0, len(original_sequence), 1)):
 
 						cmaps_distance = compute_cmaps_distance(model=self.original_model, alphabet=self.embedding_model.alphabet, 
 							sequence_name=name, 
-							original_sequence=original_sequence, perturbed_sequence=perturbed_sequence, k=k, p=p_norm)
+							original_sequence=original_sequence, perturbed_sequence=perturbed_sequence, k=k, p=2)
 
 						distances_df = distances_df.append({
 							'embedding_distance':embedding_distance.item(),

@@ -74,7 +74,7 @@ def compute_cmaps_distance(model, alphabet, sequence_name, original_sequence, pe
     return cmap_distance
 
 def compute_cmaps_distance_df(model, alphabet, perturbed_sequences_dict, original_sequence, sequence_name, 
-    cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1, verbose=False):
+    cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=2, verbose=False):
 
     # original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
     cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)

@@ -119,8 +119,8 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 	matplotlib.rc('font', **{'size': FONT_SIZE})    
 	sns.set_style("darkgrid")
 
-	df = df[df['k']>=5]
-	df = df[df['k']<=20]
+	df = df[(df['k']>=5) & (df['k']<=20)]
+	distances_df = distances_df[(distances_df['k']>=5) & (distances_df['k']<=20)]
 
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
@@ -133,7 +133,7 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
 
 	if distances_df is not None:
-		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label=key, ls=linestyles[idx+1], ci=None)
+		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label='other', ls=linestyles[idx+1])
 
 	plt.tight_layout()
 	plt.show()
@@ -295,7 +295,7 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
 			kde_kws={'linestyle':linestyles[idx]})
 
 	if distances_df is not None:
-		sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=hist,
+		sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=False,
 			kde_kws={'linestyle':linestyles[idx+1]})
 
 	### all possible token choices and residues substitutions
@@ -332,7 +332,7 @@ def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepat
 				kde_kws={'linestyle':linestyles[idx]})
 
 		if distances_df is not None:
-			sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=hist,
+			sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=False,
 				kde_kws={'linestyle':linestyles[idx+1]})
 
 	else:

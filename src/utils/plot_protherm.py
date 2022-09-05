@@ -37,8 +37,8 @@ def plot_hist_position_ranks(df, keys, filepath=None, filename=None):
 
 def plot_cmap_distances(df, keys, distances_df=None, filepath=None, filename=None):
 
-	df = df[df['k']>=5]
-	df = df[df['k']<=25]
+	df = df[(df['k']>=5) & (df['k']<=20)]
+	distances_df = distances_df[(distances_df['k']>=5) & (distances_df['k']<=20)]
 
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
@@ -49,7 +49,7 @@ def plot_cmap_distances(df, keys, distances_df=None, filepath=None, filename=Non
 		sns.lineplot(x=tmp_df['k'], y=tmp_df[f'cmaps_distance'], label=key, ls=linestyles[idx], ci=None)
 
 	if distances_df is not None:
-		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label=key, ls=linestyles[idx+1], ci=None)
+		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label='other', ls=linestyles[idx+1], ci=None)
 
 	plt.tight_layout()
 	plt.show()

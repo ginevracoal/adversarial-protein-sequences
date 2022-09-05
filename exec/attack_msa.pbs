@@ -6,7 +6,7 @@
 
 #PBS -N msa_attack
 #PBS -l nodes=1:ppn=12
-#PBS -l walltime=10:00:00
+#PBS -l walltime=50:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
@@ -17,7 +17,7 @@
 
 DATASET="PF00627" # PF00533, PF00627, PF00240
 MAX_TOKENS=None
-N_SUBSTITUTIONS=1
+N_SUBSTITUTIONS=3
 N_SEQUENCES=100
 MIN_FILTER=100
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
