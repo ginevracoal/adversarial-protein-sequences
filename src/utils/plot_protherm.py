@@ -11,10 +11,10 @@ from matplotlib.patches import Rectangle
 DPI=150
 TOP=0.92
 FONT_SIZE=13
-palette="mako"
+palette="rocket_r" #"mako"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
-linestyles=['-', '--', '-.', ':', '-']
+linestyles=['-', '--', '-.', ':', '-', '--']
 matplotlib.rc('font', **{'size': FONT_SIZE})
 
 
@@ -35,10 +35,10 @@ def plot_hist_position_ranks(df, keys, filepath=None, filename=None):
 	return fig
 
 
-def plot_cmap_distances(df, keys, distances_df=None, filepath=None, filename=None):
+def plot_cmap_distances(df, keys, distances_df_protherm=None, distances_df_adversarial=None, filepath=None, filename=None):
 
-	df = df[(df['k']>=5) & (df['k']<=20)]
-	distances_df = distances_df[(distances_df['k']>=5) & (distances_df['k']<=20)]
+	l_ths, r_ths = 5, 20
+	df = df[(df['k']>=l_ths) & (df['k']<=r_ths)]
 
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
@@ -48,9 +48,14 @@ def plot_cmap_distances(df, keys, distances_df=None, filepath=None, filename=Non
 		tmp_df = df[df['perturbation']==key]
 		sns.lineplot(x=tmp_df['k'], y=tmp_df[f'cmaps_distance'], label=key, ls=linestyles[idx], ci=None)
 
-	if distances_df is not None:
-		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label='other', ls=linestyles[idx+1], ci=None)
-
+	if distances_df_adversarial is not None:
+		distances_df_adversarial = distances_df_adversarial[(distances_df_adversarial['k']>=l_ths) & (distances_df_adversarial['k']<=r_ths)]
+		sns.lineplot(x=distances_df_adversarial['k'], y=distances_df_adversarial[f'cmaps_distance'], label='other', ls=linestyles[idx+1], ci=None)
+	
+	if distances_df_protherm is not None:
+		distances_df_protherm = distances_df_protherm[(distances_df_protherm['k']>=l_ths) & (distances_df_protherm['k']<=r_ths)]
+		sns.lineplot(x=distances_df_protherm['k'], y=distances_df_protherm[f'cmaps_distance'], label='protherm', ls=linestyles[idx+2], ci=None)
+	
 	plt.tight_layout()
 	plt.show()
 	if filepath is not None and filename is not None:
@@ -140,7 +145,7 @@ def plot_confidence(df, keys, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_evo_velocity.png"))
 		plt.close()
 
-def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
+def plot_embeddings_distances(df, keys, filepath, filename, distances_df_protherm=None, distances_df_adversarial=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
 	sns.set_style("darkgrid")
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
@@ -148,13 +153,17 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
 	### adversarial perturbations
 	for idx, key in enumerate(keys):
 		tmp_df = df[df['perturbation']==key]
-		hist=True if key=='masked_pred' else False      
+		hist=False #True if key=='protherm' else False      
 		sns.distplot(x=tmp_df[f'embedding_distance'], label=key, kde=True, hist=hist,
 			kde_kws={'linestyle':linestyles[idx]})
 
-	if distances_df is not None:
-		sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=hist,
+	if distances_df_adversarial is not None:
+		sns.distplot(x=distances_df_adversarial['embedding_distance'], label='other', kde=True, hist=hist,
 			kde_kws={'linestyle':linestyles[idx+1]})
+
+	if distances_df_protherm is not None:
+		sns.distplot(x=distances_df_protherm['embedding_distance'], label='protherm', kde=True, hist=hist,
+			kde_kws={'linestyle':linestyles[idx+2]})
 
 	### all possible token choices and residues substitutions
 	# sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
@@ -173,20 +182,24 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
 		fig.savefig(os.path.join(filepath, filename+"_embeddings_distances.png"))
 		plt.close()
 
-def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
+def plot_blosum_distances(df, keys,  distances_df_protherm=None, distances_df_adversarial=None, filepath=None, filename=None):
 
 	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
 
 	for idx, key in enumerate(keys):
-		hist=True if key=='masked_pred' else False
+		hist=False #True if key=='protherm' else False
 		tmp_df = df[df['perturbation']==key]
 		sns.distplot(x=tmp_df["blosum_dist"], label=key, kde=True, hist=hist,
 			kde_kws={'linestyle':linestyles[idx]})
 
-	if distances_df is not None:
-		sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=hist,
+	if distances_df_adversarial is not None:
+		sns.distplot(x=distances_df_adversarial['blosum_distance'], label='other', kde=True, hist=hist,
 			kde_kws={'linestyle':linestyles[idx+1]})
+
+	if distances_df_protherm is not None:
+		sns.distplot(x=distances_df_protherm['blosum_distance'], label='protherm', kde=True, hist=hist,
+			kde_kws={'linestyle':linestyles[idx+2]})
 
 	plt.legend()
 	plt.tight_layout()

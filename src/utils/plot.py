@@ -11,10 +11,11 @@ from matplotlib.patches import Rectangle
 DPI=150
 TOP=0.92
 FONT_SIZE=13
-palette="mako_r"
+palette="rocket_r" #"mako_r"
+heatmaps_palette="mako_r"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
-linestyles=['-', '--', '-.', ':', '-']
+linestyles=['-', '--', '-.', ':', '-', '--']
 matplotlib.rc('font', **{'size': FONT_SIZE})
 
 
@@ -182,7 +183,7 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 		if key!='masked_pred':
 			g = sns.distplot(x=df[f"{key}_perplexity"], label=key, kde=True, hist=False, 
 				kde_kws={'linestyle':linestyles[idx]})
-			# g.set(xlim=(0, None))
+		# g.set(xlim=(0, None))
 
 	plt.xlabel(r'Perplexity of predictions: $e^{H(p)}$')
 	plt.tight_layout()
@@ -372,7 +373,7 @@ def plot_attention_grid(sequence, heads_attention, layer_idx, target_token_idxs,
 		elif len(heads_attention)==12:
 			ax = fig.add_subplot(3, 4, idx+1)
 
-		im = ax.imshow(np.array(scores), cmap='mako_r')
+		im = ax.imshow(np.array(scores), cmap=heatmaps_palette)
 
 		ax.set_xticks([])
 		ax.set_yticks([])
@@ -394,7 +395,7 @@ def plot_attention_grid(sequence, heads_attention, layer_idx, target_token_idxs,
 	fig, ax = plt.subplots(figsize=(10, 9), dpi=DPI)
 	fontdict = {'fontsize': 9}
 	avg_attentions = np.array(heads_attention.mean(0).squeeze())
-	ax = sns.heatmap(avg_attentions, linewidth=0.01, cmap='mako_r')
+	ax = sns.heatmap(avg_attentions, linewidth=0.01, cmap=heatmaps_palette)
 
 	ax.set_xticks(range(len(sequence)))
 	ax.set_yticks(range(len(sequence)))
@@ -422,17 +423,16 @@ def plot_attention_grid(sequence, heads_attention, layer_idx, target_token_idxs,
 def plot_cmaps(original_contacts, adversarial_contacts, key, filepath=None, filename=None):
 
 	matplotlib.rc('font', **{'size': FONT_SIZE})
-	cmap="mako_r"
 
 	fig, ax = plt.subplots(figsize=(10, 4), dpi=DPI, ncols=3)
 
-	im = ax[0].imshow(original_contacts, cmap=cmap) 
+	im = ax[0].imshow(original_contacts, cmap=heatmaps_palette) 
 	plt.colorbar(im, ax=ax[0], fraction=0.046, pad=0.04)
 
-	im = ax[1].imshow(adversarial_contacts, cmap=cmap)
+	im = ax[1].imshow(adversarial_contacts, cmap=heatmaps_palette)
 	plt.colorbar(im, ax=ax[1], fraction=0.046, pad=0.04)
 
-	im = ax[2].imshow(original_contacts-adversarial_contacts, cmap=cmap)
+	im = ax[2].imshow(original_contacts-adversarial_contacts, cmap=heatmaps_palette)
 	plt.colorbar(im, ax=ax[2], fraction=0.046, pad=0.04)
 	
 	for idx in [0,1,2]:

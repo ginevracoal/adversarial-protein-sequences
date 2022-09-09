@@ -80,8 +80,9 @@ else:
 if args.load:
 
 	atk_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_atk.csv"), index_col=[0])
-	distances_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_all_distances.csv"))
 	cmap_df = pd.read_csv(os.path.join(out_data_path, out_filename+"_cmaps.csv"))
+	distances_df_protherm = pd.read_csv(os.path.join(out_data_path, out_filename+"_distances_protherm.csv"))
+	distances_df_adversarial = pd.read_csv(os.path.join(out_data_path, out_filename+"_distances_adversarial.csv"))
 
 else:
 
@@ -250,7 +251,7 @@ print("\ncmap_df:\n", cmap_df.keys(), "len =", len(cmap_df))
 
 ### select rows with top DDG values
 
-stabilization_ths=1.
+stabilization_ths=0.5
 atk_df = atk_df[(atk_df['DDG']>stabilization_ths) | (atk_df['DDG']<-stabilization_ths)]
 cmap_df = cmap_df[(cmap_df['ddg']>stabilization_ths) | (cmap_df['ddg']<-stabilization_ths)]
 
@@ -261,9 +262,7 @@ print(f"\natk_df size = {len(atk_df)}")
 
 plot_hist_position_ranks(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(atk_df, distances_df_protherm=distances_df, distances_df_adversarial=distances_df_adversarial, 
-	keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_blosum_distances(atk_df, distances_df_protherm=distances_df, distances_df_adversarial=distances_df_adversarial, 
-	keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 

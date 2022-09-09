@@ -64,7 +64,7 @@ out_data_path =  os.path.join(args.out_dir, "data/msa/", out_filename+"/")
 os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['max_dist','max_cos','max_cmap_dist','max_entropy'] # 'masked_pred'
+perturbations_keys = ['max_dist','max_cos','max_cmap_dist','max_entropy', 'masked_pred']
 
 if args.load:
 
@@ -170,8 +170,7 @@ else:
 		perturbed_sequences_dict = {key:df[f'{key}_sequence'].unique()[0] for key in perturbations_keys}
 
 		df = compute_cmaps_distance_df(model=esm_model, alphabet=alphabet, original_sequence=original_sequence, 
-				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose,
-				cmap_dist_lbound=args.cmap_dist_lbound, cmap_dist_ubound=args.cmap_dist_ubound)
+				sequence_name=name, perturbed_sequences_dict=perturbed_sequences_dict, verbose=args.verbose)
 
 		cmap_df = pd.concat([cmap_df, df], ignore_index=True)
 

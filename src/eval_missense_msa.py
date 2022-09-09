@@ -40,7 +40,7 @@ parser.add_argument("--n_substitutions", default=1, type=int, help="Number of to
 
 parser.add_argument("--token_selection", default='max_attention', type=str, 
 	help="Method used to select most relevant token idxs. Choose 'max_attention', 'max_entropy' or 'min_entropy'.")
-parser.add_argument("--target_attention", default='all_layers', type=str, 
+parser.add_argument("--target_attention", default='last_layer', type=str, 
 	help="Attention matrices used to choose target token idxs. Set to 'last_layer' or 'all_layers'. \
 	Used only when `token_selection`=`max_attention")
 
@@ -68,7 +68,7 @@ print("\n", args)
 # os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 # os.makedirs(os.path.dirname(out_missense_path), exist_ok=True)
 
-perturbations_keys = ['masked_pred','max_dist']#,'max_cos','max_cmap_dist','max_entropy',]
+perturbations_keys = ['masked_pred','max_dist','max_cos','max_cmap_dist','max_entropy']
 
 if args.load:
 
@@ -96,10 +96,12 @@ else:
 
 	for row_idx, row in missense_df.iterrows():
 
+
 		blosum_score = get_blosum_score(row['original_token'],row['mutated_token'])
 
 		print(f"\n=== Mutation {row['mutation_name']} ===")
 		print(f"\nmutation_idx = {row['mutation_idx']}\toriginal_token = {row['original_token']}\tmutated_token = {row['mutated_token']}\tblosum_score = {blosum_score}")
+		print(row)
 
 		name = row['pfam_name']
 		original_sequence = row['original_sequence']
@@ -135,7 +137,7 @@ else:
 
 		first_embedding = results["representations"][0].to(args.device)
 
-		### attack sequence
+		### choose target token
 
 		target_token_idxs, target_tokens_attention = atk.choose_target_token_idxs(token_selection=args.token_selection, 
 			n_token_substitutions=len(original_sequence), msa=msa, batch_tokens=batch_tokens, 
@@ -143,15 +145,18 @@ else:
 
 		target_token_idx = target_token_idxs[0]
 		mutant_idx_rank = target_token_idxs.tolist().index(row['mutation_idx'])/len(target_token_idxs)
-
 		print("\nmutant_idx_rank =", mutant_idx_rank)
 
 		# target_idx_accuracy = np.sum([idx in target_token_idxs for idx in mutated_idxs])/len(mutated_idxs)
 
+		### attack sequence
+
+		# target_token_idxs = [row['mutation_idx']]
+
 		# signed_gradient, loss = atk.compute_loss_gradient(original_sequence=original_sequence, batch_tokens=batch_tokens,
 		# 	target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		# atk_df, _ = atk.incremental_attack(name=name, original_sequence=original_sequence, 
+		# atk_df = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 		# 	original_batch_tokens=batch_tokens, msa=msa, target_token_idxs=target_token_idxs, 
 		# 	target_tokens_attention=target_tokens_attention,
 		# 	first_embedding=first_embedding, signed_gradient=signed_gradient, 

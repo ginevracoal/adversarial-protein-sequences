@@ -43,7 +43,7 @@ class SequenceAttack():
 			raise AttributeError
 
 	def choose_target_token_idxs(self, batch_tokens, n_token_substitutions, token_selection='max_attention', 
-		target_attention='all_layers', msa=None, verbose=False):
+		target_attention='last_layer', msa=None, verbose=False):
 
 		if verbose:
 			print("\n-- Choosing target token idxs --")

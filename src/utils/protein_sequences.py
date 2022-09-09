@@ -77,13 +77,14 @@ def compute_cmaps_distance_df(model, alphabet, perturbed_sequences_dict, origina
     cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=2, verbose=False):
 
     # original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
-    cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
-    cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
-    min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
+    # cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
+    # cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
+    # min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
 
     cmap_df = pd.DataFrame()
 
-    for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
+    # for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
+    for k_idx, k in enumerate(np.arange(0, len(original_sequence), 1)):
 
         row_list = [['name', sequence_name],['k',k_idx]]
         for key, perturbed_sequence in perturbed_sequences_dict.items():
@@ -101,13 +102,14 @@ def compute_cmaps_distance_df_protherm(model, alphabet, perturbation, perturbed_
     ddg, cmap_dist_lbound=0.2, cmap_dist_ubound=0.8, p=1, verbose=False):
 
     # original_contact_map = get_contact_map(model=model, alphabet=alphabet, sequence=original_sequence)
-    cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
-    cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
-    min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
+    # cmap_dist_lbound = int(len(original_sequence)*cmap_dist_lbound)
+    # cmap_dist_ubound = int(len(original_sequence)*cmap_dist_ubound)
+    # min_k_idx, max_k_idx = len(original_sequence)-cmap_dist_ubound, len(original_sequence)-cmap_dist_lbound
 
     cmap_df = pd.DataFrame()
 
-    for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
+    # for k_idx, k in enumerate(np.arange(min_k_idx, max_k_idx, 1)):
+    for k_idx, k in enumerate(np.arange(0, len(original_sequence), 1)):
 
         row_list = [['name', sequence_name],['k',k_idx],['perturbation',perturbation],['ddg',ddg]]
         for key, perturbed_sequence in perturbed_sequences_dict.items():

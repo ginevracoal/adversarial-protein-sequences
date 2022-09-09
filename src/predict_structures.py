@@ -224,15 +224,16 @@ print(key_counts.items())
 # plot #
 ########
 
-linestyles=[':','-.','--','-']
+linestyles=['-', '--', '-.', ':', '-', '--']
 
 if args.plot:
 
     matplotlib.rc('font', **{'size': 13})
     sns.set_style("darkgrid")
-    sns.set_palette("mako", len(perturbations_keys))
+    sns.set_palette("rocket_r", len(perturbations_keys))
 
     keys = ['pTM','pLDDT']
+    fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=150, sharey=True)
     g = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", diag_kws={'fill': False}, corner=True, 
         hue_order=perturbations_keys)    
     diag = g.diag_axes
@@ -240,10 +241,14 @@ if args.plot:
         for line, ls in zip(ax.lines, linestyles):
             line.set_linestyle(ls)    
 
+    plt.tight_layout()
+    plt.show()
+    g._legend.set_bbox_to_anchor((0.9, 0.75))
     plt.savefig(os.path.join(out_plots_path, filename+f"_structure_prediction_pairplot.png"))
     plt.close()    
 
     keys = ['LDDT','TM-score','RMSD']
+    fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=150, sharey=True)
     g = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", diag_kws={'fill': False}, corner=True, 
         hue_order=perturbations_keys)
     diag = g.diag_axes
@@ -251,5 +256,8 @@ if args.plot:
         for line, ls in zip(ax.lines, linestyles):
             line.set_linestyle(ls)    
 
+    plt.tight_layout()
+    plt.show()
+    g._legend.set_bbox_to_anchor((0.85, 0.85))
     plt.savefig(os.path.join(out_plots_path, filename+f"_structure_prediction_pairplot2.png"))
     plt.close()
