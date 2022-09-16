@@ -12,12 +12,24 @@ DPI=150
 TOP=0.92
 FONT_SIZE=13
 palette="rocket_r" #"mako_r"
-heatmaps_palette="mako_r"
+heatmaps_palette="rocket_r" #"mako_r"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
-linestyles=['-', '--', '-.', ':', '-', '--']
+linestyles=['-', '--', '-.', ':', '-', '--','-.']
 matplotlib.rc('font', **{'size': FONT_SIZE})
 
+def set_boxplot_linecolor(ax):
+	for i, patch in enumerate(ax.artists):
+		r, g, b, a = patch.get_facecolor()
+		col = (r, g, b, a) 
+		patch.set_facecolor((r, g, b, .7))
+		patch.set_edgecolor(col)
+
+		for j in range(i*6, i*6+6):
+			line = ax.lines[j]
+			line.set_color(col)
+			line.set_mfc(col)
+			line.set_mec(col)
 
 def plot_attention_scores(df, missense_df=None, filepath=None, filename=None):
 	matplotlib.rc('font', **{'size': FONT_SIZE})
@@ -116,14 +128,12 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 			fig.savefig(os.path.join(filepath, filename+f"_substitutions_{key}_token.png"))
 			plt.close()
 
-def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=None, filename=None):
-	matplotlib.rc('font', **{'size': FONT_SIZE})    
-	sns.set_style("darkgrid")
+def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=None, filename=None, L=1, R=20):
 
-	df = df[(df['k']>=5) & (df['k']<=20)]
-	distances_df = distances_df[(distances_df['k']>=5) & (distances_df['k']<=20)]
+	df = df[(df['k']>=L) & (df['k']<=R)]
+	distances_df = distances_df[(distances_df['k']>=L) & (distances_df['k']<=R)]
 
-	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
+	fig, ax = plt.subplots(figsize=(6, 6), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
 		ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
@@ -133,8 +143,8 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 	if missense_df is not None:
 		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
 
-	if distances_df is not None:
-		sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label='other', ls=linestyles[idx+1])
+	# if distances_df is not None:
+	# 	sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label='other', ls=linestyles[idx+1])
 
 	plt.tight_layout()
 	plt.show()
@@ -148,9 +158,9 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 
 	return fig
 
-def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
-	matplotlib.rc('font', **{'size': FONT_SIZE})
-	sns.set_style("darkgrid")
+def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None, plot_method='boxplot'):
+	# matplotlib.rc('font', **{'size': FONT_SIZE})
+	# sns.set_style("darkgrid")
 
 	### masked pred accuracy vs pseudo likelihood
 
@@ -178,16 +188,32 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	### perplexity
 
-	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
-	for idx, key in enumerate(keys):
-		if key!='masked_pred':
-			g = sns.distplot(x=df[f"{key}_perplexity"], label=key, kde=True, hist=False, 
-				kde_kws={'linestyle':linestyles[idx]})
-		# g.set(xlim=(0, None))
+	if plot_method=='boxplot':
 
-	plt.xlabel(r'Perplexity of predictions: $e^{H(p)}$')
+		columns = ["perturbation", "perplexity"]
+		new_df = pd.DataFrame(columns=columns)
+		for key in keys:
+			entry = pd.DataFrame({"perplexity":df[f"{key}_perplexity"]}).assign(perturbation=key) 
+			new_df = pd.concat([new_df, entry], ignore_index=True)
+
+		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+		sns.boxplot(data=new_df, y='perplexity', x="perturbation", palette=palette)
+		ax.set_xticklabels(ax.get_xticklabels(),rotation=20)
+		set_boxplot_linecolor(ax)
+
+	elif plot_method=='distplot':
+
+		fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
+		for idx, key in enumerate(keys):
+			if key!='masked_pred':
+				g = sns.distplot(x=df[f"{key}_perplexity"], label=key, kde=True, hist=False, 
+					kde_kws={'linestyle':linestyles[idx]})
+			# g.set(xlim=(0, None))
+
+		plt.xlabel(r'Perplexity of predictions: $e^{H(p)}$')
+		plt.legend()
+	
 	plt.tight_layout()
-	plt.legend()
 	plt.show()
 
 	if filepath is not None and filename is not None:
@@ -216,15 +242,31 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 
 	### pseudo-likelihood
 
-	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
-	for idx, key in enumerate(keys):
-		hist=True if key=='masked_pred' else False
-		sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=hist, 
-			kde_kws={'linestyle':linestyles[idx]})
+	if plot_method=='boxplot':
 
-	plt.xlabel(r'Pseudo likelihood of substitutions: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x^M_i)]$')
+		columns = ["perturbation", "pseudo_likelihood"]
+		new_df = pd.DataFrame(columns=columns)
+		for key in keys:
+			entry = pd.DataFrame({"pseudo_likelihood":df[f"{key}_pseudo_likelihood"]}).assign(perturbation=key) 
+			new_df = pd.concat([new_df, entry], ignore_index=True)
+
+		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+		sns.boxplot(data=new_df, y='pseudo_likelihood', x="perturbation", palette=palette)
+		ax.set_xticklabels(ax.get_xticklabels(),rotation=20)
+		set_boxplot_linecolor(ax)
+
+	elif plot_method=='distplot':
+
+		fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
+		for idx, key in enumerate(keys):
+			hist=True if key=='masked_pred' else False
+			sns.distplot(x=df[f"{key}_pseudo_likelihood"], label=key, kde=True, hist=hist, 
+				kde_kws={'linestyle':linestyles[idx]})
+
+		plt.xlabel(r'Pseudo likelihood of substitutions: $\mathbb{E}_{i\in I}[p(\tilde{x}_i|x^M_i)]$')
+		plt.legend()
+	
 	plt.tight_layout()
-	plt.legend()
 	plt.show()
 
 	if filepath is not None and filename is not None:
@@ -284,29 +326,51 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None):
 		fig.savefig(os.path.join(filepath, filename+"_evo_velocity.png"))
 		plt.close()
 
-def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
-	matplotlib.rc('font', **{'size': FONT_SIZE})
+def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None, plot_method='distplot'):
 	sns.set_style("darkgrid")
-	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
 
-	### adversarial perturbations
-	for idx, key in enumerate(keys):
-		hist=True if key=='masked_pred' else False		
-		sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key}', kde=True, hist=hist,
-			kde_kws={'linestyle':linestyles[idx]})
+	if 'masked_pred' in keys:
+		keys.remove('masked_pred')
 
-	if distances_df is not None:
-		sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=False,
-			kde_kws={'linestyle':linestyles[idx+1]})
+	if plot_method=='boxplot':
+		matplotlib.rc('font', **{'size': 10})
 
-	### all possible token choices and residues substitutions
-	# sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
+		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
 
-	plt.xlabel(r'Embeddings distances: dist($z,\tilde{z}$)')
+		columns = ["perturbation", "embedding_distance"]
+		new_df = pd.DataFrame(columns=columns)
+		for key in keys:
+			entry = pd.DataFrame({"embedding_distance":df[f"{key}_embedding_distance"]}).assign(perturbation=key) 
+			new_df = pd.concat([new_df, entry], ignore_index=True)
+
+		if distances_df is not None:
+			entry = pd.DataFrame({"embedding_distance":distances_df['embedding_distance']}).assign(perturbation='other') 
+			new_df = pd.concat([new_df, entry], ignore_index=True)
+
+		print(new_df)
+		sns.boxplot(data=new_df, y='embedding_distance', x="perturbation", palette=palette)
+		plt.ylabel(r'Embeddings distance')#: dist($z,\tilde{z}$)')
+
+		set_boxplot_linecolor(ax)
+
+	elif plot_method=='distplot':
+
+		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+
+		if distances_df is not None:
+			sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=False,
+				kde_kws={'linestyle':linestyles[0]})
+
+		for idx, key in enumerate(keys):
+			hist=True if key=='masked_pred' else False		
+			sns.distplot(x=df[f'{key}_embedding_distance'], label=f'{key}', kde=True, hist=hist,
+				kde_kws={'linestyle':linestyles[idx+1]})
+
+		plt.legend()
+		plt.xlabel(r'Embeddings distance')#: dist($z,\tilde{z}$)')
+
 	plt.tight_layout()
-	plt.legend()
 	plt.show()
-	# plt.yscale('log')
 
 	# fig.suptitle(filename, fontsize=FONT_SIZE)
 	# plt.subplots_adjust(top=TOP) 
@@ -318,23 +382,44 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None):
 
 def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepath=None, filename=None, plot_method='distplot'):
 
-	fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
-	plt.xlabel(r'Blosum distance $(x,\tilde{x})$')
+	if 'masked_pred' in keys:
+		keys.remove('masked_pred')
 
-	if plot_method=='histplot':
-		df = df[['original_sequence']+[f"{key}_blosum_dist" for key in keys]]
-		df = df.melt(id_vars=['original_sequence'], var_name="key", value_name="blosum")
-		ax = sns.histplot(x=df["blosum"], hue=df["key"], kde=False, multiple="stack")
+	if plot_method=='boxplot':
+		matplotlib.rc('font', **{'size': 10})
+
+		fig, ax = plt.subplots(figsize=(6,4), dpi=DPI)
+		columns = ["perturbation", "blosum_distance"]
+		new_df = pd.DataFrame(columns=columns)
+		for key in keys:
+			entry = pd.DataFrame({"blosum_distance":df[f"{key}_blosum_dist"]}).assign(perturbation=key) 
+			new_df = pd.concat([new_df, entry], ignore_index=True)
+
+		if distances_df is not None:
+			entry = pd.DataFrame({"blosum_distance":distances_df['blosum_distance']}).assign(perturbation='other') 
+			new_df = pd.concat([new_df, entry], ignore_index=True)
+
+		print(new_df)
+		sns.boxplot(data=new_df, y='blosum_distance', x="perturbation", palette=palette)
+		plt.ylabel(r'Blosum distance $(x,\tilde{x})$')
+
+		set_boxplot_linecolor(ax)
 
 	elif plot_method=='distplot':
-		for idx, key in enumerate(keys):
-			hist=True if key=='masked_pred' else False
-			sns.distplot(x=df[f"{key}_blosum_dist"], label=key, kde=True, hist=hist,
-				kde_kws={'linestyle':linestyles[idx]})
+
+		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
 
 		if distances_df is not None:
 			sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=False,
+				kde_kws={'linestyle':linestyles[0]})
+
+		for idx, key in enumerate(keys):
+			hist=True if key=='masked_pred' else False
+			sns.distplot(x=df[f"{key}_blosum_dist"], label=key, kde=True, hist=hist,
 				kde_kws={'linestyle':linestyles[idx+1]})
+
+		plt.legend()
+		plt.xlabel(r'Blosum distance')# $(x,\tilde{x})$')
 
 	else:
 		raise ValueError
@@ -347,7 +432,7 @@ def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepat
 			label='missense' if idx==0 else ''
 			plt.plot([blosum_dist,blosum_dist], [0, ymax], ls='--', lw=1, color='black', label=label)
 
-	plt.legend()
+
 	plt.tight_layout()
 	plt.show()
 	# fig.suptitle(filename, fontsize=FONT_SIZE)

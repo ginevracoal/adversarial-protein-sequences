@@ -20,7 +20,7 @@ from esm.modules import (
 from esm.axial_attention import RowSelfAttention, ColumnSelfAttention
 
 DEBUG=False
-GAMMA=0.2
+GAMMA=0.5
 
 class MsaEsmEmbedding(nn.Module):
 	@classmethod

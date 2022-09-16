@@ -69,10 +69,12 @@ os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
 if args.model=='ESM':
-	perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist'] 
+	perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist', 'masked_pred'] 
+	perturbations_keys_plots = ['protherm','max_dist','max_cos','max_cmap_dist'] 
 
 elif args.model=='ESM_MSA':
-	perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist','max_entropy']
+	perturbations_keys = ['protherm','max_dist','max_cos','max_cmap_dist', 'max_entropy', 'masked_pred'] 
+	perturbations_keys_plots = ['protherm','max_dist','max_cos','max_cmap_dist','max_entropy']
 
 else:
 	raise NotImplementedError
@@ -262,7 +264,7 @@ print(f"\natk_df size = {len(atk_df)}")
 
 plot_hist_position_ranks(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(atk_df, keys=perturbations_keys_plots, filepath=out_plots_path, filename=out_filename)
+plot_blosum_distances(atk_df, keys=perturbations_keys_plots, filepath=out_plots_path, filename=out_filename)
+plot_cmap_distances(cmap_df, R=20, keys=perturbations_keys_plots, filepath=out_plots_path, filename=out_filename)
 

@@ -64,7 +64,7 @@ out_data_path =  os.path.join(args.out_dir, "data/single_sequence/", out_filenam
 os.makedirs(os.path.dirname(out_plots_path), exist_ok=True)
 os.makedirs(os.path.dirname(out_data_path), exist_ok=True)
 
-perturbations_keys = ['max_dist','max_cos','max_cmap_dist'] # 'masked_pred'
+perturbations_keys = ['max_dist','max_cos','max_cmap_dist','masked_pred']
 
 if args.load:
 
@@ -128,14 +128,17 @@ else:
 			batch_tokens=batch_tokens,
 			target_token_idxs=target_token_idxs, first_embedding=first_embedding, loss_method=args.loss_method)
 
-		df, dist_df = atk.incremental_attack(name=name, original_sequence=original_sequence, 
+		df = atk.incremental_attack(name=name, original_sequence=original_sequence, 
 			original_batch_tokens=batch_tokens, target_token_idxs=target_token_idxs, 
 			target_tokens_attention=target_tokens_attention, first_embedding=first_embedding, 
 			signed_gradient=signed_gradient, perturbations_keys=perturbations_keys, verbose=args.verbose)
 
-		### update sequence row in the df
-
 		atk_df = pd.concat([atk_df, df], ignore_index=True)
+
+		dist_df = atk.build_distances_df(name=name, original_sequence=original_sequence, original_batch_tokens=batch_tokens,
+			target_token_idxs=target_token_idxs, first_embedding=first_embedding, 
+			signed_gradient=signed_gradient, verbose=args.verbose)
+
 		distances_df = pd.concat([distances_df, dist_df], ignore_index=True)
 
 		### contact maps distances
@@ -158,13 +161,14 @@ else:
 print("\natk_df:\n", atk_df.keys())
 print("\ncmap_df:\n", cmap_df.keys())
 
+
 plot_attention_scores(atk_df, filepath=out_plots_path, filename=out_filename)
-# plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_tokens_hist(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_token_substitutions(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
 plot_confidence(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_embeddings_distances(atk_df, keys=perturbations_keys, embeddings_distances=embeddings_distances, filepath=out_plots_path, filename=out_filename)
-plot_blosum_distances(atk_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
-plot_cmap_distances(cmap_df, keys=perturbations_keys, filepath=out_plots_path, filename=out_filename)
+plot_cmap_distances(cmap_df, R=50, keys=perturbations_keys, distances_df=distances_df, filepath=out_plots_path, filename=out_filename)
+plot_embeddings_distances(atk_df, keys=perturbations_keys, distances_df=distances_df, filepath=out_plots_path, filename=out_filename)
+plot_blosum_distances(atk_df, keys=perturbations_keys, distances_df=distances_df, filepath=out_plots_path, filename=out_filename)
 
 
 
