@@ -74,3 +74,8 @@ python predict_structures.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --dataset=P
 - `exec/attack_msa.pbs` attacks MSA Transformer on the chosen protein family;
 - `exec/attack_protherm.pbs` attacks either ESM-1b or MSA Transformer on sequences from ProTherm database;
 - `exec/predict_structures.pbs` performs structure prediction on original and adversarial sequences from the chosen protein family.
+
+## License 
+
+Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0).
+
