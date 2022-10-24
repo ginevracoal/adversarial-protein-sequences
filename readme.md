@@ -48,10 +48,10 @@ python attack_msa.py --data_dir=DATA_DIR --out_dir=OUT_DIR --dataset=PF00627 \
 	--n_sequences=100 --min_filter=100 --n_substitutions=3 --device=cuda
 ```
 
-<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_pseudo_likelihood.png" width="400"/>
-<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_cmap_distances.png" width="400"/>
-<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_embeddings_distances.png" width="400"/>
-<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_blosum_distances.png" width="400"/>
+<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_pseudo_likelihood.png" width="300"/>
+<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_cmap_distances.png" width="300"/>
+<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_embeddings_distances.png" width="300"/>
+<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_blosum_distances.png" width="300"/>
 
 
 ### Structure prediction example
@@ -66,8 +66,8 @@ python predict_structures.py --data_dir=$DATA_DIR --out_dir=$OUT_DIR --dataset=P
 	--n_sequences=100 --min_filter=100  --n_substitutions=3 --plddt_ths=80
 ```
 
-<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_structure_prediction_confidence.png" width="400"/>
-<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_structure_prediction_scores.png" width="400"/>
+<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_structure_prediction_confidence.png" width="300"/>
+<img src="readme_plots/msa_PF00627_seqs=100_max_toks=None_max_attention_subst=3_minFilter=100_max_masked_prob_attn=last_layer_structure_prediction_scores.png" width="300"/>
 
 
 ### Full set of experiments
