@@ -21,8 +21,6 @@ pip3 install -r pip_requirements_ubuntu18.10_python3.7.6.txt
 
 ## conda environment for structure prediction
 
-Load this enviroment to execute `predict_structures.py`
-
 ```
 wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh
 chmod +x install_colabbatch_linux.sh
