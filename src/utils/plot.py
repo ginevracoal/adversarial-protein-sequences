@@ -11,8 +11,8 @@ from matplotlib.patches import Rectangle
 DPI=150
 TOP=0.92
 FONT_SIZE=13
-palette="rocket_r" #"mako_r"
-heatmaps_palette="rocket_r" #"mako_r"
+palette="rocket_r"
+heatmaps_palette="rocket_r"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
 linestyles=['-', '--', '-.', ':', '-', '--','-.']
@@ -94,8 +94,6 @@ def plot_tokens_hist(df, keys, split=True, filepath=None, filename=None):
 
 	plt.tight_layout()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -120,8 +118,6 @@ def plot_token_substitutions(df, keys, filepath=None, filename=None):
 
 		plt.tight_layout()
 		plt.show()
-		# fig.suptitle(filename, fontsize=FONT_SIZE)
-		# plt.subplots_adjust(top=TOP) 
 
 		if filepath is not None and filename is not None:
 			os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -133,7 +129,7 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 	df = df[(df['k']>=L) & (df['k']<=R)]
 	distances_df = distances_df[(distances_df['k']>=L) & (distances_df['k']<=R)]
 
-	fig, ax = plt.subplots(figsize=(6, 6), dpi=DPI)
+	fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
 	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
 		ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
@@ -143,13 +139,8 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 	if missense_df is not None:
 		sns.lineplot(x=df['k'], y=missense_df['missense_cmap_dist'], label='missense', ls='--', color='black')
 
-	# if distances_df is not None:
-	# 	sns.lineplot(x=distances_df['k'], y=distances_df[f'cmaps_distance'], label='other', ls=linestyles[idx+1])
-
 	plt.tight_layout()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -159,8 +150,6 @@ def plot_cmap_distances(df, keys, distances_df=None, missense_df=None, filepath=
 	return fig
 
 def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None, plot_method='boxplot'):
-	# matplotlib.rc('font', **{'size': FONT_SIZE})
-	# sns.set_style("darkgrid")
 
 	### masked pred accuracy vs pseudo likelihood
 
@@ -169,17 +158,12 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None, pl
 
 	fig, ax = plt.subplots(2, 1, figsize=(6, 5), dpi=DPI, gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
 
-	# sns.stripplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", jitter=0.3, ax=ax[0])
 	sns.violinplot(data=df, x="masked_pred_accuracy", y="masked_pred_pseudo_likelihood", ax=ax[0], palette="Blues")
 	plt.setp(ax[0].collections, alpha=.8)
 
 	sns.histplot(data=df, x="masked_pred_accuracy", ax=ax[1])
-
-
 	plt.tight_layout()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -208,7 +192,6 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None, pl
 			if key!='masked_pred':
 				g = sns.distplot(x=df[f"{key}_perplexity"], label=key, kde=True, hist=False, 
 					kde_kws={'linestyle':linestyles[idx]})
-			# g.set(xlim=(0, None))
 
 		plt.xlabel(r'Perplexity of predictions: $e^{H(p)}$')
 		plt.legend()
@@ -228,7 +211,6 @@ def plot_confidence(df, keys, missense_df=None, filepath=None, filename=None, pl
 		if key!='masked_pred':
 			g = sns.distplot(x=df[f"{key}_bleu"], label=key, kde=True, hist=False, 
 				kde_kws={'linestyle':linestyles[idx]})
-			# g.set(xlim=(0, None))
 
 	plt.xlabel(r'BLEU score')
 	plt.tight_layout()
@@ -355,7 +337,7 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None, p
 
 	elif plot_method=='distplot':
 
-		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+		fig, ax = plt.subplots(figsize=(6, 3.5), dpi=DPI)
 
 		if distances_df is not None:
 			sns.distplot(x=distances_df['embedding_distance'], label='other', kde=True, hist=False,
@@ -367,13 +349,10 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df=None, p
 				kde_kws={'linestyle':linestyles[idx+1]})
 
 		plt.legend()
-		plt.xlabel(r'Embeddings distance')#: dist($z,\tilde{z}$)')
+		plt.xlabel(r'Embeddings distance')
 
 	plt.tight_layout()
 	plt.show()
-
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -388,7 +367,7 @@ def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepat
 	if plot_method=='boxplot':
 		matplotlib.rc('font', **{'size': 10})
 
-		fig, ax = plt.subplots(figsize=(6,4), dpi=DPI)
+		fig, ax = plt.subplots(figsize=(6, 3.5), dpi=DPI)
 		columns = ["perturbation", "blosum_distance"]
 		new_df = pd.DataFrame(columns=columns)
 		for key in keys:
@@ -407,7 +386,7 @@ def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepat
 
 	elif plot_method=='distplot':
 
-		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+		fig, ax = plt.subplots(figsize=(6, 3.5), dpi=DPI)
 
 		if distances_df is not None:
 			sns.distplot(x=distances_df['blosum_distance'], label='other', kde=True, hist=False,
@@ -419,7 +398,7 @@ def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepat
 				kde_kws={'linestyle':linestyles[idx+1]})
 
 		plt.legend()
-		plt.xlabel(r'Blosum distance')# $(x,\tilde{x})$')
+		plt.xlabel(r'Blosum distance')
 
 	else:
 		raise ValueError
@@ -432,11 +411,8 @@ def plot_blosum_distances(df, keys, distances_df=None, missense_df=None, filepat
 			label='missense' if idx==0 else ''
 			plt.plot([blosum_dist,blosum_dist], [0, ymax], ls='--', lw=1, color='black', label=label)
 
-
 	plt.tight_layout()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)

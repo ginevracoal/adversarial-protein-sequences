@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: filter before removing columns
-
 # 1. Filter the MSA from the chosen protein family and select N_SEQUENCES by minimum sequence identity.
 # 2. For each selected sequence build and MSA of size FILTER_SIZE by minimum sequence identity.
 
@@ -10,7 +8,7 @@
 
 DATASET=$1 # PF00533, PF00627, PF00240
 N_SEQUENCES=100
-FILTER_SIZE=100
+FILTER_SIZE=100 # 50, 100
 
 ### set paths
 

@@ -11,7 +11,7 @@ from utils.plot import set_boxplot_linecolor
 DPI=150
 TOP=0.92
 FONT_SIZE=13
-palette="rocket_r" #"mako"
+palette="rocket_r"
 sns.set_style("darkgrid")
 sns.set_palette(palette, 5)
 linestyles=['-', '--', '-.', ':', '-', '--']
@@ -40,8 +40,7 @@ def plot_cmap_distances(df, keys, distances_df_protherm=None, distances_df_adver
 	df = df[(df['k']>=L) & (df['k']<=R)]
 
 	fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
-	ax.set(xlabel=r'Upper triangular matrix index $k$', #' = len(sequence)-diag_idx', 
-		ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
+	ax.set(xlabel=r'Upper triangular matrix index $k$', ylabel=r'dist(cmap($x$),cmap($\tilde{x}$))')
 
 	for idx, key in enumerate(keys):
 		tmp_df = df[df['perturbation']==key]
@@ -85,9 +84,7 @@ def plot_confidence(df, keys, filepath=None, filename=None, plot_method='boxplot
 				tmp_df = df[df['perturbation']==key]
 				g = sns.distplot(x=tmp_df[f"perplexity"], label=key, kde=True, hist=False, 
 					kde_kws={'linestyle':linestyles[idx]})
-				# g.set(xlim=(0, None))
 
-		# plt.xlabel(r'Perplexity of predictions: $e^{H(p)}$')
 		plt.legend()
 	
 	plt.tight_layout()
@@ -97,26 +94,6 @@ def plot_confidence(df, keys, filepath=None, filename=None, plot_method='boxplot
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)
 		fig.savefig(os.path.join(filepath, filename+"_perplexity.png"))
 		plt.close()
-
-	### bleu
-
-	# fig, ax = plt.subplots(figsize=(6, 5), dpi=DPI)
-	# for idx, key in enumerate(keys):
-	# 	if key!='masked_pred':
-	# 		tmp_df = df[df['perturbation']==key]
-	# 		g = sns.distplot(x=tmp_df[f"bleu"], label=key, kde=True, hist=False, 
-	# 			kde_kws={'linestyle':linestyles[idx]})
-	# 		# g.set(xlim=(0, None))
-
-	# plt.xlabel(r'BLEU score')
-	# plt.tight_layout()
-	# plt.legend()
-	# plt.show()
-
-	# if filepath is not None and filename is not None:
-	# 	os.makedirs(os.path.dirname(filepath), exist_ok=True)
-	# 	fig.savefig(os.path.join(filepath, filename+"_bleu.png"))
-	# 	plt.close()
 
 	### pseudo-likelihood
 
@@ -169,17 +146,13 @@ def plot_confidence(df, keys, filepath=None, filename=None, plot_method='boxplot
 
 def plot_embeddings_distances(df, keys, filepath, filename, distances_df_protherm=None, distances_df_adversarial=None, 
 	plot_method='distplot'):
-	# matplotlib.rc('font', **{'size': FONT_SIZE})
-	# sns.set_style("darkgrid")
 
 	if 'masked_pred' in keys:
 		keys.remove('masked_pred')
 
 	if plot_method=='boxplot':
-		# matplotlib.rc('font', **{'size': 10})
 
 		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
-
 		new_df = df[["perturbation", "embedding_distance"]]
 
 		if distances_df_adversarial is not None:
@@ -197,7 +170,7 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df_prother
 
 	elif plot_method=='distplot':
 
-		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+		fig, ax = plt.subplots(figsize=(6, 3.5), dpi=DPI)
 
 		### adversarial perturbations
 		for idx, key in enumerate(keys):
@@ -214,10 +187,7 @@ def plot_embeddings_distances(df, keys, filepath, filename, distances_df_prother
 			sns.distplot(x=distances_df_protherm['embedding_distance'], label='protherm', kde=True, hist=hist,
 				kde_kws={'linestyle':linestyles[idx+2]})
 
-		### all possible token choices and residues substitutions
-		# sns.distplot(x=embeddings_distances.flatten(), label='perturb. embeddings', kde=True, hist=True)
-
-		plt.xlabel(r'Embeddings distances')#: dist($z,\tilde{z}$)')
+		plt.xlabel(r'Embeddings distance')
 		plt.legend()
 	
 	plt.tight_layout()
@@ -256,7 +226,7 @@ def plot_blosum_distances(df, keys,  distances_df_protherm=None, distances_df_ad
 
 	elif plot_method=='distplot':
 
-		fig, ax = plt.subplots(figsize=(6, 4), dpi=DPI)
+		fig, ax = plt.subplots(figsize=(6, 3.5), dpi=DPI)
 
 		for idx, key in enumerate(keys):
 			hist=False #True if key=='protherm' else False
@@ -272,13 +242,11 @@ def plot_blosum_distances(df, keys,  distances_df_protherm=None, distances_df_ad
 			sns.distplot(x=distances_df_protherm['blosum_distance'], label='protherm', kde=True, hist=True,
 				kde_kws={'linestyle':linestyles[idx+2]})
 
-		plt.xlabel(r'Blosum distances')
+		plt.xlabel(r'Blosum distance')
 		plt.legend()
 
 	plt.tight_layout()
 	plt.show()
-	# fig.suptitle(filename, fontsize=FONT_SIZE)
-	# plt.subplots_adjust(top=TOP) 
 
 	if filepath is not None and filename is not None:
 		os.makedirs(os.path.dirname(filepath), exist_ok=True)

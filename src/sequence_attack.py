@@ -7,8 +7,6 @@ from tqdm import tqdm
 import torch.nn as nn
 from Bio.SubsMat import MatrixInfo
 from utils.protein_sequences import *
-
-# from torchmetrics import BLEUScore
 from nltk.translate.bleu_score import sentence_bleu
 
 blosum = MatrixInfo.blosum62

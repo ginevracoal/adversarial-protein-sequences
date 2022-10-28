@@ -46,10 +46,6 @@ def load_msa(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=
 		max_tokens = len(sequence)
 
 	print(f"\navg_seq_length = {avg_seq_length}\tmax_tokens = {max_tokens}")
-
-	# if n_sequences is not None:
-	# 	data = random.sample(data, n_sequences)
-
 	return data, max_tokens
 
 def load_pfam(filepath, filename, max_model_tokens, n_sequences=None, max_tokens=None, align=False, alignment_char="-"):
@@ -63,7 +59,7 @@ def load_pfam(filepath, filename, max_model_tokens, n_sequences=None, max_tokens
 
 	if align:
 
-		raise NotImplementedError("check this")
+		raise NotImplementedError
 
 		# data = []
 		# for record in SeqIO.parse(path, format='fasta'):

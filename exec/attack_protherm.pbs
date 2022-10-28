@@ -16,7 +16,7 @@
 ###################
 
 MIN_FILTER=30
-MODEL="ESM" # "ESM", "ESM_MSA"
+MODEL="ESM_MSA" # "ESM", "ESM_MSA"
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='last_layer' # 'all_layers' 'last_layer'
 LOSS_METHOD="max_masked_prob"

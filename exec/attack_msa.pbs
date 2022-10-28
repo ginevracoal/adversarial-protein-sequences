@@ -6,7 +6,7 @@
 
 #PBS -N msa_attack
 #PBS -l nodes=1:ppn=12
-#PBS -l walltime=50:00:00
+#PBS -l walltime=300:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -o pbs.out
@@ -15,11 +15,11 @@
 # script settings #
 ###################
 
-DATASET="PF00627" # PF00533, PF00627, PF00240
+DATASET="PF00533" # PF00533, PF00627, PF00240
 MAX_TOKENS=None
 N_SUBSTITUTIONS=3
 N_SEQUENCES=100
-MIN_FILTER=100
+MIN_FILTER=50
 TOKEN_SELECTION="max_attention" # 'min_entropy' 'max_entropy'
 TARGET_ATTENTION='last_layer' # 'all_layers' 'last_layer'
 LOSS_METHOD="max_masked_prob"

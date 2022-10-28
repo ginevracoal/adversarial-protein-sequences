@@ -108,9 +108,6 @@ else:
                 predict_structure(f'{key}_{seq_idx}', row[f'{key}_sequence'], savedir=alphafold_dir, filename=filename)
 
             structure_id = key+"_"+row['name']
-            # filepath = os.path.join(out_data_path, f"{key}_{seq_idx}_relaxed_rank_1_model_1.pdb")
-            # coordinates_dict[f'{key}_coordinates'] = get_coordinates(structure_id, filepath)
-            # original_coordinates = get_coordinates(structure_id, filepath)
 
             filepath = os.path.join(out_data_path, f'{key}_{seq_idx}_unrelaxed_rank_1_model_1_scores.json')
             f = open(filepath, "r")
@@ -133,7 +130,6 @@ else:
             # if original_ptm>=args.ptm_ths and original_plddt>=args.plddt_ths:
             if original_plddt>=args.plddt_ths:
 
-                # original_coordinates = coordinates_dict['original_coordinates']
                 original_filepath = os.path.join(out_data_path, f"original_{seq_idx}_relaxed_rank_1_model_1.pdb")
 
                 for key in perturbations_keys:
@@ -143,10 +139,6 @@ else:
 
                     if args.load is False:
                         predict_structure(f'{key}_{seq_idx}', row[f'{key}_sequence'], savedir=alphafold_dir, filename=filename)
-
-                    # structure_id = key+"_"+row['name']
-                    # filepath = os.path.join(out_data_path, f"{key}_{seq_idx}_relaxed_rank_1_model_1.pdb")
-                    # coordinates_dict[f'{key}_coordinates'] = get_coordinates(structure_id, filepath)
                     
                     scores_filepath = os.path.join(out_data_path, f'{key}_{seq_idx}_unrelaxed_rank_1_model_1_scores.json')
                     f = open(scores_filepath, "r")
@@ -154,35 +146,10 @@ else:
                     plddt = np.mean(data['plddt'])
                     ptm = data['ptm']
 
-                    # if plddt<args.plddt_ths:
-
-                    #     print("\n\n\tLow confidence in structure prediction, discarding this sequence.")
-                    #     out_df = out_df.drop(out_df[out_df.seq_idx==seq_idx].index)
-                    #     break
-
-                    # else:
-
-                    # pert_coordinates = coordinates_dict[f'{key}_coordinates']
                     pert_filepath = os.path.join(out_data_path, f"{key}_{seq_idx}_relaxed_rank_1_model_1.pdb")
-
-                    # pert_coordinates = get_coordinates(key, pert_filepath)
-                    # same_pdb_length = len(pert_coordinates)==len(original_coordinates)
 
                     original_coordinates, pert_coordinates = \
                         get_corresponding_residues_coordinates("original", original_filepath, key, pert_filepath)
-
-
-                    # if same_pdb_length is False:
-                    #     exit()
-                        # print("\tPart of the 3d structure is unknown, discarding this sequence.")
-                    #     out_df = out_df.drop(out_df[out_df.seq_idx==seq_idx].index)
-                    #     break
-                    #     # original_coordinates, pert_coordinates = \
-                    #     #     get_available_residues_coordinates("original", original_filepath, key, pert_filepath)
-
-                    # else:
-
-                    # if same_pdb_length is True:
 
                     ##########
                     # scores #
@@ -207,11 +174,11 @@ else:
 
                     key_counts[key] += 1
 
-                    # if args.normalize:
-                    #     from sklearn.preprocessing import minmax_scale
-                    #     rows_idxs = out_df['seq_idx']==seq_idx
-                    #     if rows_idxs.sum()>0:
-                    #         out_df.loc[rows_idxs, ['RMSD']] = minmax_scale(out_df[rows_idxs]['RMSD'])
+                    if args.normalize:
+                        from sklearn.preprocessing import minmax_scale
+                        rows_idxs = out_df['seq_idx']==seq_idx
+                        if rows_idxs.sum()>0:
+                            out_df.loc[rows_idxs, ['RMSD']] = minmax_scale(out_df[rows_idxs]['RMSD'])
 
             else:
 
@@ -238,7 +205,7 @@ def plot_structure_prediction(df, perturbations_keys, filepath, filename, plot_m
     matplotlib.rc('font', **{'size': 13})
 
     keys = ['pTM','pLDDT']
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6), dpi=150, sharey=True)
+    fig, ax = plt.subplots(1, 1, figsize=(6, 7), dpi=150, sharey=True)
     g = sns.pairplot(out_df, x_vars=keys, y_vars=keys, hue="perturbation", diag_kws={'fill': False}, corner=True, 
         hue_order=perturbations_keys, palette=palette)    
     diag = g.diag_axes
@@ -269,7 +236,7 @@ def plot_structure_prediction(df, perturbations_keys, filepath, filename, plot_m
 
         matplotlib.rc('font', **{'size': 12})
         keys = ['LDDT','TM-score','RMSD']
-        fig, ax = plt.subplots(len(keys), 1, figsize=(6, 5), dpi=150, sharex=True)
+        fig, ax = plt.subplots(len(keys), 1, figsize=(6, 4), dpi=150, sharex=True)
 
         for idx, key in enumerate(keys):
             axis = ax[idx]

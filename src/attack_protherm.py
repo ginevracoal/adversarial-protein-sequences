@@ -253,9 +253,16 @@ print("\ncmap_df:\n", cmap_df.keys(), "len =", len(cmap_df))
 
 ### select rows with top DDG values
 
-stabilization_ths=0.5
+stabilization_ths=1.
 atk_df = atk_df[(atk_df['DDG']>stabilization_ths) | (atk_df['DDG']<-stabilization_ths)]
 cmap_df = cmap_df[(cmap_df['ddg']>stabilization_ths) | (cmap_df['ddg']<-stabilization_ths)]
+
+
+# atk_df = atk_df[(atk_df['DDG']<-stabilization_ths)]
+# atk_df = atk_df[(atk_df['DDG']>stabilization_ths)] 
+# idx = 0
+# print(len(list(atk_df['original_sequence'])[idx]),list(atk_df['DDG'])[idx],list(atk_df['original_sequence'])[idx],list(atk_df['perturbed_sequence'])[idx])
+# exit()
 
 print(f"\nn. protherm mutations = {len(atk_df[atk_df['perturbation']=='protherm'])}")
 print(f"\natk_df size = {len(atk_df)}")
